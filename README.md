@@ -1,2 +1,6 @@
-# portfolio
-Portfolio website presented in full production system
+# Portfolio
+Portfolio website presented in full production system with:
+- Containerized services (Flask)
+- NGINX reverse proxy
+- DNS
+- HTTPS/SSL certificate
