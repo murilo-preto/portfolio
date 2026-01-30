@@ -4,3 +4,5 @@ Portfolio website presented in full production system with:
 - NGINX reverse proxy
 - DNS
 - HTTPS/SSL certificate
+- Local deployment with port forwarding
+- Debian server
