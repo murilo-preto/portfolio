@@ -61,7 +61,7 @@ small {
 }
 
 a {
-  color: var(--color-text);
+  color: var(--color-accent);
   text-decoration: none;
   transition: color 0.15s ease, text-decoration-color 0.15s ease;
   padding: 8px;
@@ -125,7 +125,7 @@ section {
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-sm);
   padding: 24px 16px;
-  margin-bottom: 8px;
+  margin-bottom: 24px;
 }
 
 .section-inner {
@@ -137,16 +137,22 @@ section {
 Profile / Personal Info
 ========================= */
 .personal-info .section-inner {
+  padding: 16px;
+  max-width: unset;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 32px;
 }
 
 .profile-image {
   height: 400px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 48px;
+}
+
+.personal-text {
+  display: flex;
+  flex-direction: column;
 }
 
 /* =========================
