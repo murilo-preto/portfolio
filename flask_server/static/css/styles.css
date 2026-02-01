@@ -61,10 +61,17 @@ small {
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-text);
   text-decoration: none;
   transition: color 0.15s ease, text-decoration-color 0.15s ease;
   padding: 8px;
+}
+
+
+nav a[aria-current="page"]::before {
+  content: "> ";
+  color: var(--color-accent);
+  font-weight: 600;
 }
 
 a:hover,
@@ -137,8 +144,7 @@ Profile / Personal Info
 }
 
 .profile-image {
-  width: 160px;
-  height: 160px;
+  height: 400px;
   object-fit: cover;
   border-radius: 8px;
 }
