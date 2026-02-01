@@ -1,31 +1,159 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+/* =========================
+Design Tokens
+========================= */
 :root {
-  --color-subtle: #bbbbbb;
+  /* Core colors */
+  --color-bg: #060B1E;
+  --color-text: #ffcead;
+  --color-accent: #7d82d9;
+  --color-heading: #E9BB4F;
+
+  /* Subtle / UI */
+  --color-muted: rgba(255, 206, 173, 0.6);
+  --color-surface: rgba(255, 255, 255, 0.05);
+  --color-pill: rgba(255, 255, 255, 0.08);
+
+  /* Borders */
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+}
+
+/* =========================
+Base
+========================= */
+html {
+  font-size: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* =========================
+Typography
+========================= */
+h1, h2, h3, h4, h5 {
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 0.75rem;
+}
+
+h1 { font-size: 2.489rem; }
+h2 { font-size: 2.074rem; }
+h3 { font-size: 1.728rem; }
+h4 { font-size: 1.44rem; }
+h5 { font-size: 1.2rem; }
+
+p {
+  line-height: 1.55;
+}
+
+small {
+  font-size: 0.833rem;
+  color: var(--color-muted);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  padding: 8px;
+}
+
+a:hover,
+a:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+a[target="_blank"]::after {
+  content: "↗";
+  font-size: 0.75em;
+  margin-left: 0.25em;
+  opacity: 0.7;
+}
+
+/* =========================
+Centered Text Container
+========================= */
+.text-box {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+
+.text-box p {
+  text-align: justify;
+  hyphens: auto;
+  margin: 0;
+}
+
+/* =========================
+Layout
+========================= */
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 8px;
 }
 
 .flex-container {
   display: flex;
-  width: 100%;
   justify-content: space-between;
+  gap: 24px;
 }
 
-/* Profile card */
+/* =========================
+Sections
+========================= */
+section {
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 24px 16px;
+  margin-bottom: 8px;
+}
+
+.section-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* =========================
+Profile / Personal Info
+========================= */
+.personal-info .section-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.profile-image {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* =========================
+Profile Card (optional component)
+========================= */
 .profile-card {
   display: flex;
   align-items: center;
   gap: 12px;
   max-width: 600px;
   padding: 16px 20px;
-  background: #ffffff;
-  border-radius: 12px;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-.profile-image {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
 }
 
 .profile-text {
@@ -34,35 +162,58 @@
 }
 
 .profile-text h2 {
+  font-size: 1.25rem;
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
 }
 
 .subtitle {
-  margin: 0;
-  font-size: 14px;
-  color: #666;
+  font-size: 0.9rem;
+  color: var(--color-muted);
 }
 
 .badge {
   margin-top: 6px;
   padding: 4px 10px;
-  font-size: 13px;
-  color: #555;
-  background: #f1f1f1;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  background: var(--color-pill);
   border-radius: 999px;
-  text-decoration: none;
   width: fit-content;
+  text-decoration: none;
 }
 
-
-/* Partials */
-header {
-  background-color: var(--color-subtle);
+/* =========================
+CV Lists
+========================= */
+.cv_list ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0;
 }
 
+.cv_list > ul > li {
+  margin-bottom: 0.9rem;
+  font-weight: 500;
+}
+
+.cv_list > ul > li > ul {
+  margin-top: 0.3rem;
+  padding-left: 1.25rem;
+}
+
+.cv_list > ul > li > ul > li {
+  font-weight: 400;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+/* =========================
+Header / Footer
+========================= */
+header,
 footer {
-  background-color: var(--color-subtle);
+  background-color: var(--color-surface);
+  padding: 16px;
+  margin: 12px;
+  border-radius: var(--radius-sm);
 }
-
