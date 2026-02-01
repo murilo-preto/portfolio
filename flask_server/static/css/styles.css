@@ -1,3 +1,6 @@
+:root {
+  --color-subtle: #bbbbbb;
+}
 
 .flex-container {
   display: flex;
@@ -5,11 +8,11 @@
   justify-content: space-between;
 }
 
+/* Profile card */
 .profile-card {
   display: flex;
   align-items: center;
-  gap: 12px;              /* 👈 controls distance between image and text */
-
+  gap: 12px;
   max-width: 600px;
   padding: 16px 20px;
   background: #ffffff;
@@ -22,7 +25,7 @@
   height: 64px;
   border-radius: 50%;
   object-fit: cover;
-  flex-shrink: 0;         /* prevents shrinking */
+  flex-shrink: 0;
 }
 
 .profile-text {
@@ -53,4 +56,13 @@
   width: fit-content;
 }
 
+
+/* Partials */
+header {
+  background-color: var(--color-subtle);
+}
+
+footer {
+  background-color: var(--color-subtle);
+}
 

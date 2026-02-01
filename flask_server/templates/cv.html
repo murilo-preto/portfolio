@@ -1,46 +1,41 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Murilo Preto - Home</title>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8">
+    <title>Murilo Preto - Home</title>
+  </head>
+  <body>
 
-{% include "partials/header.html" %}
+    {% include "partials/header.html" %}
 
-<main>
-  <h1>Curriculum vitae</h1>
-    <!-- <img src="static/images/mpreto_portrait.jpg" alt="Portrait of Murilo Preto" height="300"> -->
+    <main>
+      <h1>Curriculum vitae</h1>
 
-    <div class="profile-card">
-      <img
-        src="static/images/mpreto_portrait.jpg"
-        alt="Portrait of Murilo Preto"
-        class="profile-image"
-      />
+      <div class="profile-card">
+        <img
+            src="static/images/mpreto_portrait.jpg"
+            alt="Portrait of Murilo Preto"
+            class="profile-image"
+            />
 
-      <div class="profile-text">
-        <h2>Murilo Preto</h2>
-        <p class="subtitle">Software Engineer</p>
-        <a href="https://www.murilopreto.com.br" class="badge">murilopreto.com.br</a>
+        <div class="profile-text">
+          <h2>Murilo Preto</h2>
+          <p class="subtitle">Software Engineer</p>
+          <a href="https://www.murilopreto.com.br" class="badge">murilopreto.com.br</a>
+        </div>
       </div>
-    </div>
 
-    <section>
       <h2>Professional Summary</h2>
       <p>
-        Information Engineering student at UFABC with <strong>hands-on experience in AI/ML deployment at Qualcomm</strong>
-        and <strong>award-winning research</strong> in computer vision and embedded systems. Proven track record in implementing
-        models across proprietary and open-source inference engines on Windows, Ubuntu, and embedded Linux platforms.
+      Information Engineering student at UFABC with hands-on experience in AI/ML deployment at Qualcomm
+      and award-winning research in computer vision and embedded systems. Proven track record in implementing
+      models across proprietary and open-source inference engines on Windows, Ubuntu, and embedded Linux platforms.
       </p>
-    </section>
 
-    <section>
       <h2>Technical Skills</h2>
-
-      <div class="two-columns">
+      <div class="">
         <ul>
-          <li><strong>AI/ML Deployment</strong>
+          <li>AI/ML Deployment
             <ul>
               <li>QNN / SNPE, QAIC, QGenie</li>
               <li>ONNX, TFLite</li>
@@ -50,17 +45,15 @@
             </ul>
           </li>
 
-          <li><strong>Programming Languages</strong>
+          <li>Programming Languages
             <ul>
               <li>Python</li>
               <li>C, C++, Rust, Java</li>
               <li>HTML, CSS, JavaScript</li>
             </ul>
           </li>
-        </ul>
 
-        <ul>
-          <li><strong>Systems & Platforms</strong>
+          <li>Systems & Platforms
             <ul>
               <li>Linux (Ubuntu, Arch, Yocto), Windows</li>
               <li>Docker, Containers</li>
@@ -69,7 +62,7 @@
             </ul>
           </li>
 
-          <li><strong>Research</strong>
+          <li>Research
             <ul>
               <li>Signal Processing</li>
               <li>Image & Audio Processing</li>
@@ -78,15 +71,12 @@
           </li>
         </ul>
       </div>
-    </section>
 
-    <section>
       <h2>Education</h2>
-
       <div class="entry">
         <div class="date">07/2021 – 12/2025</div>
         <div>
-          <strong>Federal University of ABC (UFABC)</strong><br />
+          Federal University of ABC (UFABC)<br />
           Bachelor of Science and Technology
         </div>
       </div>
@@ -94,19 +84,16 @@
       <div class="entry">
         <div class="date">07/2021 – 12/2026</div>
         <div>
-          <strong>Federal University of ABC (UFABC)</strong><br />
+          Federal University of ABC (UFABC)<br />
           Information Engineering
         </div>
       </div>
-    </section>
 
-    <section>
       <h2>Experience</h2>
-
       <div class="entry">
         <div class="date">02/2025 – Present</div>
         <div>
-          <strong>Qualcomm</strong> — Software Engineer Intern<br />
+          Qualcomm — Software Engineer Intern<br />
           <em>Latin America Customer Engineering</em>
           <ul>
             <li>Integrated AI models using QNN/SNPE and QAIC</li>
@@ -119,7 +106,7 @@
       <div class="entry">
         <div class="date">09/2023 – 08/2024</div>
         <div>
-          <strong>PIBIC – UFABC</strong><br />
+          PIBIC – UFABC<br />
           <a href="https://github.com/murilo-preto/voicebot2023">GitHub Project</a>
           <ul>
             <li>Publications: CBIS’22, CBIS’24</li>
@@ -127,37 +114,27 @@
           </ul>
         </div>
       </div>
-    </section>
 
-    <section>
       <h2>Languages</h2>
 
       <div class="entry">
         <div class="date">Native</div>
-        <div><strong>Portuguese</strong> — PT-BR</div>
+        <div>Portuguese — PT-BR</div>
       </div>
 
       <div class="entry">
         <div class="date">C1</div>
-        <div><strong>English</strong> — EN-US</div>
+        <div>English — EN-US</div>
       </div>
 
       <div class="entry">
         <div class="date">Intermediate</div>
-        <div><strong>Spanish</strong> — ES-AR</div>
+        <div>Spanish — ES-AR</div>
       </div>
-    </section>
 
-    <h2>Experiência</h2>
-      <h3>Trabalho</h3>
-      <h3>Acadêmica</h3>
-    <h2>Premiações</h2>
-    <h2>Publicações</h2>
-    <h2>Projetos</h2>
-    <h2>Idiomas</h2>
-</main>
+    </main>
 
-{% include "partials/footer.html" %}
+    {% include "partials/footer.html" %}
 
-</body>
+  </body>
 </html>
