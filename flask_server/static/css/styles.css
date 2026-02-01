@@ -1,0 +1,56 @@
+
+.flex-container {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;              /* 👈 controls distance between image and text */
+
+  max-width: 600px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.profile-image {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;         /* prevents shrinking */
+}
+
+.profile-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-text h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.badge {
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  color: #555;
+  background: #f1f1f1;
+  border-radius: 999px;
+  text-decoration: none;
+  width: fit-content;
+}
+
+
