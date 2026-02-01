@@ -1,1 +1,1 @@
-sudo docker build -t flask:1.0 ../flask_server/
+docker build -t flask:1.0 ../flask_server/
