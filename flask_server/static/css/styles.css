@@ -55,6 +55,10 @@ p {
   line-height: 1.55;
 }
 
+.p-inverted {
+  color: var(--color-bg);
+}
+
 small {
   font-size: 0.833rem;
   color: var(--color-muted);
@@ -66,6 +70,7 @@ a {
   transition: color 0.15s ease, text-decoration-color 0.15s ease;
   padding: 8px;
 }
+
 
 
 nav a[aria-current="page"]::before {
@@ -131,6 +136,26 @@ section {
 .section-inner {
   max-width: 720px;
   margin: 0 auto;
+}
+
+.section-inner-secondary{
+  background-color: #FFFFFF;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+}
+
+.block-inverted{
+  background-color: var(--color-heading);
+  border-radius: var(--radius-sm);
+  max-width: 480px;
+  padding: 12px;
+}
+
+.two-blocks {
+  border: 0px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 /* =========================
