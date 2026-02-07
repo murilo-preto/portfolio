@@ -6,6 +6,8 @@ Portfolio website presented in full production system with:
 - HTTPS/SSL certificate
 - Local deployment with port forwarding
 - Debian server
+- Flask for APIs
+- NextJS + React + Tailwind for static HTML
 
 # Páginas
 - Homepage
