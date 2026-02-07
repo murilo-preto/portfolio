@@ -47,7 +47,7 @@ function Header() {
           </div>
 
           <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
-            <Link href="/study">Study App</Link>
+            <Link href="/namu">Namu</Link>
           </div>
         </div>
 

@@ -3,7 +3,7 @@
 - "/": Homepage
 - "/cv": Murilo Preto CV
 - "/naninha": Namorada do Murilo
-- "/study": Aplicativo para gestão de tempo e estudos
+- "/namu": Aplicativo para gestão de tempo e estudos
 
 ## Homepage
 
@@ -35,3 +35,6 @@ Aplicativo de estudos e gestão de tempo.
 - Login
   - Usuário e senha com armazenamento da senha em hash na base de dados
   - Token para permanência de login
+
+- Flashcard automático
+- Livros
