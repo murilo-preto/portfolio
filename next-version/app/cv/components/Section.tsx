@@ -16,10 +16,30 @@ export default function Section({ title, children }: SectionProps) {
       transition={{ duration: 0.6, ease: "easeOut" }}
       className="space-y-4"
     >
-      <h2 className="text-xl font-semibold bg-gray-100 m-2 p-2 rounded-md">
+      <h2
+        className="
+          text-xl font-semibold
+          m-2 p-2 rounded-md
+          bg-gray-100
+          dark:bg-gray-800
+          text-gray-900
+          dark:text-gray-100
+        "
+      >
         {title}
       </h2>
-      <div className="bg-white m-4 pb-4">{children}</div>
+
+      <div
+        className="
+          m-4 pb-4 rounded-md
+          bg-white
+          dark:bg-gray-900
+          text-gray-900
+          dark:text-gray-100
+        "
+      >
+        {children}
+      </div>
     </motion.section>
   );
 }

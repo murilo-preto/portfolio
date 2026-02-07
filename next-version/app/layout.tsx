@@ -20,34 +20,60 @@ export const metadata: Metadata = {
 
 function Header() {
   return (
-    <header className="bg-gray-100 m-1 p-1 rounded-md">
-      <div>
-        <nav className="flex items-center justify-between p-1">
-          <div className="bg-gray-50 p-1 rounded-md">
-            <Link href="/">Home</Link>
-          </div>
-          <div className="bg-gray-50 p-1 rounded-md">
-            <Link href="/cv">CV</Link>
-          </div>
-        </nav>
-      </div>
+    <header
+      className="
+        m-1 p-1 rounded-md
+        bg-gray-100
+        dark:bg-gray-800
+      "
+    >
+      <nav className="flex items-center justify-between p-1">
+        <div
+          className="
+            bg-gray-50 p-1 rounded-md
+            dark:bg-gray-700
+          "
+        >
+          <Link href="/">Home</Link>
+        </div>
+        <div
+          className="
+            bg-gray-50 p-1 rounded-md
+            dark:bg-gray-700
+          "
+        >
+          <Link href="/cv">CV</Link>
+        </div>
+      </nav>
     </header>
   );
 }
 
 function Footer() {
-  return <footer className="bg-gray-100 m-1 p-1 rounded-md">Footer</footer>;
+  return (
+    <footer
+      className="
+        m-1 p-1 rounded-md
+        bg-gray-100
+        dark:bg-gray-800
+      "
+    >
+      Footer
+    </footer>
+  );
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col
+          bg-gray-50 text-gray-900
+          dark:bg-gray-900 dark:text-gray-100`}
       >
         <Header />
         <main className="flex-1">{children}</main>

@@ -12,13 +12,35 @@ const images = [
 
 export default function CVPage() {
   return (
-    <main className="flex-1 p-6 space-y-12 max-w-5xl mx-auto">
-      <h1 className="bg-gray-100 text-3xl font-bold p-4 m-4 rounded-2xl text-center">
+    <main
+      className="
+        flex-1 p-6 space-y-12 max-w-5xl mx-auto
+        bg-transparent
+        text-gray-900
+        dark:text-gray-100
+      "
+    >
+      <h1
+        className="
+          text-3xl font-bold text-center
+          p-4 m-4 rounded-2xl
+          bg-gray-100
+          dark:bg-gray-800
+        "
+      >
         Muri e Nana ♥
       </h1>
+
       <ImageCarousel images={images} />
 
-      <p className="bg-gray-100 text-3xl font-bold p-4 m-4 rounded-2xl text-center">
+      <p
+        className="
+          text-3xl font-bold text-center
+          p-4 m-4 rounded-2xl
+          bg-gray-100
+          dark:bg-gray-800
+        "
+      >
         Te amo, Naninha 🤏
       </p>
     </main>
