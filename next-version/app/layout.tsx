@@ -27,22 +27,35 @@ function Header() {
         dark:bg-gray-800
       "
     >
-      <nav className="flex items-center justify-between p-1">
-        <div
-          className="
-            bg-gray-50 p-1 rounded-md
-            dark:bg-gray-700
-          "
-        >
-          <Link href="/">Home</Link>
+      <nav
+        className="
+          grid grid-cols-3 items-center
+          p-1
+        "
+      >
+        {/* Left */}
+        <div className="justify-self-start">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+            <Link href="/">Home</Link>
+          </div>
         </div>
-        <div
-          className="
-            bg-gray-50 p-1 rounded-md
-            dark:bg-gray-700
-          "
-        >
-          <Link href="/cv">CV</Link>
+
+        {/* Center */}
+        <div className="justify-self-center flex gap-2">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+            <Link href="/cv">CV</Link>
+          </div>
+
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+            <Link href="/study">Study App</Link>
+          </div>
+        </div>
+
+        {/* Right */}
+        <div className="justify-self-end">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+            <Link href="/login">Login</Link>
+          </div>
         </div>
       </nav>
     </header>

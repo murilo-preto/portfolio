@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pages
 
-## Getting Started
+- "/": Homepage
+- "/cv": Murilo Preto CV
+- "/naninha": Namorada do Murilo
+- "/study": Aplicativo para gestão de tempo e estudos
 
-First, run the development server:
+## Homepage
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Página inicial do site, com explicação geral. Começo da jornada do usuário.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## CV
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Página com o CV do criador do serviço (autor principal).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Naninha
 
-## Learn More
+Página dedicada para minha namorada.
 
-To learn more about Next.js, take a look at the following resources:
+## Study
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Aplicativo de estudos e gestão de tempo.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Features planejadas
 
-## Deploy on Vercel
+- Importar PDF e converter em lista dinâmica inteligente
+  - Categorizar exercícios
+  - Disponibilizar para todos
+  - Mostrar o criador da lista (quem fez upload)
+  - Permitir completar exercícios (tickar como feito)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Anotar tempo estudado
+  - Armazenar em base de dados
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Login
+  - Usuário e senha com armazenamento da senha em hash na base de dados
+  - Token para permanência de login
