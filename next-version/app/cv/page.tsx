@@ -1,16 +1,21 @@
 import ImageCarousel from "@/components/ImageCarousel";
 
-export default function Home() {
+import PersonalInfo from "./components/PersonalInfo";
+import Summary from "./components/Summary";
+import Skills from "./components/Skills";
+import Experience from "./components/Experience";
+import Languages from "./components/Languages";
+
+export default function CVPage() {
   return (
-    <main className="flex-1 p-6 space-y-6">
-      <h1 className="text-2xl antialiased text-semibold text-left text-shadow-2xs">
-        CV: Pictures, Projects, Information
-      </h1>
+    <main className="flex-1 p-6 space-y-12 max-w-5xl mx-auto">
       <ImageCarousel />
-      <div>
-        <h2>Personal Information</h2>
-        <p>Text</p>
-      </div>
+
+      <PersonalInfo />
+      <Summary />
+      <Skills />
+      <Experience />
+      <Languages />
     </main>
   );
 }
