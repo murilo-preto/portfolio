@@ -5,15 +5,11 @@ import Autoplay from "embla-carousel-autoplay";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-const images = [
-  "/images/1.jpg",
-  "/images/2.jpg",
-  "/images/3.jpg",
-  "/images/4.jpg",
-  "/images/5.jpg",
-];
+interface ImageCarouselProps {
+  images: string[];
+}
 
-export default function ImageCarousel() {
+export default function ImageCarousel({ images }: ImageCarouselProps) {
   const autoplay = useRef(
     Autoplay({
       delay: 3000,
@@ -54,7 +50,7 @@ export default function ImageCarousel() {
           const isActive = index === selectedIndex;
 
           return (
-            <div key={index} className="flex-[0_0_33.333%] px-1">
+            <div key={src} className="flex-[0_0_33.333%] px-1">
               <div
                 className={`
                   relative h-[260px] rounded-2xl overflow-hidden
@@ -71,6 +67,8 @@ export default function ImageCarousel() {
                   alt={`Slide ${index + 1}`}
                   fill
                   className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  priority={index === 0}
                 />
               </div>
             </div>
