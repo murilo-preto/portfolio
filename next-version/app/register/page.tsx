@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
 
-    // placeholder para lógica de login
+    // placeholder para lógica de register
     console.log({ username, password });
   }
 
@@ -20,7 +20,7 @@ export default function LoginPage() {
         className="w-full max-w-sm space-y-6 rounded-2xl bg-white p-8 shadow-lg dark:bg-gray-800"
       >
         <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-gray-100">
-          Login
+          Register
         </h1>
 
         {/* User */}
@@ -51,7 +51,7 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* Botão */}
+        {/* Button */}
         <button
           type="submit"
           className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700"
