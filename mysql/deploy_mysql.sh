@@ -17,7 +17,7 @@ docker volume create mysql_data
 echo "Starting MySQL container..."
 docker run -d \
   --name mysql-db \
-  -p 3306:3306 \
+  --network namu \
   -v mysql_data:/var/lib/mysql \
   -e MYSQL_ROOT_PASSWORD=admin \
   mysql:8.0
