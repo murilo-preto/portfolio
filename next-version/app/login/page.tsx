@@ -5,12 +5,40 @@ import { useState } from "react";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.SubmitEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    // placeholder para lógica de login
-    console.log({ username, password });
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.message || "Login failed");
+      }
+
+      const data = await res.json();
+      console.log("Login success:", data);
+
+      // TODO:
+      // - store token (cookie / localStorage)
+      // - redirect user
+      // router.push("/dashboard")
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -22,6 +50,13 @@ export default function LoginPage() {
         <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-gray-100">
           Login
         </h1>
+
+        {/* Error */}
+        {error && (
+          <p className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-900 dark:text-red-200">
+            {error}
+          </p>
+        )}
 
         {/* User */}
         <div className="space-y-1">
@@ -51,12 +86,13 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* Botão */}
+        {/* Button */}
         <button
           type="submit"
-          className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700"
+          disabled={loading}
+          className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
         >
-          Submit
+          {loading ? "Logging in..." : "Submit"}
         </button>
       </form>
     </main>

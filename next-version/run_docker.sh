@@ -18,6 +18,7 @@ fi
 echo "Running container on port $HOST_PORT..."
 docker run -d \
   --name "$CONTAINER_NAME" \
+  --network namu \
   -p "$HOST_PORT:$CONTAINER_PORT" \
   --restart unless-stopped \
   "$IMAGE_NAME"

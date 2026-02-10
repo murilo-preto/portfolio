@@ -25,7 +25,7 @@ docker run -d \
 # Wait for MySQL to be ready
 echo "Waiting for MySQL to be ready..."
 for i in {1..30}; do
-  if docker exec mysql-db mysqladmin ping -h localhost -uroot -padmin --silent 2>/dev/null; then
+  if docker exec mysql-db mysqladmin ping -h mysql-db -uroot -padmin --silent 2>/dev/null; then
     echo "MySQL is ready!"
     break
   fi
@@ -48,7 +48,7 @@ EOF
 echo "✓ Deployment complete!"
 echo ""
 echo "Connection details:"
-echo "  Host: localhost"
+echo "  Host: mysql-db"
 echo "  Port: 3306"
 echo "  Database: time_tracker"
 echo "  User: username"
