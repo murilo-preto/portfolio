@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e pipefail
+
+parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+cd "$parent_path"
 
 # Stop and remove existing container if it exists
 echo "Cleaning up existing MySQL container..."

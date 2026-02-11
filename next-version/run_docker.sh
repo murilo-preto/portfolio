@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-set -e
+set -e pipefail
+
+parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+cd "$parent_path"
 
 IMAGE_NAME="nextjs-app"
 CONTAINER_NAME="nextjs-app"
