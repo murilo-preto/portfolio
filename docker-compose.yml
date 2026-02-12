@@ -1,0 +1,68 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    networks:
+      - namu
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: time_tracker
+      MYSQL_USER: username
+      MYSQL_PASSWORD: "1234"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-uroot",
+          "-padmin",
+          "--silent",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  flask:
+    build:
+      context: ./flask-server
+    container_name: flask
+    networks:
+      - namu
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: username
+      DB_PASSWORD: "1234"
+      DB_NAME: time_tracker
+      PORT: 3000
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  nextjs:
+    build:
+      context: ./next-version
+    container_name: nextjs
+    networks:
+      - namu
+    ports:
+      - "5000:3000"
+    depends_on:
+      - flask
+    restart: unless-stopped
+
+networks:
+  namu:
+    driver: bridge
+
+volumes:
+  mysql_data:

@@ -1,159 +1,161 @@
-# Flask Time Tracker API
+# Time Tracker API
 
-A Flask REST API for:
-
-- User registration and authentication (bcrypt)
-- Category management
-- Time entry tracking with foreign key resolution
-
-Backed by MySQL.
+A RESTful API built with **Flask** and **MySQL** for tracking user time
+entries by category.\
+It supports user registration, authentication, category management, and
+time entry creation.
 
 ---
 
-# Setup
+## 🧱 Tech Stack
 
-## 1. Install dependencies
+- Python 3.10+
+- Flask
+- MySQL 8
+- mysql-connector-python
+- bcrypt (password hashing)
+- Docker-compatible configuration
 
-```bash
-pip install -r requirements.txt
-```
+---
 
-## 2. Ensure MySQL is running
+## 📦 Features
 
-```bash
-./deploy_mysql.sh
-```
+- User registration with salted + hashed passwords (bcrypt)
+- User login with credential verification
+- Create and list categories
+- Create time entries
+- Retrieve all time entries for a given user
+- Health check endpoint
+- MySQL connection pooling (5 connections)
 
-Make sure the database `time_tracker` exists and contains:
+---
 
-- `users`
-- `category`
-- `time_entries`
+## 🗄 Database Schema
 
-## 3. Run the Flask server
+### users
 
-```bash
+Column Type Notes
+
+---
+
+id INT (PK, AI) Primary key
+username VARCHAR(100) Unique
+pwd_hash BLOB bcrypt hash
+salt BLOB bcrypt salt
+
+### category
+
+Column Type Notes
+
+---
+
+id INT (PK, AI) Primary key
+name VARCHAR(100) Unique
+
+### time_entries
+
+Column Type Notes
+
+---
+
+id INT (PK, AI) Primary key
+user_id INT (FK) References users.id
+category_id INT (FK) References category.id
+start_time DATETIME  
+ end_time DATETIME
+
+---
+
+## ⚙️ Environment Variables
+
+Variable Default Description
+
+---
+
+DB_HOST mysql-db MySQL host
+DB_PORT 3306 MySQL port
+DB_USER username Database user
+DB_PASSWORD 1234 Database password
+DB_NAME time_tracker Database name
+PORT 3000 Flask app port
+FLASK_DEBUG False Enable debug mode
+
+---
+
+## 🚀 Running the Application
+
+### Install Dependencies
+
+pip install flask mysql-connector-python bcrypt
+
+### Run MySQL (Docker Example)
+
+docker run -d\
+--name mysql-db\
+-p 3306:3306\
+-e MYSQL_ROOT_PASSWORD=admin\
+-e MYSQL_DATABASE=time_tracker\
+-e MYSQL_USER=username\
+-e MYSQL_PASSWORD=1234\
+mysql:8.0
+
+### Run the API
+
 python app.py
-```
 
-Server starts at:
+Server runs at:
 
-    http://localhost:5000
-
----
-
-# Database Schema Overview
-
-## users
-
-Field Type
+<http://localhost:3000>
 
 ---
 
-id int unsigned (PK)
-username varchar(100) (UNIQUE)
-pwd_hash varbinary(255)
-salt varbinary(255)
+## 📡 API Endpoints
 
-## category
+### GET /health
 
-Field Type
+Returns service status.
 
 ---
 
-id int unsigned (PK)
-name varchar(100) (UNIQUE)
+### POST /register
 
-## time_entries
+Request:
 
-Field Type
-
----
-
-id int unsigned (PK)
-user_id int unsigned (FK → users.id)
-category_id int unsigned (FK → category.id)
-start_time datetime
-end_time datetime
+{ "username": "john", "password": "securepassword" }
 
 ---
 
-# API Endpoints
+### POST /login
 
-## Health Check
+Request:
 
-GET /health
-
-Response:
-
-{ "status": "healthy" }
+{ "username": "john", "password": "securepassword" }
 
 ---
 
-## Register User
+### GET /users
 
-POST /register
-
-{ "username": "john_doe", "password": "mypassword123" }
-
-Success (201):
-
-{ "message": "User registered successfully", "user_id": 1, "username":
-"john_doe" }
+Returns all users (without sensitive data).
 
 ---
 
-## Login
+### POST /category
 
-POST /login
-
-{ "username": "john_doe", "password": "mypassword123" }
-
-Success (200):
-
-{ "message": "Login successful", "authenticated": true, "user_id": 1,
-"username": "john_doe" }
-
----
-
-## Create Category
-
-POST /category
+Request:
 
 { "name": "Work" }
 
 ---
 
-## Create Time Entry
+### POST /entry
 
-POST /entry
+Request:
 
-{ "username": "john_doe", "category": "Work", "start_time": "2026-02-11
-09:00:00", "end_time": "2026-02-11 10:30:00" }
-
-Datetime format must be:
-
-YYYY-MM-DD HH:MM:SS
+{ "username": "john", "category": "Work", "start_time": "2026-02-10
+09:00:00", "end_time": "2026-02-10 11:30:00" }
 
 ---
 
-# Environment Variables
+### GET /entries/`<username>`{=html}
 
-- DB_HOST (default: mysql-db)
-- DB_PORT (default: 3306)
-- DB_USER
-- DB_PASSWORD
-- DB_NAME (default: time_tracker)
-- PORT (default: 5000)
-- FLASK_DEBUG (default: False)
-
----
-
-# Security Features
-
-- bcrypt hashing
-- Unique salt per password
-- No plaintext password storage
-- Unique username constraint
-- Input validation
-- Foreign key integrity enforcement
+Returns all time entries for the specified user.

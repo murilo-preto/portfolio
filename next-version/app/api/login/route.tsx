@@ -5,7 +5,7 @@ export async function POST(req: Request) {
 
   let res: Response;
   try {
-    res = await fetch("http://flask_app:3000/login", {
+    res = await fetch("http://flask:3000/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

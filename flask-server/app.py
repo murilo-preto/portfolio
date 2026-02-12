@@ -19,12 +19,20 @@ DB_CONFIG = {
     'database': os.getenv('DB_NAME', 'time_tracker')
 }
 
-# Connection pool — created once at startup
-connection_pool = MySQLConnectionPool(
-    pool_name="time_tracker_pool",
-    pool_size=5,
-    **DB_CONFIG
-)
+# Pool is created lazily on the first request instead of at startup,
+# avoiding a race condition where Flask starts before MySQL is ready.
+_pool = None
+
+def get_pool():
+    """Return the connection pool, creating it on first call."""
+    global _pool
+    if _pool is None:
+        _pool = MySQLConnectionPool(
+            pool_name="time_tracker_pool",
+            pool_size=5,
+            **DB_CONFIG
+        )
+    return _pool
 
 
 @contextmanager
@@ -37,7 +45,7 @@ def get_cursor(dictionary=True):
         with get_cursor() as cursor:
             cursor.execute(...)
     """
-    connection = connection_pool.get_connection()
+    connection = get_pool().get_connection()
     cursor = connection.cursor(dictionary=dictionary)
     try:
         yield cursor
