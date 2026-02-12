@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import mysql.connector
 from mysql.connector import Error
 from mysql.connector.pooling import MySQLConnectionPool
+from contextlib import contextmanager
 import bcrypt
 import os
 from datetime import datetime
@@ -26,13 +27,27 @@ connection_pool = MySQLConnectionPool(
 )
 
 
-def get_db_connection():
-    """Acquire and return a connection from the pool."""
+@contextmanager
+def get_cursor(dictionary=True):
+    """
+    Context manager that acquires a pooled connection, yields a cursor,
+    commits on success, rolls back on error, and always cleans up.
+
+    Usage:
+        with get_cursor() as cursor:
+            cursor.execute(...)
+    """
+    connection = connection_pool.get_connection()
+    cursor = connection.cursor(dictionary=dictionary)
     try:
-        return connection_pool.get_connection()
-    except Error as e:
-        print(f"Error acquiring connection from pool: {e}")
-        return None
+        yield cursor
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        cursor.close()
+        connection.close()  # Returns connection to pool, does not actually close it
 
 
 @app.route('/health', methods=['GET'])
@@ -56,53 +71,41 @@ def get_entries_by_user(username):
     if not username:
         return jsonify({'error': 'Username is required'}), 400
 
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
-
     try:
-        cursor = connection.cursor(dictionary=True)
+        with get_cursor() as cursor:
+            # Check if user exists
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s",
+                (username,)
+            )
+            user = cursor.fetchone()
 
-        # Check if user exists
-        cursor.execute(
-            "SELECT id FROM users WHERE username = %s",
-            (username,)
-        )
-        user = cursor.fetchone()
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
 
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
+            # Retrieve entries with JOIN
+            cursor.execute(
+                """
+                SELECT
+                    te.id,
+                    c.name AS category,
+                    te.start_time,
+                    te.end_time,
+                    TIMESTAMPDIFF(SECOND, te.start_time, te.end_time) AS duration_seconds
+                FROM time_entries te
+                JOIN category c ON te.category_id = c.id
+                WHERE te.user_id = %s
+                ORDER BY te.start_time ASC
+                """,
+                (user['id'],)
+            )
+            entries = cursor.fetchall()
 
-        # Retrieve entries with JOIN
-        query = """
-            SELECT 
-                te.id,
-                c.name AS category,
-                te.start_time,
-                te.end_time,
-                TIMESTAMPDIFF(SECOND, te.start_time, te.end_time) AS duration_seconds
-            FROM time_entries te
-            JOIN category c ON te.category_id = c.id
-            WHERE te.user_id = %s
-            ORDER BY te.start_time ASC
-        """
-
-        cursor.execute(query, (user['id'],))
-        entries = cursor.fetchall()
-
-        return jsonify({
-            'username': username,
-            'entries': entries
-        }), 200
+        return jsonify({'username': username, 'entries': entries}), 200
 
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to fetch entries'}), 500
-
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()  # Returns connection to pool, does not actually close it
 
 
 @app.route('/register', methods=['POST'])
@@ -141,22 +144,13 @@ def register_user():
     salt = bcrypt.gensalt()
     pwd_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
 
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
-
     try:
-        cursor = connection.cursor()
-
-        # Insert user into database
-        query = """
-            INSERT INTO users (username, pwd_hash, salt)
-            VALUES (%s, %s, %s)
-        """
-        cursor.execute(query, (username, pwd_hash, salt))
-        connection.commit()
-
-        user_id = cursor.lastrowid
+        with get_cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO users (username, pwd_hash, salt) VALUES (%s, %s, %s)",
+                (username, pwd_hash, salt)
+            )
+            user_id = cursor.lastrowid
 
         return jsonify({
             'message': 'User registered successfully',
@@ -164,18 +158,12 @@ def register_user():
             'username': username
         }), 201
 
-    except mysql.connector.IntegrityError as e:
-        # Username already exists (unique constraint violation)
+    except mysql.connector.IntegrityError:
         return jsonify({'error': 'Username already exists'}), 409
 
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to register user'}), 500
-
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
 
 
 @app.route('/login', methods=['POST'])
@@ -203,49 +191,35 @@ def login_user():
     username = data['username'].strip()
     password = data['password']
 
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
-
     try:
-        cursor = connection.cursor(dictionary=True)
-
-        # Retrieve user from database
-        query = """
-            SELECT id, username, pwd_hash, salt
-            FROM users
-            WHERE username = %s
-        """
-        cursor.execute(query, (username,))
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({'error': 'Invalid username or password'}), 401
-
-        # Verify password
-        # Convert bytearray to bytes for bcrypt compatibility
-        stored_hash = bytes(user['pwd_hash'])
-        salt = bytes(user['salt'])
-        provided_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
-
-        if stored_hash == provided_hash:
-            return jsonify({
-                'message': 'Login successful',
-                'authenticated': True,
-                'user_id': user['id'],
-                'username': user['username']
-            }), 200
-        else:
-            return jsonify({'error': 'Invalid username or password'}), 401
-
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id, username, pwd_hash, salt FROM users WHERE username = %s",
+                (username,)
+            )
+            user = cursor.fetchone()
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Login failed'}), 500
 
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
+    if not user:
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+    # Verify password
+    # Convert bytearray to bytes for bcrypt compatibility
+    stored_hash = bytes(user['pwd_hash'])
+    salt = bytes(user['salt'])
+    provided_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
+
+    if stored_hash == provided_hash:
+        return jsonify({
+            'message': 'Login successful',
+            'authenticated': True,
+            'user_id': user['id'],
+            'username': user['username']
+        }), 200
+    else:
+        return jsonify({'error': 'Invalid username or password'}), 401
 
 
 @app.route('/users', methods=['GET'])
@@ -257,27 +231,16 @@ def list_users():
         200: List of users
         500: Server error
     """
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
-
     try:
-        cursor = connection.cursor(dictionary=True)
-
-        query = "SELECT id, username FROM users ORDER BY id"
-        cursor.execute(query)
-        users = cursor.fetchall()
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, username FROM users ORDER BY id")
+            users = cursor.fetchall()
 
         return jsonify({'users': users}), 200
 
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to fetch users'}), 500
-
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
 
 
 @app.route('/category', methods=['POST'])
@@ -306,48 +269,28 @@ def create_category():
     if not name or len(name) > 100:
         return jsonify({'error': 'Category name must be between 1 and 100 characters'}), 400
 
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
-
     try:
-        cursor = connection.cursor(dictionary=True)
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM category WHERE name = %s", (name,))
+            existing = cursor.fetchone()
 
-        # Check if category exists
-        cursor.execute("SELECT id, name FROM category WHERE name = %s", (name,))
-        existing = cursor.fetchone()
+            if existing:
+                return jsonify({
+                    'message': 'Category already exists',
+                    'category': existing
+                }), 200
 
-        if existing:
-            return jsonify({
-                'message': 'Category already exists',
-                'category': existing
-            }), 200
-
-        # Insert new category
-        cursor.execute(
-            "INSERT INTO category (name) VALUES (%s)",
-            (name,)
-        )
-        connection.commit()
-
-        category_id = cursor.lastrowid
+            cursor.execute("INSERT INTO category (name) VALUES (%s)", (name,))
+            category_id = cursor.lastrowid
 
         return jsonify({
             'message': 'Category created successfully',
-            'category': {
-                'id': category_id,
-                'name': name
-            }
+            'category': {'id': category_id, 'name': name}
         }), 201
 
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to create category'}), 500
-
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
 
 
 @app.route('/entry', methods=['POST'])
@@ -385,55 +328,39 @@ def create_time_entry():
         start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
         end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        return jsonify({
-            'error': 'Datetime format must be YYYY-MM-DD HH:MM:SS'
-        }), 400
+        return jsonify({'error': 'Datetime format must be YYYY-MM-DD HH:MM:SS'}), 400
 
     if end_time <= start_time:
-        return jsonify({
-            'error': 'end_time must be after start_time'
-        }), 400
-
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
+        return jsonify({'error': 'end_time must be after start_time'}), 400
 
     try:
-        cursor = connection.cursor(dictionary=True)
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s",
+                (username,)
+            )
+            user = cursor.fetchone()
 
-        # Get user ID
-        cursor.execute(
-            "SELECT id FROM users WHERE username = %s",
-            (username,)
-        )
-        user = cursor.fetchone()
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
 
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
+            cursor.execute(
+                "SELECT id FROM category WHERE name = %s",
+                (category_name,)
+            )
+            category = cursor.fetchone()
 
-        # Get category ID
-        cursor.execute(
-            "SELECT id FROM category WHERE name = %s",
-            (category_name,)
-        )
-        category = cursor.fetchone()
+            if not category:
+                return jsonify({'error': 'Category not found'}), 404
 
-        if not category:
-            return jsonify({'error': 'Category not found'}), 404
-
-        # Insert time entry
-        insert_query = """
-            INSERT INTO time_entries (user_id, category_id, start_time, end_time)
-            VALUES (%s, %s, %s, %s)
-        """
-
-        cursor.execute(
-            insert_query,
-            (user['id'], category['id'], start_time, end_time)
-        )
-        connection.commit()
-
-        entry_id = cursor.lastrowid
+            cursor.execute(
+                """
+                INSERT INTO time_entries (user_id, category_id, start_time, end_time)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (user['id'], category['id'], start_time, end_time)
+            )
+            entry_id = cursor.lastrowid
 
         return jsonify({
             'message': 'Time entry created successfully',
@@ -449,11 +376,6 @@ def create_time_entry():
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to create time entry'}), 500
-
-    finally:
-        if connection.is_connected():
-            cursor.close()
-            connection.close()
 
 
 if __name__ == '__main__':
