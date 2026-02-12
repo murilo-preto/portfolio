@@ -1,168 +1,159 @@
-# Flask User Authentication API
+# Flask Time Tracker API
 
-A Flask REST API with user registration and login using bcrypt for password hashing.
+A Flask REST API for:
 
-## Setup
+- User registration and authentication (bcrypt)
+- Category management
+- Time entry tracking with foreign key resolution
 
-1. **Install dependencies:**
+Backed by MySQL.
+
+---
+
+# Setup
+
+## 1. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Ensure MySQL is running:**
+## 2. Ensure MySQL is running
+
 ```bash
 ./deploy_mysql.sh
 ```
 
-3. **Run the Flask server:**
+Make sure the database `time_tracker` exists and contains:
+
+- `users`
+- `category`
+- `time_entries`
+
+## 3. Run the Flask server
+
 ```bash
 python app.py
 ```
 
-The server will start on `http://localhost:5000`
+Server starts at:
 
-## API Endpoints
+    http://localhost:5000
 
-### 1. Health Check
-```bash
+---
+
+# Database Schema Overview
+
+## users
+
+Field Type
+
+---
+
+id int unsigned (PK)
+username varchar(100) (UNIQUE)
+pwd_hash varbinary(255)
+salt varbinary(255)
+
+## category
+
+Field Type
+
+---
+
+id int unsigned (PK)
+name varchar(100) (UNIQUE)
+
+## time_entries
+
+Field Type
+
+---
+
+id int unsigned (PK)
+user_id int unsigned (FK → users.id)
+category_id int unsigned (FK → category.id)
+start_time datetime
+end_time datetime
+
+---
+
+# API Endpoints
+
+## Health Check
+
 GET /health
-```
 
-**Response:**
-```json
-{
-  "status": "healthy"
-}
-```
+Response:
+
+{ "status": "healthy" }
 
 ---
 
-### 2. Register User
-```bash
+## Register User
+
 POST /register
-Content-Type: application/json
 
-{
-  "username": "john_doe",
-  "password": "mypassword123"
-}
-```
+{ "username": "john_doe", "password": "mypassword123" }
 
-**Success Response (201):**
-```json
-{
-  "message": "User registered successfully",
-  "user_id": 1,
-  "username": "john_doe"
-}
-```
+Success (201):
 
-**Error Responses:**
-- `400`: Missing fields or validation error
-- `409`: Username already exists
-- `500`: Server error
+{ "message": "User registered successfully", "user_id": 1, "username":
+"john_doe" }
 
 ---
 
-### 3. Login
-```bash
+## Login
+
 POST /login
-Content-Type: application/json
 
-{
-  "username": "john_doe",
-  "password": "mypassword123"
-}
-```
+{ "username": "john_doe", "password": "mypassword123" }
 
-**Success Response (200):**
-```json
-{
-  "message": "Login successful",
-  "authenticated": true,
-  "user_id": 1,
-  "username": "john_doe"
-}
-```
+Success (200):
 
-**Error Responses:**
-- `400`: Missing fields
-- `401`: Invalid credentials
-- `500`: Server error
+{ "message": "Login successful", "authenticated": true, "user_id": 1,
+"username": "john_doe" }
 
 ---
 
-### 4. List Users
-```bash
-GET /users
-```
+## Create Category
 
-**Response (200):**
-```json
-{
-  "users": [
-    {
-      "id": 1,
-      "username": "john_doe"
-    },
-    {
-      "id": 2,
-      "username": "jane_smith"
-    }
-  ]
-}
-```
+POST /category
 
-## Testing with cURL
+{ "name": "Work" }
 
-### Register a new user:
-```bash
-curl -X POST http://localhost:5000/register \
-  -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "password": "password123"}'
-```
+---
 
-### Login:
-```bash
-curl -X POST http://localhost:5000/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "password": "password123"}'
-```
+## Create Time Entry
 
-### List all users:
-```bash
-curl http://localhost:5000/users
-```
+POST /entry
 
-## Environment Variables
+{ "username": "john_doe", "category": "Work", "start_time": "2026-02-11
+09:00:00", "end_time": "2026-02-11 10:30:00" }
 
-You can configure the database connection using environment variables:
+Datetime format must be:
 
-- `DB_HOST` (default: localhost)
-- `DB_PORT` (default: 3306)
-- `DB_USER` (default: mpreto)
-- `DB_PASSWORD` (default: 1234)
-- `DB_NAME` (default: time_tracker)
-- `PORT` (default: 5000)
-- `FLASK_DEBUG` (default: False)
+YYYY-MM-DD HH:MM:SS
 
-Example:
-```bash
-DB_HOST=192.168.1.100 DB_PORT=3307 python app.py
-```
+---
 
-## Security Features
+# Environment Variables
 
-- **bcrypt hashing**: Industry-standard password hashing algorithm
-- **Salt generation**: Each password gets a unique salt
-- **No plaintext passwords**: Passwords are never stored in plaintext
-- **Input validation**: Username and password requirements enforced
-- **Unique usernames**: Database constraint prevents duplicate usernames
+- DB_HOST (default: mysql-db)
+- DB_PORT (default: 3306)
+- DB_USER
+- DB_PASSWORD
+- DB_NAME (default: time_tracker)
+- PORT (default: 5000)
+- FLASK_DEBUG (default: False)
 
-## Password Storage
+---
 
-The application uses bcrypt with automatic salt generation:
-1. When registering, `bcrypt.gensalt()` generates a unique salt
-2. The password is hashed with the salt using `bcrypt.hashpw()`
-3. Both the hash and salt are stored in the database
-4. During login, the provided password is hashed with the stored salt and compared
+# Security Features
+
+- bcrypt hashing
+- Unique salt per password
+- No plaintext password storage
+- Unique username constraint
+- Input validation
+- Foreign key integrity enforcement
