@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import mysql.connector
 from mysql.connector import Error
+from mysql.connector.pooling import MySQLConnectionPool
 import bcrypt
 import os
 from datetime import datetime
@@ -17,14 +18,20 @@ DB_CONFIG = {
     'database': os.getenv('DB_NAME', 'time_tracker')
 }
 
+# Connection pool — created once at startup
+connection_pool = MySQLConnectionPool(
+    pool_name="time_tracker_pool",
+    pool_size=5,
+    **DB_CONFIG
+)
+
 
 def get_db_connection():
-    """Create and return a database connection."""
+    """Acquire and return a connection from the pool."""
     try:
-        connection = mysql.connector.connect(**DB_CONFIG)
-        return connection
+        return connection_pool.get_connection()
     except Error as e:
-        print(f"Error connecting to MySQL: {e}")
+        print(f"Error acquiring connection from pool: {e}")
         return None
 
 
@@ -95,7 +102,7 @@ def get_entries_by_user(username):
     finally:
         if connection.is_connected():
             cursor.close()
-            connection.close()
+            connection.close()  # Returns connection to pool, does not actually close it
 
 
 @app.route('/register', methods=['POST'])
@@ -343,7 +350,6 @@ def create_category():
             connection.close()
 
 
-
 @app.route('/entry', methods=['POST'])
 def create_time_entry():
     """
@@ -454,6 +460,6 @@ if __name__ == '__main__':
     # Run the Flask app
     app.run(
         host='0.0.0.0',
-        port=int(os.getenv('PORT', 5000)),
+        port=int(os.getenv('PORT', 3000)),
         debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     )

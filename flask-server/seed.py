@@ -2,7 +2,7 @@ import requests
 import random
 from datetime import datetime, timedelta
 
-BASE_URL = "http://localhost:5000"
+BASE_URL = "http://localhost:3000"
 
 USERS = ["alice", "bob", "charlie"]
 PASSWORD = "password123"

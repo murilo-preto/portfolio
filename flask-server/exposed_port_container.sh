@@ -13,7 +13,7 @@ echo "Starting container..."
 docker run \
   --rm -d \
   --name flask_app \
-  -p 5000:5000 \
+  -p 3000:3000 \
   --network namu \
 flask:1.0
 
