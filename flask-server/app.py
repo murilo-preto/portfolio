@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_jwt_extended import JWTManager, create_access_token
 import mysql.connector
 from mysql.connector import Error
 from mysql.connector.pooling import MySQLConnectionPool
@@ -8,6 +9,9 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
+
+app.config["JWT_SECRET_KEY"] = "super-secret-key"
+jwt = JWTManager(app)
 
 # Database configuration
 DB_CONFIG = {
@@ -222,11 +226,13 @@ def login_user():
     # provided_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
 
     if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
+        access_token = create_access_token(identity=username)
         return jsonify({
             'message': 'Login successful',
             'authenticated': True,
             'user_id': user['id'],
-            'username': user['username']
+            'username': user['username'],
+            'access_token': access_token
         }), 200
     else:
         return jsonify({'error': 'Invalid username or password'}), 401
