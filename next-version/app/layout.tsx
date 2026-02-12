@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,10 +53,12 @@ function Header() {
         </div>
 
         {/* Right */}
-        <div className="justify-self-end">
+        <div className="justify-self-end flex gap-2">
           <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
             <Link href="/login">Login</Link>
           </div>
+
+          <LogoutButton />
         </div>
       </nav>
     </header>
