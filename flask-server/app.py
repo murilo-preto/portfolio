@@ -13,20 +13,15 @@ app = Flask(__name__)
 app.config["JWT_SECRET_KEY"] = "super-secret-key"
 jwt = JWTManager(app)
 
-# Database configuration
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'mysql-db'),
-    # 'host': os.getenv('DB_HOST', 'localhost'),
     'port': int(os.getenv('DB_PORT', 3306)),
     'user': os.getenv('DB_USER', 'username'),
     'password': os.getenv('DB_PASSWORD', '1234'),
     'database': os.getenv('DB_NAME', 'time_tracker')
 }
 
-# Pool is created lazily on the first request instead of at startup,
-# avoiding a race condition where Flask starts before MySQL is ready.
 _pool = None
-
 def get_pool():
     """Return the connection pool, creating it on first call."""
     global _pool
@@ -59,7 +54,7 @@ def get_cursor(dictionary=True):
         raise
     finally:
         cursor.close()
-        connection.close()  # Returns connection to pool, does not actually close it
+        connection.close()
 
 
 @app.route('/health', methods=['GET'])
@@ -85,7 +80,6 @@ def get_entries_by_user(username):
 
     try:
         with get_cursor() as cursor:
-            # Check if user exists
             cursor.execute(
                 "SELECT id FROM users WHERE username = %s",
                 (username,)
@@ -95,7 +89,6 @@ def get_entries_by_user(username):
             if not user:
                 return jsonify({'error': 'User not found'}), 404
 
-            # Retrieve entries with JOIN
             cursor.execute(
                 """
                 SELECT
@@ -151,10 +144,6 @@ def register_user():
 
     if not password or len(password) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
-
-    # Generate salt and hash password
-    # salt = bcrypt.gensalt()
-    # pwd_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
 
     pwd_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
@@ -219,11 +208,7 @@ def login_user():
     if not user:
         return jsonify({'error': 'Invalid username or password'}), 401
 
-    # Verify password
-    # Convert bytearray to bytes for bcrypt compatibility
     stored_hash = bytes(user['pwd_hash'])
-    # salt = bytes(user['salt'])
-    # provided_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
 
     if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
         access_token = create_access_token(identity=username)
@@ -339,7 +324,6 @@ def create_time_entry():
     start_time_str = data['start_time']
     end_time_str = data['end_time']
 
-    # Validate datetime format
     try:
         start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
         end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
@@ -395,7 +379,6 @@ def create_time_entry():
 
 
 if __name__ == '__main__':
-    # Run the Flask app
     app.run(
         host='0.0.0.0',
         port=int(os.getenv('PORT', 3000)),
