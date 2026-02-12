@@ -149,14 +149,16 @@ def register_user():
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
 
     # Generate salt and hash password
-    salt = bcrypt.gensalt()
-    pwd_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
+    # salt = bcrypt.gensalt()
+    # pwd_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
+
+    pwd_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
     try:
         with get_cursor() as cursor:
             cursor.execute(
-                "INSERT INTO users (username, pwd_hash, salt) VALUES (%s, %s, %s)",
-                (username, pwd_hash, salt)
+                "INSERT INTO users (username, pwd_hash) VALUES (%s, %s)",
+                (username, pwd_hash)
             )
             user_id = cursor.lastrowid
 
@@ -202,7 +204,7 @@ def login_user():
     try:
         with get_cursor() as cursor:
             cursor.execute(
-                "SELECT id, username, pwd_hash, salt FROM users WHERE username = %s",
+                "SELECT id, username, pwd_hash FROM users WHERE username = %s",
                 (username,)
             )
             user = cursor.fetchone()
@@ -216,10 +218,10 @@ def login_user():
     # Verify password
     # Convert bytearray to bytes for bcrypt compatibility
     stored_hash = bytes(user['pwd_hash'])
-    salt = bytes(user['salt'])
-    provided_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
+    # salt = bytes(user['salt'])
+    # provided_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
 
-    if stored_hash == provided_hash:
+    if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
         return jsonify({
             'message': 'Login successful',
             'authenticated': True,

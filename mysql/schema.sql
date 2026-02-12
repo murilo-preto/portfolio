@@ -11,8 +11,7 @@ USE time_tracker;
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   username VARCHAR(100) NOT NULL,
-  pwd_hash VARBINARY(255) NOT NULL,
-  salt VARBINARY(255) NOT NULL,
+  pwd_hash VARBINARY(72) NOT NULL,
 
   PRIMARY KEY (id),
   UNIQUE KEY uk_users_username (username)
