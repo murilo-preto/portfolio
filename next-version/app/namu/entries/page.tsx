@@ -8,7 +8,7 @@ export default function CVPage() {
         dark:text-gray-100
       "
     >
-      <h1>Notes</h1>
+      <h1>Entries</h1>
     </main>
   );
 }

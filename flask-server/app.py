@@ -1,8 +1,15 @@
 from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, create_access_token
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    jwt_required,
+    get_jwt_identity
+)
+
 import mysql.connector
 from mysql.connector import Error
 from mysql.connector.pooling import MySQLConnectionPool
+
 from contextlib import contextmanager
 import bcrypt
 import os
@@ -11,6 +18,7 @@ from datetime import datetime
 app = Flask(__name__)
 
 app.config["JWT_SECRET_KEY"] = "super-secret-key"
+app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 jwt = JWTManager(app)
 
 DB_CONFIG = {
@@ -62,6 +70,16 @@ def health_check():
     """Health check endpoint."""
     return jsonify({'status': 'healthy'}), 200
 
+
+@app.get("/protected")
+@jwt_required()
+def protected():
+    current_user = get_jwt_identity()
+
+    return jsonify(
+        message="Access granted",
+        user=current_user
+    ), 200
 
 @app.route('/entries/<string:username>', methods=['GET'])
 def get_entries_by_user(username):
@@ -376,6 +394,19 @@ def create_time_entry():
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to create time entry'}), 500
+
+
+@jwt.unauthorized_loader
+def unauthorized_callback(callback):
+    return jsonify(error="Missing or invalid token"), 401
+
+@jwt.invalid_token_loader
+def invalid_token_callback(callback):
+    return jsonify(error="Invalid token"), 401
+
+@jwt.expired_token_loader
+def expired_token_callback(jwt_header, jwt_payload):
+    return jsonify(error="Token expired"), 401
 
 
 if __name__ == '__main__':
