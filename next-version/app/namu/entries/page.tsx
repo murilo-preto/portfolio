@@ -1,4 +1,31 @@
-export default function CVPage() {
+"use client";
+
+import { useEffect } from "react";
+
+export default function Entries() {
+  async function get_entries() {
+    try {
+      const res = await fetch("/api/entries", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to fetch entries");
+      }
+
+      const data = await res.json();
+      console.log(data);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  useEffect(() => {
+    get_entries();
+  }, []);
+
   return (
     <main
       className="

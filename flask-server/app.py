@@ -64,6 +64,41 @@ def get_cursor(dictionary=True):
         cursor.close()
         connection.close()
 
+def retrieve_entry_from_username(username):
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s",
+                (username,)
+            )
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+
+            cursor.execute(
+                """
+                SELECT
+                    te.id,
+                    c.name AS category,
+                    te.start_time,
+                    te.end_time,
+                    TIMESTAMPDIFF(SECOND, te.start_time, te.end_time) AS duration_seconds
+                FROM time_entries te
+                JOIN category c ON te.category_id = c.id
+                WHERE te.user_id = %s
+                ORDER BY te.start_time ASC
+                """,
+                (user['id'],)
+            )
+            entries = cursor.fetchall()
+
+        return jsonify({'username': username, 'entries': entries}), 200
+
+    except Error as e:
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to fetch entries'}), 500
+
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -80,6 +115,21 @@ def protected():
         message="Access granted",
         user=current_user
     ), 200
+
+
+@app.get("/myentries")
+@jwt_required()
+def myentries():
+    """
+    Retrieves entries from a user from token username
+    """
+
+    username = get_jwt_identity()
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+
+    return retrieve_entry_from_username(username)
+
 
 @app.route('/entries/<string:username>', methods=['GET'])
 def get_entries_by_user(username):
