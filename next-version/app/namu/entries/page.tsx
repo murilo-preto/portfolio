@@ -45,6 +45,8 @@ export default function Entries() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isDark, setIsDark] = useState(false);
+
   async function get_entries() {
     try {
       const res = await fetch("/api/entries", {
@@ -70,6 +72,21 @@ export default function Entries() {
     get_entries();
   }, []);
 
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+
+    // valor inicial
+    setIsDark(media.matches);
+
+    // listener para mudança dinâmica
+    const listener = (e: MediaQueryListEvent) => {
+      setIsDark(e.matches);
+    };
+
+    media.addEventListener("change", listener);
+
+    return () => media.removeEventListener("change", listener);
+  }, []);
   /* -------------------------
      Derived Metrics
   -------------------------- */
@@ -175,7 +192,12 @@ export default function Entries() {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="category" />
             <YAxis />
-            <Tooltip />
+            {/* <Tooltip /> */}
+            <Tooltip
+              cursor={{
+                fill: isDark ? "#262626" : "#e7e5e4", // dark: neutral-800 | light: stone-200
+              }}
+            />
             <Bar dataKey="hours" />
           </BarChart>
         </ResponsiveContainer>
