@@ -50,6 +50,10 @@ function Header() {
           <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
             <Link href="/namu">Namu</Link>
           </div>
+
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
+            <Link href="/demo">Demo</Link>
+          </div>
         </div>
 
         {/* Right */}

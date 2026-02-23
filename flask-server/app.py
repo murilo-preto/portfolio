@@ -13,21 +13,41 @@ from mysql.connector.pooling import MySQLConnectionPool
 from contextlib import contextmanager
 import bcrypt
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-app.config["JWT_SECRET_KEY"] = "super-secret-key"
+# =============================
+# ENV CONFIGURATION
+# =============================
+
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
+    minutes=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_MINUTES", "60"))
+)
+
+if not app.config["JWT_SECRET_KEY"]:
+    raise RuntimeError("JWT_SECRET_KEY environment variable is not set")
+
 jwt = JWTManager(app)
 
+
+# =============================
+# DATABASE CONFIG
+# =============================
+
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'mysql-db'),
-    'port': int(os.getenv('DB_PORT', 3306)),
-    'user': os.getenv('DB_USER', 'username'),
-    'password': os.getenv('DB_PASSWORD', '1234'),
-    'database': os.getenv('DB_NAME', 'time_tracker')
+    "host": os.getenv("DB_HOST"),
+    "port": int(os.getenv("DB_PORT", "3306")),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_NAME"),
 }
+
+missing = [k for k, v in DB_CONFIG.items() if not v]
+if missing:
+    raise RuntimeError(f"Missing required DB environment variables: {missing}")
 
 _pool = None
 def get_pool():

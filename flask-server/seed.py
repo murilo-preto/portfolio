@@ -1,12 +1,17 @@
+import os
 import requests
 import random
 from datetime import datetime, timedelta
 
-BASE_URL = "http://localhost:3000"
+# ===== ENV VARIABLES =====
+API_HOST = os.getenv("API_HOST", "localhost")
+API_PORT = os.getenv("PORT", "3000")
+BASE_URL = f"http://{API_HOST}:{API_PORT}"
 
+DEFAULT_PASSWORD = os.getenv("SEED_USER_PASSWORD", "password123")
+
+# ===== CONFIG =====
 USERS = ["alice", "bob", "charlie"]
-PASSWORD = "password123"
-
 CATEGORIES = ["Work", "Study", "Exercise", "Reading"]
 
 ENTRIES_PER_USER = 10
@@ -16,7 +21,7 @@ DAYS_SPAN = 7
 def register_user(username):
     response = requests.post(
         f"{BASE_URL}/register",
-        json={"username": username, "password": PASSWORD},
+        json={"username": username, "password": DEFAULT_PASSWORD},
     )
     print(f"Register {username}: {response.status_code}")
 
@@ -53,6 +58,7 @@ def random_datetime_within_week():
 
 
 def seed():
+    print(f"Seeding API at {BASE_URL}")
     print("Creating categories...")
     for category in CATEGORIES:
         create_category(category)

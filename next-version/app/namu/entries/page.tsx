@@ -33,11 +33,16 @@ const LIGHT_CHART_PALETTE = [
 ];
 
 const DARK_CHART_PALETTE = [
-  "#FFFFFF",
-  "#FFFFFF",
-  "#FFFFFF",
-  "#FFFFFF",
-  "#FFFFFF",
+  "#00111c",
+  "#001523",
+  "#001a2c",
+  "#002137",
+  "#00253e",
+  "#002945",
+  "#002e4e",
+  "#003356",
+  "#003a61",
+  "#00406c",
 ];
 
 export default function Entries() {
@@ -61,6 +66,7 @@ export default function Entries() {
 
       const json = await res.json();
       setData(json);
+      console.log(json);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -110,6 +116,8 @@ export default function Entries() {
   const categoryBreakdown = useMemo(() => {
     if (!data) return [];
 
+    const graph_palette = isDark ? DARK_CHART_PALETTE : LIGHT_CHART_PALETTE;
+
     const grouped: Record<string, number> = {};
 
     data.entries.forEach((entry) => {
@@ -122,9 +130,9 @@ export default function Entries() {
     return categories.map(([category, seconds], index) => ({
       category,
       hours: +(seconds / 3600).toFixed(2),
-      fill: LIGHT_CHART_PALETTE[index % LIGHT_CHART_PALETTE.length],
+      fill: graph_palette[index % graph_palette.length],
     }));
-  }, [data]);
+  }, [data, isDark]); // <-- IMPORTANTE
 
   function formatDuration(seconds: number) {
     const h = Math.floor(seconds / 3600);
@@ -152,12 +160,6 @@ export default function Entries() {
           <h1 className="text-3xl font-bold">{data.username}'s Dashboard</h1>
           <p className="text-sm text-gray-500">Weekly Overview</p>
         </div>
-
-        {/* Placeholder Week Selector */}
-        {/* <select className="border rounded px-3 py-2 bg-transparent"> */}
-        {/*   <option>This Week</option> */}
-        {/*   <option>Last Week</option> */}
-        {/* </select> */}
       </div>
 
       {/* -------------------------

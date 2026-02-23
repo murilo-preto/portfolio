@@ -1,48 +1,41 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: mysql
+    restart: unless-stopped
     networks:
-      - namu
+      - backend
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    env_file:
+      - .env
     environment:
-      MYSQL_ROOT_PASSWORD: admin
-      MYSQL_DATABASE: time_tracker
-      MYSQL_USER: username
-      MYSQL_PASSWORD: "1234"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-uroot",
-          "-padmin",
-          "--silent",
-        ]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 20s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   flask:
     build:
       context: ./flask-server
-    container_name: flask
+    restart: unless-stopped
     networks:
-      - namu
+      - backend
+    env_file:
+      - .env
     ports:
       - "3000:3000"
     environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: username
-      DB_PASSWORD: "1234"
-      DB_NAME: time_tracker
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
       PORT: 3000
     depends_on:
       mysql:
@@ -51,17 +44,20 @@ services:
   nextjs:
     build:
       context: ./next-version
-    container_name: nextjs
+    restart: unless-stopped
     networks:
-      - namu
+      - frontend
+      - backend
     ports:
       - "5000:3000"
     depends_on:
       - flask
-    restart: unless-stopped
 
 networks:
-  namu:
+  backend:
+    driver: bridge
+    # internal: true
+  frontend:
     driver: bridge
 
 volumes:

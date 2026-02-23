@@ -1,161 +1,120 @@
-# Time Tracker API
-
-A RESTful API built with **Flask** and **MySQL** for tracking user time
-entries by category.\
-It supports user registration, authentication, category management, and
-time entry creation.
+# Flask API — Endpoints
 
 ---
 
-## 🧱 Tech Stack
-
-- Python 3.10+
-- Flask
-- MySQL 8
-- mysql-connector-python
-- bcrypt (password hashing)
-- Docker-compatible configuration
+GET /health
+→ 200 OK
+{
+"status": "healthy"
+}
 
 ---
 
-## 📦 Features
+POST /register
+Body:
+{
+"username": "string",
+"password": "string"
+}
 
-- User registration with salted + hashed passwords (bcrypt)
-- User login with credential verification
-- Create and list categories
-- Create time entries
-- Retrieve all time entries for a given user
-- Health check endpoint
-- MySQL connection pooling (5 connections)
-
----
-
-## 🗄 Database Schema
-
-### users
-
-Column Type Notes
+→ 201 Created
+→ 400 Validation error
+→ 409 Username exists
 
 ---
 
-id INT (PK, AI) Primary key
-username VARCHAR(100) Unique
-pwd_hash BLOB bcrypt hash
-salt BLOB bcrypt salt
+POST /login
+Body:
+{
+"username": "string",
+"password": "string"
+}
 
-### category
+→ 200 OK
+{
+"access_token": "JWT_TOKEN",
+"user_id": 1,
+"username": "string"
+}
 
-Column Type Notes
-
----
-
-id INT (PK, AI) Primary key
-name VARCHAR(100) Unique
-
-### time_entries
-
-Column Type Notes
+→ 401 Invalid credentials
 
 ---
 
-id INT (PK, AI) Primary key
-user_id INT (FK) References users.id
-category_id INT (FK) References category.id
-start_time DATETIME  
- end_time DATETIME
+Authorization Header (protected routes):
+Authorization: Bearer <JWT_TOKEN>
 
 ---
 
-## ⚙️ Environment Variables
+GET /protected
+→ 200 OK
+{
+"message": "Access granted"
+}
 
-Variable Default Description
-
----
-
-DB_HOST mysql-db MySQL host
-DB_PORT 3306 MySQL port
-DB_USER username Database user
-DB_PASSWORD 1234 Database password
-DB_NAME time_tracker Database name
-PORT 3000 Flask app port
-FLASK_DEBUG False Enable debug mode
+→ 401 Invalid or missing token
 
 ---
 
-## 🚀 Running the Application
-
-### Install Dependencies
-
-pip install flask mysql-connector-python bcrypt
-
-### Run MySQL (Docker Example)
-
-docker run -d\
---name mysql-db\
--p 3306:3306\
--e MYSQL_ROOT_PASSWORD=admin\
--e MYSQL_DATABASE=time_tracker\
--e MYSQL_USER=username\
--e MYSQL_PASSWORD=1234\
-mysql:8.0
-
-### Run the API
-
-python app.py
-
-Server runs at:
-
-<http://localhost:3000>
+GET /users
+→ 200 OK
+{
+"users": [
+{ "id": 1, "username": "string" }
+]
+}
 
 ---
 
-## 📡 API Endpoints
+GET /entries/<username>
+→ 200 OK
+{
+"entries": [
+{
+"id": 1,
+"category": "string",
+"start_time": "YYYY-MM-DD HH:MM:SS",
+"end_time": "YYYY-MM-DD HH:MM:SS",
+"duration_seconds": 3600
+}
+]
+}
 
-### GET /health
-
-Returns service status.
-
----
-
-### POST /register
-
-Request:
-
-{ "username": "john", "password": "securepassword" }
-
----
-
-### POST /login
-
-Request:
-
-{ "username": "john", "password": "securepassword" }
+→ 404 User not found
 
 ---
 
-### GET /users
+GET /myentries
+(Requires JWT)
 
-Returns all users (without sensitive data).
-
----
-
-### POST /category
-
-Request:
-
-{ "name": "Work" }
+→ 200 OK
+{
+"entries": [ ... ]
+}
 
 ---
 
-### POST /entry
+POST /entry
+Body:
+{
+"username": "string",
+"category": "string",
+"start_time": "YYYY-MM-DD HH:MM:SS",
+"end_time": "YYYY-MM-DD HH:MM:SS"
+}
 
-Request:
-
-{ "username": "john", "category": "Work", "start_time": "2026-02-10
-09:00:00", "end_time": "2026-02-10 11:30:00" }
+→ 201 Created
+{
+"id": 1
+}
 
 ---
 
-### GET /entries/`<username>`{=html}
+POST /category
+Body:
+{
+"name": "string"
+}
 
-Returns all time entries for the specified user.
+→ 201 Created
+→ 200 Already exists
