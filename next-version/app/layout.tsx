@@ -25,7 +25,7 @@ function Header() {
       className="
         m-1 p-1 rounded-md
         bg-gray-100
-        dark:bg-gray-800
+        dark:bg-neutral-900
       "
     >
       <nav
@@ -36,25 +36,25 @@ function Header() {
       >
         {/* Left */}
         <div className="justify-self-start">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
             <Link href="/">Home</Link>
           </div>
         </div>
 
         {/* Center */}
         <div className="justify-self-center flex gap-2">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
             <Link href="/cv">CV</Link>
           </div>
 
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
             <Link href="/namu">Namu</Link>
           </div>
         </div>
 
         {/* Right */}
         <div className="justify-self-end flex gap-2">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-gray-700">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
             <Link href="/login">Login</Link>
           </div>
 
@@ -71,7 +71,7 @@ function Footer() {
       className="
         m-1 p-1 rounded-md
         bg-gray-100
-        dark:bg-gray-800
+        dark:bg-neutral-900
       "
     >
       Footer

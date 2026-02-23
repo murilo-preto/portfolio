@@ -40,9 +40,6 @@ const DARK_CHART_PALETTE = [
   "#FFFFFF",
 ];
 
-const CARD_COLORS = "#E5D7C4";
-const CHART_COLOR = "#F3ECE3";
-
 export default function Entries() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,26 +147,17 @@ export default function Entries() {
           Row 1: Stats Cards
       -------------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div
-          className="p-6 rounded-xl shadow text-black"
-          style={{ backgroundColor: CARD_COLORS }}
-        >
+        <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow text-black dark:text-white">
           <p className="text-sm opacity-70">Total Hours</p>
           <p className="text-3xl font-bold">{totalHours}h</p>
         </div>
 
-        <div
-          className="p-6 rounded-xl shadow text-black"
-          style={{ backgroundColor: CARD_COLORS }}
-        >
+        <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow text-black dark:text-white">
           <p className="text-sm opacity-70">Sessions</p>
           <p className="text-3xl font-bold">{sessionsCount}</p>
         </div>
 
-        <div
-          className="p-6 rounded-xl shadow text-black"
-          style={{ backgroundColor: CARD_COLORS }}
-        >
+        <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow text-black dark:text-white">
           <p className="text-sm opacity-70">Longest Session</p>
           <p className="text-3xl font-bold">{longestSessionHours}h</p>
         </div>
@@ -179,10 +167,7 @@ export default function Entries() {
           Row 2: Bar Chart
       -------------------------- */}
 
-      <div
-        className="p-6 rounded-xl shadow text-black"
-        style={{ backgroundColor: CHART_COLOR }}
-      >
+      <div className="bg-offwhite p-6 rounded-xl shadow text-black">
         <h2 className="text-lg font-semibold mb-4">Hours by Category</h2>
 
         <ResponsiveContainer width="100%" height={300}>
@@ -199,10 +184,7 @@ export default function Entries() {
       {/* -------------------------
           Row 3: Detailed Table
       -------------------------- */}
-      <div
-        className="p-6 rounded-xl shadow text-black overflow-x-auto"
-        style={{ backgroundColor: CARD_COLORS }}
-      >
+      <div className="bg-bone p-6 rounded-xl shadow text-black overflow-x-auto">
         <h2 className="text-lg font-semibold mb-4">Detailed Entries</h2>
 
         <table className="w-full text-left">
