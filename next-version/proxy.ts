@@ -5,7 +5,7 @@ export const config = {
   matcher: ["/namu/:path*"],
 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token = request.cookies.get("access_token")?.value;
 
   if (!token) {

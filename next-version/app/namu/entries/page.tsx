@@ -167,7 +167,7 @@ export default function Entries() {
           Row 2: Bar Chart
       -------------------------- */}
 
-      <div className="bg-offwhite p-6 rounded-xl shadow text-black">
+      <div className="bg-offwhite dark:bg-neutral-900 p-6 rounded-xl shadow text-black dark:text-white">
         <h2 className="text-lg font-semibold mb-4">Hours by Category</h2>
 
         <ResponsiveContainer width="100%" height={300}>
@@ -184,12 +184,12 @@ export default function Entries() {
       {/* -------------------------
           Row 3: Detailed Table
       -------------------------- */}
-      <div className="bg-bone p-6 rounded-xl shadow text-black overflow-x-auto">
+      <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow text-black dark:text-white overflow-x-auto">
         <h2 className="text-lg font-semibold mb-4">Detailed Entries</h2>
 
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-[#F3ECE3]">
+            <tr className="border-b border-[#F3ECE3] dark:border-neutral-800">
               <th className="py-2">Category</th>
               <th>Start</th>
               <th>End</th>
@@ -200,7 +200,7 @@ export default function Entries() {
             {data.entries.map((entry) => (
               <tr
                 key={entry.id}
-                className="border-b border-[#F3ECE3] hover:bg-[#F3ECE3] transition"
+                className="border-b border-[#F3ECE3] dark:border-neutral-800 hover:bg-[#F3ECE3] dark:hover:bg-neutral-700 transition"
               >
                 <td className="py-2">{entry.category}</td>
                 <td>{new Date(entry.start_time).toLocaleString()}</td>
