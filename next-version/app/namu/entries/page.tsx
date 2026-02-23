@@ -32,18 +32,7 @@ const LIGHT_CHART_PALETTE = [
   "#3A3D29",
 ];
 
-const DARK_CHART_PALETTE = [
-  "#00111c",
-  "#001523",
-  "#001a2c",
-  "#002137",
-  "#00253e",
-  "#002945",
-  "#002e4e",
-  "#003356",
-  "#003a61",
-  "#00406c",
-];
+const DARK_CHART_PALETTE = ["#007ea7"];
 
 export default function Entries() {
   const [data, setData] = useState<ApiResponse | null>(null);
