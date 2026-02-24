@@ -1,16 +1,38 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  function handleSubmit(e: React.SubmitEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    // placeholder para lógica de register
-    console.log({ username, password });
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.error || "Registration failed");
+      }
+
+      router.push("/login");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -23,7 +45,14 @@ export default function RegisterPage() {
           Register
         </h1>
 
-        {/* User */}
+        {/* Error */}
+        {error && (
+          <p className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-900 dark:text-red-200">
+            {error}
+          </p>
+        )}
+
+        {/* Username */}
         <div className="space-y-1">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             User
@@ -54,10 +83,21 @@ export default function RegisterPage() {
         {/* Button */}
         <button
           type="submit"
-          className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700"
+          disabled={loading}
+          className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
         >
-          Submit
+          {loading ? "Registering..." : "Register"}
         </button>
+
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          Already have an account?{" "}
+          <a
+            href="/login"
+            className="text-blue-600 hover:underline dark:text-blue-400"
+          >
+            Login
+          </a>
+        </p>
       </form>
     </main>
   );

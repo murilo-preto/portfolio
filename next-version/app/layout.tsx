@@ -36,30 +36,34 @@ function Header() {
       >
         {/* Left */}
         <div className="justify-self-start">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
             <Link href="/">Home</Link>
           </div>
         </div>
 
         {/* Center */}
         <div className="justify-self-center flex gap-2">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
             <Link href="/cv">CV</Link>
           </div>
 
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
             <Link href="/namu">Namu</Link>
           </div>
 
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
             <Link href="/demo">Demo</Link>
           </div>
         </div>
 
         {/* Right */}
         <div className="justify-self-end flex gap-2">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950">
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
             <Link href="/login">Login</Link>
+          </div>
+
+          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
+            <Link href="/register">Register</Link>
           </div>
 
           <LogoutButton />
