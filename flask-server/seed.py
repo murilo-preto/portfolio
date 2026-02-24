@@ -1,21 +1,39 @@
 import os
 import requests
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-# ===== ENV VARIABLES =====
 API_HOST = os.getenv("API_HOST", "localhost")
 API_PORT = os.getenv("PORT", "3000")
 BASE_URL = f"http://{API_HOST}:{API_PORT}"
 
 DEFAULT_PASSWORD = os.getenv("SEED_USER_PASSWORD", "password123")
 
-# ===== CONFIG =====
 USERS = ["alice", "bob", "charlie"]
 CATEGORIES = ["Work", "Study", "Exercise", "Reading"]
 
 ENTRIES_PER_USER = 10
 DAYS_SPAN = 7
+
+def to_iso_utc(dt: datetime) -> str:
+    """
+    Ensure datetime is UTC and return ISO 8601 string with Z.
+    """
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(timezone.utc)
+    return dt.isoformat().replace("+00:00", "Z")
+
+
+def random_datetime_within_week() -> datetime:
+    """
+    Returns timezone-aware UTC datetime within the last DAYS_SPAN days.
+    """
+    now = datetime.now(timezone.utc)
+    start_window = now - timedelta(days=DAYS_SPAN)
+
+    random_seconds = random.randint(0, DAYS_SPAN * 24 * 3600)
+    return start_window + timedelta(seconds=random_seconds)
 
 
 def register_user(username):
@@ -40,8 +58,8 @@ def create_entry(username, category, start_time, end_time):
         json={
             "username": username,
             "category": category,
-            "start_time": start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            "end_time": end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_time": to_iso_utc(start_time),
+            "end_time": to_iso_utc(end_time),
         },
     )
 
@@ -49,16 +67,9 @@ def create_entry(username, category, start_time, end_time):
         print("Entry error:", response.status_code, response.text)
 
 
-def random_datetime_within_week():
-    now = datetime.now()
-    start_window = now - timedelta(days=DAYS_SPAN)
-
-    random_seconds = random.randint(0, DAYS_SPAN * 24 * 3600)
-    return start_window + timedelta(seconds=random_seconds)
-
-
 def seed():
     print(f"Seeding API at {BASE_URL}")
+
     print("Creating categories...")
     for category in CATEGORIES:
         create_category(category)
@@ -75,7 +86,6 @@ def seed():
             end_time = start_time + timedelta(minutes=duration_minutes)
 
             category = random.choice(CATEGORIES)
-
             create_entry(user, category, start_time, end_time)
 
         print(f"Seeded entries for {user}")

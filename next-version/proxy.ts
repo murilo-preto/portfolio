@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export const config = {
-  matcher: ["/namu/:path*"],
+  matcher: ["/namu/user/:path*"],
 };
 
 export async function proxy(request: NextRequest) {

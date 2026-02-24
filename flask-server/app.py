@@ -13,13 +13,9 @@ from mysql.connector.pooling import MySQLConnectionPool
 from contextlib import contextmanager
 import bcrypt
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
-
-# =============================
-# ENV CONFIGURATION
-# =============================
 
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
@@ -31,11 +27,6 @@ if not app.config["JWT_SECRET_KEY"]:
     raise RuntimeError("JWT_SECRET_KEY environment variable is not set")
 
 jwt = JWTManager(app)
-
-
-# =============================
-# DATABASE CONFIG
-# =============================
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
@@ -166,39 +157,28 @@ def get_entries_by_user(username):
     if not username:
         return jsonify({'error': 'Username is required'}), 400
 
+    return retrieve_entry_from_username(username)
+
+
+@app.route('/categories', methods=['GET'])
+def list_categories():
+    """
+    List all categories.
+
+    Returns:
+        200: List of categories
+        500: Server error
+    """
     try:
         with get_cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM users WHERE username = %s",
-                (username,)
-            )
-            user = cursor.fetchone()
+            cursor.execute("SELECT id, name FROM category ORDER BY name")
+            categories = cursor.fetchall()
 
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
-
-            cursor.execute(
-                """
-                SELECT
-                    te.id,
-                    c.name AS category,
-                    te.start_time,
-                    te.end_time,
-                    TIMESTAMPDIFF(SECOND, te.start_time, te.end_time) AS duration_seconds
-                FROM time_entries te
-                JOIN category c ON te.category_id = c.id
-                WHERE te.user_id = %s
-                ORDER BY te.start_time ASC
-                """,
-                (user['id'],)
-            )
-            entries = cursor.fetchall()
-
-        return jsonify({'username': username, 'entries': entries}), 200
+        return jsonify({'categories': categories}), 200
 
     except Error as e:
         print(f"Database error: {e}")
-        return jsonify({'error': 'Failed to fetch entries'}), 500
+        return jsonify({'error': 'Failed to fetch categories'}), 500
 
 
 @app.route('/register', methods=['POST'])
@@ -413,10 +393,16 @@ def create_time_entry():
     end_time_str = data['end_time']
 
     try:
-        start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
-        end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M:%S")
+        start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
+        end_time = datetime.fromisoformat(end_time_str.replace("Z", "+00:00"))
+
+        if start_time.tzinfo is None or end_time.tzinfo is None:
+            return jsonify({'error': 'Timezone information required (ISO 8601 with offset)'}), 400
+
+        start_time = start_time.astimezone(timezone.utc)
+        end_time = end_time.astimezone(timezone.utc)
     except ValueError:
-        return jsonify({'error': 'Datetime format must be YYYY-MM-DD HH:MM:SS'}), 400
+        return jsonify({'error': 'Datetime must be ISO 8601 format with timezone'}), 400
 
     if end_time <= start_time:
         return jsonify({'error': 'end_time must be after start_time'}), 400
