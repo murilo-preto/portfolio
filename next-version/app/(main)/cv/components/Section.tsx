@@ -18,12 +18,12 @@ export default function Section({ title, children }: SectionProps) {
     >
       <h2
         className="
-          text-xl font-semibold
-          m-2 p-2 rounded-md
-          bg-gray-100
-          dark:bg-gray-800
-          text-gray-900
-          dark:text-gray-100
+          text-l font-semibold
+          m-1 p-1 rounded-md
+          bg-neutral-100
+          dark:bg-neutral-900
+          text-neutral-900
+          dark:text-neutral-100
         "
       >
         {title}
@@ -33,9 +33,9 @@ export default function Section({ title, children }: SectionProps) {
         className="
           m-4 pb-4 rounded-md
           bg-white
-          dark:bg-gray-900
-          text-gray-900
-          dark:text-gray-100
+          dark:bg-neutral-950
+          text-neutral-900
+          dark:text-neutral-100
         "
       >
         {children}
