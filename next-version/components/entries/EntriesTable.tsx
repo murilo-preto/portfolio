@@ -16,7 +16,6 @@ export function EntriesTable({ entries, showAll }: EntriesTableProps) {
         </span>
       </div>
 
-      {/* Mobile: card list */}
       <div className="md:hidden space-y-3">
         {entries.map((entry) => (
           <div
@@ -47,7 +46,6 @@ export function EntriesTable({ entries, showAll }: EntriesTableProps) {
         ))}
       </div>
 
-      {/* Desktop: table */}
       <div className="hidden md:block overflow-x-auto justify-center">
         <table className="w-full text-center">
           <thead>

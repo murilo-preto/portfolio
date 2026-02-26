@@ -1,3 +1,4 @@
+import { useMemo, memo } from "react";
 import { Entry } from "@/components/entries/types";
 import { stripTime, formatDuration } from "@/components/entries/utils";
 import { getDarkEventColor } from "@/components/entries/colors";
@@ -5,7 +6,6 @@ import { getDarkEventColor } from "@/components/entries/colors";
 type Segment = {
   segStart: Date;
   segEnd: Date;
-  /** Duration of this day-segment in seconds */
   segDurationSeconds: number;
   topPct: number;
   heightPct: number;
@@ -14,12 +14,10 @@ type Segment = {
 type PackedEvent = {
   ev: Entry;
   seg: Segment;
-  /** null = no overlap, 0 or 1 = column index */
   col: 0 | 1 | null;
   overlaps: boolean;
 };
 
-/** Clips an entry to the visible portion of a given day (00:00–23:59:59). */
 function getSegment(entry: Entry, dayStart: Date): Segment | null {
   const start = new Date(entry.start_time);
   const end = new Date(entry.end_time);
@@ -44,11 +42,6 @@ function getSegment(entry: Entry, dayStart: Date): Segment | null {
   };
 }
 
-/**
- * Assigns column indices (0 or 1) to overlapping events using a greedy
- * two-column packing algorithm. Non-overlapping events get col = null
- * and are rendered full-width.
- */
 function assignColumns(dayEntries: Entry[], dayStart: Date): PackedEvent[] {
   const segs = dayEntries
     .map((ev) => ({ ev, seg: getSegment(ev, dayStart) }))
@@ -83,7 +76,6 @@ function assignColumns(dayEntries: Entry[], dayStart: Date): PackedEvent[] {
       continue;
     }
 
-    // Free a column if the previous event in it has ended
     if (colEnd[0] && colEnd[0] <= seg.segStart) colEnd[0] = null;
     if (colEnd[1] && colEnd[1] <= seg.segStart) colEnd[1] = null;
 
@@ -103,27 +95,48 @@ type WeeklyCalendarProps = {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
-export function WeeklyCalendar({
+export const WeeklyCalendar = memo(function WeeklyCalendar({
   weekStart,
   entries,
   isDark = false,
 }: WeeklyCalendarProps) {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
+  const days = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart);
+        d.setDate(weekStart.getDate() + i);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }),
+    [weekStart],
+  );
 
-  // Group entries by day index within the week
-  const entriesByDay: Entry[][] = days.map(() => []);
-  entries.forEach((entry) => {
-    const d = stripTime(new Date(entry.start_time));
-    const idx = Math.round(
-      (d.getTime() - stripTime(weekStart).getTime()) / (1000 * 60 * 60 * 24),
-    );
-    if (idx >= 0 && idx < 7) entriesByDay[idx].push(entry);
-  });
+  const entriesByDay = useMemo(() => {
+    const byDay: Entry[][] = days.map(() => []);
+    const weekStartTime = stripTime(weekStart).getTime();
+    entries.forEach((entry) => {
+      const d = stripTime(new Date(entry.start_time)).getTime();
+      const idx = Math.round((d - weekStartTime) / (1000 * 60 * 60 * 24));
+      if (idx >= 0 && idx < 7) byDay[idx].push(entry);
+    });
+    return byDay;
+  }, [entries, days, weekStart]);
+
+  const packedByDay = useMemo(
+    () =>
+      days.map((dayStart, idx) => assignColumns(entriesByDay[idx], dayStart)),
+    [days, entriesByDay],
+  );
+
+  const eventColors = useMemo(() => {
+    const colors: Record<number, string> = {};
+    entries.forEach((ev) => {
+      if (!colors[ev.id]) {
+        colors[ev.id] = getDarkEventColor(ev.category);
+      }
+    });
+    return colors;
+  }, [entries]);
 
   return (
     <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
@@ -136,7 +149,6 @@ export function WeeklyCalendar({
 
       <div className="w-full overflow-x-auto text-center">
         <div className="min-w-225">
-          {/* Day headers */}
           <div
             className="grid"
             style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}
@@ -153,12 +165,10 @@ export function WeeklyCalendar({
             ))}
           </div>
 
-          {/* Time grid */}
           <div
             className="grid"
             style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}
           >
-            {/* Hour labels */}
             <div className="relative">
               {HOURS.map((h) => (
                 <div
@@ -173,9 +183,8 @@ export function WeeklyCalendar({
               <div className="border-t border-neutral-300 dark:border-neutral-800" />
             </div>
 
-            {/* Day columns */}
             {days.map((dayStart, dayIdx) => {
-              const packed = assignColumns(entriesByDay[dayIdx], dayStart);
+              const packed = packedByDay[dayIdx];
 
               return (
                 <div key={dayIdx} className="relative">
@@ -202,9 +211,7 @@ export function WeeklyCalendar({
                             }
                           : { width: "80%", left: "10%", right: "10%" };
 
-                        const darkColorClass = isDark
-                          ? getDarkEventColor(ev.category)
-                          : "";
+                        const darkColorClass = isDark ? eventColors[ev.id] : "";
 
                         return (
                           <div
@@ -249,4 +256,4 @@ export function WeeklyCalendar({
       </div>
     </div>
   );
-}
+});

@@ -5,9 +5,6 @@ CREATE DATABASE IF NOT EXISTS time_tracker
 
 USE time_tracker;
 
--- ======================
--- USERS
--- ======================
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   username VARCHAR(100) NOT NULL,
@@ -17,9 +14,6 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY uk_users_username (username)
 ) ENGINE=InnoDB;
 
--- ======================
--- CATEGORY
--- ======================
 CREATE TABLE IF NOT EXISTS category (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(100) NOT NULL,
@@ -28,9 +22,12 @@ CREATE TABLE IF NOT EXISTS category (
   UNIQUE KEY uk_category_name (name)
 ) ENGINE=InnoDB;
 
--- ======================
--- TIME ENTRIES
--- ======================
+INSERT INTO category (name) VALUES
+  ('Reading'),
+  ('Work'),
+  ('Study'),
+  ('Exercise');
+
 CREATE TABLE IF NOT EXISTS time_entries (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
 

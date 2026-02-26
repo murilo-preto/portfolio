@@ -1,26 +1,54 @@
 # Portfolio
 
-Portfolio website presented in full production system with:
+A personal portfolio website built with Next.js, Flask, and MySQL, containerized with Docker.
+Also features Namu, the time management app.
 
-- Containerized services (Flask)
-- NGINX reverse proxy
-- DNS
-- HTTPS/SSL certificate
-- Local deployment with port forwarding
-- Debian server
-- Flask for APIs
-- NextJS + React + Tailwind for static HTML
-- MySQL for data storage
+## Tech Stack
 
-## Deployment
+- **Frontend**: Next.js 16, React 19, Tailwind CSS, Framer Motion
+- **Backend**: Flask (Python)
+- **Database**: MySQL 8.0
+- **Deployment**: Docker Compose
 
-### To run
+## Project Structure
+
+```
+portfolio/
+├── docker-compose.yml    # Orchestrates all services
+├── .env                  # Environment variables
+├── next-version/         # Next.js frontend
+│   ├── app/              # App router pages
+│   ├── components/      # React components
+│   └── public/           # Static assets
+├── flask-server/         # Flask API server
+├── mysql/
+│   └── schema.sql        # Database schema
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Docker
+- Docker Compose
+
+### Configuration
+
+Copy `.env.example.txt` to `.env` and configure:
+
+```bash
+cp env.example.txt .env
+```
+
+Edit `.env` with your database credentials.
+
+### Running
 
 ```bash
 docker compose up --build
 ```
 
-### To stop and cleanup
+### Stopping
 
 ```bash
 docker compose down -v
