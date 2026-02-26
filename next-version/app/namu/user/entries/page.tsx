@@ -154,7 +154,7 @@ export default function Entries() {
         <ResponsiveContainer width="100%" height={220}>
           <BarChart
             data={categoryBreakdown}
-            margin={{ top: 4, right: 4, left: -16, bottom: 4 }}
+            margin={{ top: 4, right: 4, left: -36, bottom: 4 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
