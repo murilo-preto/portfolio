@@ -36,12 +36,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-black">
+    <main className="flex min-h-2 items-top p-8 justify-center bg-neutral-50 dark:bg-neutral-950">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-6 rounded-2xl bg-white p-8 shadow-lg dark:bg-gray-800"
+        className="w-full max-w-sm space-y-6 rounded-2xl bg-white p-8 shadow-lg dark:bg-neutral-800"
       >
-        <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-gray-100">
+        <h1 className="text-3xl font-bold text-center text-neutral-900 dark:text-neutral-100">
           Register
         </h1>
 
@@ -54,7 +54,7 @@ export default function RegisterPage() {
 
         {/* Username */}
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
             User
           </label>
           <input
@@ -62,13 +62,13 @@ export default function RegisterPage() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className="w-full rounded-lg border border-neutral-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-700 dark:text-white"
           />
         </div>
 
         {/* Password */}
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
             Password
           </label>
           <input
@@ -76,7 +76,7 @@ export default function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className="w-full rounded-lg border border-neutral-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-700 dark:text-white"
           />
         </div>
 
@@ -89,7 +89,7 @@ export default function RegisterPage() {
           {loading ? "Registering..." : "Register"}
         </button>
 
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-center text-sm text-neutral-500 dark:text-neutral-400">
           Already have an account?{" "}
           <a
             href="/login"

@@ -1,8 +1,10 @@
-import type { Metadata } from "next";
+"use client";
+
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
+import { useState } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,69 +16,118 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Namu",
-  description: "Namu app",
-};
+function NavLink({
+  href,
+  children,
+  onClick,
+}: {
+  href: string;
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
+      <Link href={href} onClick={onClick}>
+        {children}
+      </Link>
+    </div>
+  );
+}
 
 function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const close = () => setMenuOpen(false);
+
   return (
-    <header
-      className="
-        m-1 p-1 rounded-md
-        bg-gray-100
-        dark:bg-neutral-900
-      "
-    >
-      <nav
-        className="
-          grid grid-cols-3 items-center
-          p-1
-        "
-      >
+    <header className="m-1 p-1 rounded-md bg-gray-100 dark:bg-neutral-900">
+      {/* ── Desktop nav (md+) ── */}
+      <nav className="hidden md:grid grid-cols-3 items-center p-1">
         {/* Left */}
         <div className="justify-self-start">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
-            <Link href="/namu">Home</Link>
-          </div>
+          <NavLink href="/namu">Home</NavLink>
         </div>
 
-        {/* Center - subpáginas do Namu */}
+        {/* Center */}
         <div className="justify-self-center flex gap-2">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
-            <Link href="/namu/user/entries">Entries</Link>
-          </div>
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
-            <Link href="/namu/user/timer">Timer</Link>
-          </div>
+          <NavLink href="/namu/user/entries">Entries</NavLink>
+          <NavLink href="/namu/user/timer">Timer</NavLink>
         </div>
 
         {/* Right */}
         <div className="justify-self-end flex gap-2">
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
-            <Link href="/login">Login</Link>
-          </div>
-          <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
-            <Link href="/register">Register</Link>
-          </div>
+          <NavLink href="/login">Login</NavLink>
+          <NavLink href="/register">Register</NavLink>
           <LogoutButton />
         </div>
       </nav>
-    </header>
-  );
-}
 
-function Footer() {
-  return (
-    <footer
-      className="
-        m-1 p-1 rounded-md
-        bg-gray-100
-        dark:bg-neutral-900
-      "
-    >
-      Footer
-    </footer>
+      {/* ── Mobile nav (< md) ── */}
+      <div className="md:hidden flex items-center justify-between p-1">
+        {/* Logo / Home */}
+        <NavLink href="/namu">Namu</NavLink>
+
+        {/* Quick links always visible on mobile */}
+        <div className="flex gap-2">
+          <NavLink href="/namu/user/entries">Entries</NavLink>
+          <NavLink href="/namu/user/timer">Timer</NavLink>
+        </div>
+
+        {/* Hamburger button */}
+        <button
+          onClick={() => setMenuOpen((prev) => !prev)}
+          className="bg-gray-50 dark:bg-neutral-950 p-2 rounded-md focus:outline-none"
+          aria-label="Toggle menu"
+        >
+          {menuOpen ? (
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* ── Mobile dropdown (account links) ── */}
+      {menuOpen && (
+        <div className="md:hidden flex flex-col gap-2 p-2 mt-1 border-t border-gray-200 dark:border-neutral-700">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-1">
+            Account
+          </p>
+          <NavLink href="/login" onClick={close}>
+            Login
+          </NavLink>
+          <NavLink href="/register" onClick={close}>
+            Register
+          </NavLink>
+          <div onClick={close}>
+            <LogoutButton />
+          </div>
+        </div>
+      )}
+    </header>
   );
 }
 

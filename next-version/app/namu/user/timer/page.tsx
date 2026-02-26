@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type Category = {
   id: number;
@@ -14,20 +14,10 @@ type TimerState = "idle" | "running" | "stopped";
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function toLocalDatetimeValue(date: Date): string {
-  // Returns "YYYY-MM-DDTHH:MM" for <input type="datetime-local">
   const pad = (n: number) => String(n).padStart(2, "0");
   return (
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
     `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
-}
-
-function toFlaskFormat(date: Date): string {
-  // Returns "YYYY-MM-DD HH:MM:SS"
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
   );
 }
 
@@ -52,7 +42,7 @@ export default function TimerPage() {
   const [timerState, setTimerState] = useState<TimerState>("idle");
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
-  const [elapsed, setElapsed] = useState(0); // seconds
+  const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Manual datetime edit fields
@@ -65,7 +55,7 @@ export default function TimerPage() {
   >("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
 
-  // ── Load categories ─────────────────────────────────────────────────────────
+  // ── Load categories ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     async function fetchCategories() {
@@ -136,9 +126,7 @@ export default function TimerPage() {
   function handleEndInputChange(value: string) {
     setEndInput(value);
     const parsed = new Date(value);
-    if (!isNaN(parsed.getTime())) {
-      setEndTime(parsed);
-    }
+    if (!isNaN(parsed.getTime())) setEndTime(parsed);
   }
 
   // ── Validation ───────────────────────────────────────────────────────────────
@@ -161,24 +149,14 @@ export default function TimerPage() {
 
   async function handleSubmit() {
     if (!isValid || !startTime || !endTime || !selectedCategory) return;
-
-    // We need the username — read from the token endpoint
     setSubmitStatus("loading");
     setSubmitMessage(null);
 
     try {
-      // Get current user from protected endpoint
       const tokenRes = await fetch("/api/token", { credentials: "include" });
       if (!tokenRes.ok) throw new Error("Not authenticated. Please log in.");
       const tokenData = await tokenRes.json();
       const username: string = tokenData.user;
-
-      // const body = {
-      //   username,
-      //   category: selectedCategory.name,
-      //   start_time: toFlaskFormat(startTime),
-      //   end_time: toFlaskFormat(endTime),
-      // };
 
       const body = {
         username,
@@ -195,10 +173,7 @@ export default function TimerPage() {
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error ?? "Failed to create entry");
-      }
+      if (!res.ok) throw new Error(data.error ?? "Failed to create entry");
 
       setSubmitStatus("success");
       setSubmitMessage("Entry submitted successfully!");
@@ -223,17 +198,22 @@ export default function TimerPage() {
   const isStopped = timerState === "stopped";
 
   return (
-    <main className="flex-1 p-6 max-w-xl mx-auto space-y-8 text-gray-900 dark:text-gray-100">
+    /*
+     * max-w-xl keeps it centred on desktop.
+     * p-4 on mobile, p-6 on larger screens.
+     * space-y-6 tightens the gaps a bit for smaller screens.
+     */
+    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
       {/* ── Title ── */}
       <div>
-        <h1 className="text-3xl font-bold">Timer</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Timer</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Select a category, start the timer, then submit your entry.
         </p>
       </div>
 
       {/* ── Category Selector ── */}
-      <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow space-y-2">
+      <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow space-y-2">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           Category
         </label>
@@ -241,7 +221,6 @@ export default function TimerPage() {
         {catLoading && (
           <p className="text-sm text-gray-400">Loading categories…</p>
         )}
-
         {catError && <p className="text-sm text-red-500">{catError}</p>}
 
         {!catLoading && !catError && (
@@ -250,8 +229,9 @@ export default function TimerPage() {
             onChange={(e) =>
               setCategoryId(e.target.value ? Number(e.target.value) : null)
             }
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2
-                       text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500
+            /* Bigger tap target on mobile via py-3 */
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3
+                       text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-green-500
                        dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
           >
             <option value="">— select a category —</option>
@@ -265,10 +245,10 @@ export default function TimerPage() {
       </div>
 
       {/* ── Timer Display ── */}
-      <div className="bg-bone dark:bg-neutral-900 p-8 rounded-xl shadow flex flex-col items-center gap-6">
-        {/* Clock */}
+      <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow flex flex-col items-center gap-5">
+        {/* Clock — smaller font on tiny screens */}
         <div
-          className={`font-mono text-6xl font-bold tracking-widest transition-colors ${
+          className={`font-mono text-5xl sm:text-6xl font-bold tracking-widest transition-colors ${
             isRunning
               ? "text-green-500"
               : isStopped
@@ -285,21 +265,21 @@ export default function TimerPage() {
           )}
         </div>
 
-        {/* Start / Stop button */}
-        <div className="flex gap-4">
+        {/* Start / Stop — full-width on mobile for easy tapping */}
+        <div className="w-full flex gap-3">
           {!isRunning ? (
             <button
               onClick={handleStart}
-              className="px-8 py-3 rounded-xl bg-green-500 hover:bg-green-600
-                         text-white font-semibold text-lg transition"
+              className="flex-1 py-4 rounded-xl bg-green-500 hover:bg-green-600
+                         text-white font-semibold text-lg transition active:scale-95"
             >
               {isStopped ? "Restart" : "Start"}
             </button>
           ) : (
             <button
               onClick={handleStop}
-              className="px-8 py-3 rounded-xl bg-red-500 hover:bg-red-600
-                         text-white font-semibold text-lg transition"
+              className="flex-1 py-4 rounded-xl bg-red-500 hover:bg-red-600
+                         text-white font-semibold text-lg transition active:scale-95"
             >
               Stop
             </button>
@@ -313,7 +293,7 @@ export default function TimerPage() {
       </div>
 
       {/* ── Time Editors ── */}
-      <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow space-y-4">
+      <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow space-y-4">
         <h2 className="font-semibold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Adjust times
         </h2>
@@ -326,8 +306,9 @@ export default function TimerPage() {
             type="datetime-local"
             value={startInput}
             onChange={(e) => handleStartInputChange(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2
-                       text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500
+            /* text-base prevents iOS from zooming in on focus */
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3
+                       text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-green-500
                        dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
           />
         </div>
@@ -340,13 +321,12 @@ export default function TimerPage() {
             type="datetime-local"
             value={endInput}
             onChange={(e) => handleEndInputChange(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2
-                       text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3
+                       text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-green-500
                        dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
           />
         </div>
 
-        {/* Duration preview */}
         {durationSeconds !== null && (
           <p
             className={`text-sm font-medium ${
@@ -360,11 +340,11 @@ export default function TimerPage() {
       </div>
 
       {/* ── Submit ── */}
-      <div className="space-y-3">
+      <div className="space-y-3 pb-8">
         <button
           onClick={handleSubmit}
           disabled={!isValid || submitStatus === "loading"}
-          className="w-full py-3 rounded-xl font-semibold text-white text-lg transition
+          className="w-full py-4 rounded-xl font-semibold text-white text-lg transition active:scale-95
                      bg-blue-600 hover:bg-blue-700
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
