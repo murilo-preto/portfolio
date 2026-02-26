@@ -44,13 +44,14 @@ function Header() {
       <nav className="hidden md:grid grid-cols-3 items-center p-1">
         {/* Left */}
         <div className="justify-self-start">
-          <NavLink href="/namu">Home</NavLink>
+          <NavLink href="/">Home</NavLink>
         </div>
 
         {/* Center */}
         <div className="justify-self-center flex gap-2">
           <NavLink href="/namu/user/entries">Entries</NavLink>
           <NavLink href="/namu/user/timer">Timer</NavLink>
+          <NavLink href="/namu/user/manage">Manage</NavLink>
         </div>
 
         {/* Right */}
@@ -64,12 +65,13 @@ function Header() {
       {/* ── Mobile nav (< md) ── */}
       <div className="md:hidden flex items-center justify-between p-1">
         {/* Logo / Home */}
-        <NavLink href="/namu">Namu</NavLink>
+        <NavLink href="/">Home</NavLink>
 
         {/* Quick links always visible on mobile */}
         <div className="flex gap-2">
           <NavLink href="/namu/user/entries">Entries</NavLink>
           <NavLink href="/namu/user/timer">Timer</NavLink>
+          <NavLink href="/namu/user/manage">Manage</NavLink>
         </div>
 
         {/* Hamburger button */}

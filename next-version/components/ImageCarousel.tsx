@@ -1,5 +1,4 @@
 "use client";
-
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import Image from "next/image";
@@ -30,14 +29,11 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
 
   useEffect(() => {
     if (!emblaApi) return;
-
     const onSelect = () => {
       setSelectedIndex(emblaApi.selectedScrollSnap());
     };
-
     onSelect();
     emblaApi.on("select", onSelect);
-
     return () => {
       emblaApi.off("select", onSelect);
     };
@@ -48,9 +44,11 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
       <div className="flex">
         {images.map((src, index) => {
           const isActive = index === selectedIndex;
-
           return (
-            <div key={src} className="flex-[0_0_33.333%] px-1">
+            <div
+              key={src}
+              className="flex-[0_0_100%] md:flex-[0_0_33.333%] px-1"
+            >
               <div
                 className={`
                   relative h-[260px] rounded-2xl overflow-hidden
@@ -58,7 +56,7 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
                   ${
                     isActive
                       ? "scale-105 opacity-100 shadow-xl"
-                      : "scale-90 opacity-60"
+                      : "md:scale-90 md:opacity-60 scale-100 opacity-100"
                   }
                 `}
               >

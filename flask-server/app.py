@@ -451,6 +451,92 @@ def create_time_entry():
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to create time entry'}), 500
 
+@app.route('/entry/<int:entry_id>', methods=['PUT'])
+@jwt_required()
+def update_time_entry(entry_id):
+    """
+    Update an existing time entry.
+
+    Expected JSON:
+    {
+        "category": "string",
+        "start_time": "YYYY-MM-DD HH:MM:SS",
+        "end_time": "YYYY-MM-DD HH:MM:SS"
+    }
+
+    Returns:
+        200: Entry updated
+        400: Validation error
+        403: Not owner of entry
+        404: Entry or category not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    category_name = data.get('category', '').strip()
+    start_time_str = data.get('start_time')
+    end_time_str = data.get('end_time')
+
+    if not category_name or not start_time_str or not end_time_str:
+        return jsonify({'error': 'category, start_time and end_time are required'}), 400
+
+    try:
+        start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
+        end_time = datetime.fromisoformat(end_time_str.replace("Z", "+00:00"))
+
+        if start_time.tzinfo is None or end_time.tzinfo is None:
+            return jsonify({'error': 'Timezone information required (ISO 8601 with offset)'}), 400
+
+        start_time = start_time.astimezone(timezone.utc)
+        end_time = end_time.astimezone(timezone.utc)
+    except ValueError:
+        return jsonify({'error': 'Datetime must be ISO 8601 format with timezone'}), 400
+
+    if end_time <= start_time:
+        return jsonify({'error': 'end_time must be after start_time'}), 400
+
+    try:
+        with get_cursor() as cursor:
+            # Verify entry belongs to this user
+            cursor.execute(
+                """
+                SELECT te.id FROM time_entries te
+                JOIN users u ON te.user_id = u.id
+                WHERE te.id = %s AND u.username = %s
+                """,
+                (entry_id, current_user)
+            )
+            entry = cursor.fetchone()
+
+            if not entry:
+                return jsonify({'error': 'Entry not found or access denied'}), 404
+
+            # Resolve category
+            cursor.execute("SELECT id FROM category WHERE name = %s", (category_name,))
+            category = cursor.fetchone()
+
+            if not category:
+                return jsonify({'error': 'Category not found'}), 404
+
+            cursor.execute(
+                """
+                UPDATE time_entries
+                SET category_id = %s, start_time = %s, end_time = %s
+                WHERE id = %s
+                """,
+                (category['id'], start_time, end_time, entry_id)
+            )
+
+        return jsonify({'message': 'Entry updated successfully', 'id': entry_id}), 200
+
+    except Error as e:
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to update entry'}), 500
+
 
 @jwt.unauthorized_loader
 def unauthorized_callback(callback):
