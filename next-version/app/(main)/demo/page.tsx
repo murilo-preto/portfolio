@@ -68,7 +68,7 @@ export default function EntriesDemo() {
 
       <CategoryChart entries={visibleEntries} isDark={isDark} showAll={showAll} />
 
-      {!showAll && <WeeklyCalendar weekStart={weekStart} entries={filteredEntries} />}
+      {!showAll && <WeeklyCalendar weekStart={weekStart} entries={filteredEntries} isDark={isDark} />}
 
       <EntriesTable entries={visibleEntries} showAll={showAll} />
     </main>

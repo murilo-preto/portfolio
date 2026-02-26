@@ -10,9 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Entry } from "../types";
-
-const LIGHT_PALETTE = ["#a3b18a", "#9EA479", "#899063", "#354024", "#3A3D29"];
-const DARK_PALETTE = ["#007ea7"];
+import { LIGHT_PALETTE, DARK_PALETTE } from "../colors";
 
 type CategoryChartProps = {
   entries: Entry[];

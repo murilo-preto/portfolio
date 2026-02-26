@@ -1,5 +1,6 @@
 import { Entry } from "../types";
 import { stripTime, formatDuration } from "../utils";
+import { getDarkEventColor } from "../colors";
 
 type Segment = {
   segStart: Date;
@@ -97,11 +98,12 @@ function assignColumns(dayEntries: Entry[], dayStart: Date): PackedEvent[] {
 type WeeklyCalendarProps = {
   weekStart: Date;
   entries: Entry[];
+  isDark?: boolean;
 };
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
-export function WeeklyCalendar({ weekStart, entries }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ weekStart, entries, isDark = false }: WeeklyCalendarProps) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
@@ -183,10 +185,12 @@ export function WeeklyCalendar({ weekStart, entries }: WeeklyCalendarProps) {
                           ? { width: "38%", left: col === 0 ? "10%" : "52%", right: "10%" }
                           : { width: "80%", left: "10%", right: "10%" };
 
+                        const darkColorClass = isDark ? getDarkEventColor(ev.category) : "";
+
                         return (
                           <div
                             key={ev.id}
-                            className="absolute rounded-md bg-green-600 dark:bg-cyan-600 border border-green-800/40 dark:border-cyan-300/60 shadow-sm text-white text-xs p-1"
+                            className={`absolute rounded-md shadow-sm text-white text-xs p-1 ${isDark ? darkColorClass : "bg-green-600 border-green-800/40"}`}
                             style={{
                               top: `${seg.topPct}%`,
                               height: `${seg.heightPct}%`,
