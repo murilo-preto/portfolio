@@ -57,6 +57,16 @@ export default function ManagePage() {
   >("idle");
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
 
+  // Entry creation
+  const [showEntryForm, setShowEntryForm] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [newStart, setNewStart] = useState("");
+  const [newEnd, setNewEnd] = useState("");
+  const [createStatus, setCreateStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [createMsg, setCreateMsg] = useState<string | null>(null);
+
   // Category creation
   const [showCatForm, setShowCatForm] = useState(false);
   const [newCatName, setNewCatName] = useState("");
@@ -182,6 +192,59 @@ export default function ManagePage() {
     }
   }
 
+  async function handleCreate() {
+    if (!newCategory || !newStart || !newEnd) return;
+    setCreateStatus("loading");
+    setCreateMsg(null);
+
+    const startDate = new Date(newStart);
+    const endDate = new Date(newEnd);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      setCreateStatus("error");
+      setCreateMsg("Invalid date values.");
+      return;
+    }
+
+    if (endDate <= startDate) {
+      setCreateStatus("error");
+      setCreateMsg("End time must be after start time.");
+      return;
+    }
+
+    try {
+      const tokenRes = await fetch("/api/token", { credentials: "include" });
+      if (!tokenRes.ok) throw new Error("Not authenticated. Please log in.");
+      const tokenData = await tokenRes.json();
+      const username: string = tokenData.user;
+
+      const res = await fetch("/api/entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          username,
+          category: newCategory,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create entry");
+
+      setCreateStatus("success");
+      setCreateMsg("Entry created!");
+      setNewCategory("");
+      setNewStart("");
+      setNewEnd("");
+      await fetchAll();
+    } catch (err: any) {
+      setCreateStatus("error");
+      setCreateMsg(err.message);
+    }
+  }
+
   const selectedEntry = entries.find((e) => e.id === selectedId);
 
   const durationSeconds =
@@ -198,20 +261,38 @@ export default function ManagePage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Manage Entries</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Select an entry to edit its details.
+            {showEntryForm
+              ? "Fill in the details to create a new entry."
+              : "Select an entry to edit its details."}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setShowCatForm((v) => !v);
-            setCatStatus("idle");
-            setCatMsg(null);
-            setNewCatName("");
-          }}
-          className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
-        >
-          {showCatForm ? "✕ Close" : "+ New Category"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setShowEntryForm((v) => !v);
+              setCreateStatus("idle");
+              setCreateMsg(null);
+              setNewCategory("");
+              setNewStart("");
+              setNewEnd("");
+              setSelectedId(null);
+            }}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            {showEntryForm ? "✕ Close" : "+ New Entry"}
+          </button>
+          <button
+            onClick={() => {
+              setShowCatForm((v) => !v);
+              setCatStatus("idle");
+              setCatMsg(null);
+              setNewCatName("");
+            }}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            {showCatForm ? "✕ Close" : "+ New Category"}
+          </button>
+        </div>
       </div>
 
       {/* New Category Panel */}
@@ -328,7 +409,121 @@ export default function ManagePage() {
 
         {/* Edit Panel */}
         <div>
-          {!selectedEntry ? (
+          {showEntryForm ? (
+            <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-base">Create New Entry</h2>
+                <button
+                  onClick={() => {
+                    setShowEntryForm(false);
+                    setCreateStatus("idle");
+                    setCreateMsg(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Category */}
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Category
+                </label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                >
+                  <option value="">— Select category —</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start time */}
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Start Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newStart}
+                  onChange={(e) => setNewStart(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                />
+              </div>
+
+              {/* End time */}
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  End Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newEnd}
+                  onChange={(e) => setNewEnd(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                />
+              </div>
+
+              {/* Duration preview */}
+              {(() => {
+                const dur =
+                  newStart && newEnd
+                    ? Math.floor(
+                        (new Date(newEnd).getTime() -
+                          new Date(newStart).getTime()) /
+                          1000,
+                      )
+                    : null;
+                if (dur !== null && dur > 0) {
+                  return (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Duration: {formatDuration(dur)}
+                    </p>
+                  );
+                }
+                if (dur !== null && dur <= 0) {
+                  return (
+                    <p className="text-xs text-red-500">
+                      End time must be after start time.
+                    </p>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Submit */}
+              <button
+                onClick={handleCreate}
+                disabled={
+                  createStatus === "loading" ||
+                  !newCategory ||
+                  !newStart ||
+                  !newEnd
+                }
+                className="w-full py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
+              >
+                {createStatus === "loading" ? "Creating…" : "Create Entry"}
+              </button>
+
+              {createMsg && (
+                <p
+                  className={`text-sm text-center ${
+                    createStatus === "success"
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-500"
+                  }`}
+                >
+                  {createMsg}
+                </p>
+              )}
+            </div>
+          ) : !selectedEntry ? (
             <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700 text-sm text-gray-400 dark:text-gray-500">
               Select an entry to edit
             </div>
