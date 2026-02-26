@@ -1,4 +1,4 @@
-import { ApiResponse } from "./types";
+import { ApiResponse } from "@/components/entries/types";
 
 export const DEMO_DATA: ApiResponse = {
   username: "bob",

@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Card } from "../../../components/entries/Card";
+import { WeekNavigator } from "../../../components/entries/WeekNavigator";
+import { CategoryChart } from "../../../components/entries/CategoryChart";
+import { WeeklyCalendar } from "../../../components/entries/WeeklyCalendar";
+import { EntriesTable } from "../../../components/entries/EntriesTable";
+import { getMondayOf, addDays } from "../../../components/entries/utils";
 import { DEMO_DATA } from "./constants";
-import { addDays, getMondayOf } from "./utils";
-import { Card } from "./components/Card";
-import { WeekNavigator } from "./components/WeekNavigator";
-import { CategoryChart } from "./components/CategoryChart";
-import { WeeklyCalendar } from "./components/WeeklyCalendar";
-import { EntriesTable } from "./components/EntriesTable";
 
 export default function EntriesDemo() {
   const data = DEMO_DATA;
 
   const [isDark, setIsDark] = useState(false);
-  const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date("2026-02-16")));
+  const [weekStart, setWeekStart] = useState(() =>
+    getMondayOf(new Date("2026-02-16")),
+  );
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
@@ -47,7 +49,9 @@ export default function EntriesDemo() {
   return (
     <main className="flex-1 p-4 md:p-6 space-y-8 md:space-y-12 max-w-6xl mx-auto">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold">{data.username}'s Dashboard</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">
+          {data.username}'s Dashboard
+        </h1>
         <p className="text-sm text-gray-500">Static Demo Version</p>
       </div>
 
@@ -66,9 +70,19 @@ export default function EntriesDemo() {
         <Card title="Longest Session" value={`${longestSessionHours}h`} />
       </div>
 
-      <CategoryChart entries={visibleEntries} isDark={isDark} showAll={showAll} />
+      <CategoryChart
+        entries={visibleEntries}
+        isDark={isDark}
+        showAll={showAll}
+      />
 
-      {!showAll && <WeeklyCalendar weekStart={weekStart} entries={filteredEntries} isDark={isDark} />}
+      {!showAll && (
+        <WeeklyCalendar
+          weekStart={weekStart}
+          entries={filteredEntries}
+          isDark={isDark}
+        />
+      )}
 
       <EntriesTable entries={visibleEntries} showAll={showAll} />
     </main>

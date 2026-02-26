@@ -1,6 +1,6 @@
-import { Entry } from "../types";
-import { stripTime, formatDuration } from "../utils";
-import { getDarkEventColor } from "../colors";
+import { Entry } from "@/components/entries/types";
+import { stripTime, formatDuration } from "@/components/entries/utils";
+import { getDarkEventColor } from "@/components/entries/colors";
 
 type Segment = {
   segStart: Date;
@@ -103,7 +103,11 @@ type WeeklyCalendarProps = {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
-export function WeeklyCalendar({ weekStart, entries, isDark = false }: WeeklyCalendarProps) {
+export function WeeklyCalendar({
+  weekStart,
+  entries,
+  isDark = false,
+}: WeeklyCalendarProps) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
@@ -133,7 +137,10 @@ export function WeeklyCalendar({ weekStart, entries, isDark = false }: WeeklyCal
       <div className="w-full overflow-x-auto text-center">
         <div className="min-w-225">
           {/* Day headers */}
-          <div className="grid" style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}>
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}
+          >
             <div />
             {days.map((d, i) => (
               <div key={i} className="px-2 pb-2 text-sm font-semibold">
@@ -147,7 +154,10 @@ export function WeeklyCalendar({ weekStart, entries, isDark = false }: WeeklyCal
           </div>
 
           {/* Time grid */}
-          <div className="grid" style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}>
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}
+          >
             {/* Hour labels */}
             <div className="relative">
               {HOURS.map((h) => (
@@ -179,13 +189,22 @@ export function WeeklyCalendar({ weekStart, entries, isDark = false }: WeeklyCal
 
                   <div className="absolute inset-0">
                     {packed
-                      .sort((a, b) => a.seg.segStart.getTime() - b.seg.segStart.getTime())
+                      .sort(
+                        (a, b) =>
+                          a.seg.segStart.getTime() - b.seg.segStart.getTime(),
+                      )
                       .map(({ ev, seg, col, overlaps }) => {
                         const layout = overlaps
-                          ? { width: "38%", left: col === 0 ? "10%" : "52%", right: "10%" }
+                          ? {
+                              width: "38%",
+                              left: col === 0 ? "10%" : "52%",
+                              right: "10%",
+                            }
                           : { width: "80%", left: "10%", right: "10%" };
 
-                        const darkColorClass = isDark ? getDarkEventColor(ev.category) : "";
+                        const darkColorClass = isDark
+                          ? getDarkEventColor(ev.category)
+                          : "";
 
                         return (
                           <div
@@ -199,7 +218,9 @@ export function WeeklyCalendar({ weekStart, entries, isDark = false }: WeeklyCal
                             }}
                             title={`${ev.category} • ${formatDuration(seg.segDurationSeconds)}`}
                           >
-                            <div className="font-semibold truncate mb-1">{ev.category}</div>
+                            <div className="font-semibold truncate mb-1">
+                              {ev.category}
+                            </div>
                             <div className="opacity-90 truncate">
                               {seg.segStart.toLocaleTimeString(undefined, {
                                 hour: "2-digit",

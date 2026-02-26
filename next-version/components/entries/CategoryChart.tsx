@@ -9,8 +9,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { Entry } from "../types";
-import { LIGHT_PALETTE, DARK_PALETTE } from "../colors";
+import { Entry } from "@/components/entries/types";
+import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
 
 type CategoryChartProps = {
   entries: Entry[];
@@ -18,12 +18,17 @@ type CategoryChartProps = {
   showAll: boolean;
 };
 
-export function CategoryChart({ entries, isDark, showAll }: CategoryChartProps) {
+export function CategoryChart({
+  entries,
+  isDark,
+  showAll,
+}: CategoryChartProps) {
   const palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
 
   const grouped: Record<string, number> = {};
   entries.forEach((entry) => {
-    grouped[entry.category] = (grouped[entry.category] || 0) + entry.duration_seconds;
+    grouped[entry.category] =
+      (grouped[entry.category] || 0) + entry.duration_seconds;
   });
 
   const data = Object.entries(grouped).map(([category, seconds], index) => ({

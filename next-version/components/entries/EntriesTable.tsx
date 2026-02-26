@@ -1,5 +1,5 @@
-import { Entry } from "../types";
-import { formatDuration } from "../utils";
+import { Entry } from "@/components/entries/types";
+import { formatDuration } from "@/components/entries/utils";
 
 type EntriesTableProps = {
   entries: Entry[];
@@ -30,8 +30,18 @@ export function EntriesTable({ entries, showAll }: EntriesTableProps) {
               </span>
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
-              <p>Start: {new Date(entry.start_time).toLocaleString(undefined, { hour12: false })}</p>
-              <p>End: {new Date(entry.end_time).toLocaleString(undefined, { hour12: false })}</p>
+              <p>
+                Start:{" "}
+                {new Date(entry.start_time).toLocaleString(undefined, {
+                  hour12: false,
+                })}
+              </p>
+              <p>
+                End:{" "}
+                {new Date(entry.end_time).toLocaleString(undefined, {
+                  hour12: false,
+                })}
+              </p>
             </div>
           </div>
         ))}
@@ -55,8 +65,16 @@ export function EntriesTable({ entries, showAll }: EntriesTableProps) {
                 className="border-b border-[#F3ECE3] dark:border-neutral-800 hover:bg-[#F3ECE3] dark:hover:bg-neutral-700 transition"
               >
                 <td className="py-2">{entry.category}</td>
-                <td>{new Date(entry.start_time).toLocaleString(undefined, { hour12: false })}</td>
-                <td>{new Date(entry.end_time).toLocaleString(undefined, { hour12: false })}</td>
+                <td>
+                  {new Date(entry.start_time).toLocaleString(undefined, {
+                    hour12: false,
+                  })}
+                </td>
+                <td>
+                  {new Date(entry.end_time).toLocaleString(undefined, {
+                    hour12: false,
+                  })}
+                </td>
                 <td>{formatDuration(entry.duration_seconds)}</td>
               </tr>
             ))}

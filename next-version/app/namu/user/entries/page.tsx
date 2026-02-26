@@ -11,6 +11,26 @@ import {
   CartesianGrid,
 } from "recharts";
 
+import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
+import { Card } from "@/components/entries/Card";
+import { WeekNavigator } from "@/components/entries/WeekNavigator";
+import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
+
+function getMondayOf(d: Date) {
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d);
+  monday.setDate(diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function addDays(date: Date, days: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
 type Entry = {
   id: number;
   category: string;
@@ -24,21 +44,13 @@ type ApiResponse = {
   entries: Entry[];
 };
 
-const LIGHT_CHART_PALETTE = [
-  "#a3b18a",
-  "#9EA479",
-  "#899063",
-  "#354024",
-  "#3A3D29",
-];
-
-const DARK_CHART_PALETTE = ["#007ea7"];
-
 export default function Entries() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
+  const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
+  const [showAll, setShowAll] = useState(false);
 
   async function get_entries() {
     try {
@@ -75,26 +87,38 @@ export default function Entries() {
 
   /* ── Derived Metrics ── */
 
+  const weekEnd = addDays(weekStart, 6);
+
+  const filteredEntries = useMemo(() => {
+    if (!data) return [];
+    const weekEndInclusive = addDays(weekEnd, 1);
+    return data.entries.filter((entry) => {
+      const start = new Date(entry.start_time);
+      return start >= weekStart && start <= weekEndInclusive;
+    });
+  }, [data, weekStart, weekEnd]);
+
+  const visibleEntries = showAll ? (data?.entries ?? []) : filteredEntries;
+
   const totalSeconds = useMemo(() => {
-    if (!data) return 0;
-    return data.entries.reduce((acc, e) => acc + e.duration_seconds, 0);
-  }, [data]);
+    return visibleEntries.reduce((acc, e) => acc + e.duration_seconds, 0);
+  }, [visibleEntries]);
 
   const totalHours = (totalSeconds / 3600).toFixed(1);
-  const sessionsCount = data?.entries.length ?? 0;
+  const sessionsCount = visibleEntries.length;
 
   const longestSession = useMemo(() => {
-    if (!data || data.entries.length === 0) return 0;
-    return Math.max(...data.entries.map((e) => e.duration_seconds));
-  }, [data]);
+    if (visibleEntries.length === 0) return 0;
+    return Math.max(...visibleEntries.map((e) => e.duration_seconds));
+  }, [visibleEntries]);
 
   const longestSessionHours = (longestSession / 3600).toFixed(2);
 
   const categoryBreakdown = useMemo(() => {
     if (!data) return [];
-    const graph_palette = isDark ? DARK_CHART_PALETTE : LIGHT_CHART_PALETTE;
+    const graph_palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
     const grouped: Record<string, number> = {};
-    data.entries.forEach((entry) => {
+    visibleEntries.forEach((entry) => {
       grouped[entry.category] =
         (grouped[entry.category] || 0) + entry.duration_seconds;
     });
@@ -103,7 +127,7 @@ export default function Entries() {
       hours: +(seconds / 3600).toFixed(2),
       fill: graph_palette[index % graph_palette.length],
     }));
-  }, [data, isDark]);
+  }, [visibleEntries, isDark]);
 
   function formatDuration(seconds: number) {
     const h = Math.floor(seconds / 3600);
@@ -118,37 +142,38 @@ export default function Entries() {
   return (
     <main className="flex-1 p-4 md:p-6 space-y-8 md:space-y-12 max-w-6xl mx-auto">
       {/* ── Header ── */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">
-            {data.username}'s Dashboard
-          </h1>
-          <p className="text-sm text-gray-500">Weekly Overview</p>
-        </div>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold">
+          {data.username}'s Dashboard
+        </h1>
+        <p className="text-sm text-gray-500">Weekly Overview</p>
       </div>
+
+      <WeekNavigator
+        weekStart={weekStart}
+        weekEnd={weekEnd}
+        showAll={showAll}
+        onPrev={() => setWeekStart(addDays(weekStart, -7))}
+        onNext={() => setWeekStart(addDays(weekStart, 7))}
+        onToggleShowAll={() => setShowAll((s) => !s)}
+      />
 
       {/* ── Row 1: Stats Cards ── */}
       {/* 1 col on mobile, 3 cols on md+ */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-bone dark:bg-neutral-900 p-5 rounded-xl shadow text-black dark:text-white">
-          <p className="text-sm opacity-70">Total Hours</p>
-          <p className="text-3xl font-bold">{totalHours}h</p>
-        </div>
-
-        <div className="bg-bone dark:bg-neutral-900 p-5 rounded-xl shadow text-black dark:text-white">
-          <p className="text-sm opacity-70">Sessions</p>
-          <p className="text-3xl font-bold">{sessionsCount}</p>
-        </div>
-
-        <div className="bg-bone dark:bg-neutral-900 p-5 rounded-xl shadow text-black dark:text-white">
-          <p className="text-sm opacity-70">Longest Session</p>
-          <p className="text-3xl font-bold">{longestSessionHours}h</p>
-        </div>
+        <Card title="Total Hours" value={`${totalHours}h`} />
+        <Card title="Sessions" value={sessionsCount} />
+        <Card title="Longest Session" value={`${longestSessionHours}h`} />
       </div>
 
       {/* ── Row 2: Bar Chart ── */}
       <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
-        <h2 className="text-lg font-semibold mb-4">Hours by Category</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Hours by Category</h2>
+          <span className="text-xs opacity-70">
+            Scope: {showAll ? "All entries" : "Selected week"}
+          </span>
+        </div>
 
         {/* Shorter chart on mobile */}
         <ResponsiveContainer width="100%" height={220}>
@@ -176,9 +201,22 @@ export default function Entries() {
         </ResponsiveContainer>
       </div>
 
+      {!showAll && (
+        <WeeklyCalendar
+          weekStart={weekStart}
+          entries={filteredEntries}
+          isDark={isDark}
+        />
+      )}
+
       {/* ── Row 3: Detailed Table ── */}
       <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
-        <h2 className="text-lg font-semibold mb-4">Detailed Entries</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Detailed Entries</h2>
+          <span className="text-xs opacity-70">
+            Scope: {showAll ? "All entries" : "Selected week"}
+          </span>
+        </div>
 
         {/* 
           On mobile we switch to a card-list layout instead of a wide table.
@@ -187,7 +225,7 @@ export default function Entries() {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {data.entries.map((entry) => (
+          {visibleEntries.map((entry) => (
             <div
               key={entry.id}
               className="border border-[#F3ECE3] dark:border-neutral-800 rounded-lg p-3 space-y-1"
@@ -218,7 +256,7 @@ export default function Entries() {
               </tr>
             </thead>
             <tbody>
-              {data.entries.map((entry) => (
+              {visibleEntries.map((entry) => (
                 <tr
                   key={entry.id}
                   className="border-b border-[#F3ECE3] dark:border-neutral-800 hover:bg-[#F3ECE3] dark:hover:bg-neutral-700 transition"

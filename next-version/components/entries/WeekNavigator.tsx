@@ -1,5 +1,3 @@
-import { addDays } from "../utils";
-
 type WeekNavigatorProps = {
   weekStart: Date;
   weekEnd: Date;
@@ -24,16 +22,24 @@ export function WeekNavigator({
           onClick={onPrev}
           className="px-3 rounded bg-gray-200 dark:bg-neutral-700 disabled:opacity-50"
           disabled={showAll}
-          title={showAll ? "Disable 'Show all' to navigate weeks" : "Previous week"}
+          title={
+            showAll ? "Disable 'Show all' to navigate weeks" : "Previous week"
+          }
         >
           ←
         </button>
 
         <div className="font-semibold text-center">
           Week of{" "}
-          {weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          {weekStart.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })}
           {" – "}
-          {weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          {weekEnd.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          })}
         </div>
 
         <button
