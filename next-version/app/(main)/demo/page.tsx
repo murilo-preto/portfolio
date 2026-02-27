@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../../components/entries/Card";
 import { WeekNavigator } from "../../../components/entries/WeekNavigator";
 import { CategoryChart } from "../../../components/entries/CategoryChart";
+import { CategoryPieChart } from "@/components/entries/CategoryPieChart";
 import { WeeklyCalendar } from "../../../components/entries/WeeklyCalendar";
 import { EntriesTable } from "../../../components/entries/EntriesTable";
 import { getMondayOf, addDays } from "../../../components/entries/utils";
@@ -48,6 +49,7 @@ export default function EntriesDemo() {
 
   return (
     <main className="flex-1 p-4 md:p-6 space-y-8 md:space-y-12 max-w-4/5 mx-auto">
+      {/* Non showAll reliant */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">
           {data.username}'s Dashboard
@@ -64,38 +66,52 @@ export default function EntriesDemo() {
         onToggleShowAll={() => setShowAll((s) => !s)}
       />
 
-      {showAll ? (
-        <div className="space-y-8 md:space-y-12">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card title="Total Hours" value={`${totalHours}h`} />
-            <Card title="Sessions" value={visibleEntries.length} />
-            <Card title="Longest Session" value={`${longestSessionHours}h`} />
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card title="Total Hours" value={`${totalHours}h`} />
+        <Card title="Sessions" value={visibleEntries.length} />
+        <Card title="Longest Session" value={`${longestSessionHours}h`} />
+      </div>
 
-          <CategoryChart
-            entries={visibleEntries}
-            isDark={isDark}
-            showAll={showAll}
-          />
+      {/* showAll reliant */}
+      {showAll ? (
+        <div className="row-span-1">
+          <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Hours by Category</h2>
+              <span className="text-xs opacity-70">Scope: {"All entries"}</span>
+            </div>
+            <CategoryChart entries={visibleEntries} isDark={isDark} />
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 space-y-8 md:space-y-12">
-            <div className="space-y-8 md:space-y-12">
-              <div className="grid grid-cols-1 2xl:grid-cols-3 gap-4">
-                <Card title="Total Hours" value={`${totalHours}h`} />
-                <Card title="Sessions" value={visibleEntries.length} />
-                <Card
-                  title="Longest Session"
-                  value={`${longestSessionHours}h`}
-                />
+          <div className="lg:col-span-1 grid grid-rows-2 content-between gap-6 h-full">
+            {/* --- First row of First column ---*/}
+            <div className="row-span-1">
+              <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Hours by Category</h2>
+                  <span className="text-xs opacity-70">
+                    Scope: {"Selected week"}
+                  </span>
+                </div>
+                <CategoryChart entries={visibleEntries} isDark={isDark} />
               </div>
+            </div>
 
-              <CategoryChart
-                entries={visibleEntries}
-                isDark={isDark}
-                showAll={showAll}
-              />
+            {/* --- Second row of First column ---*/}
+            <div className="row-span-1">
+              <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">
+                    Relative time per category
+                  </h2>
+                  <span className="text-xs opacity-70">
+                    Scope: {"Selected week"}
+                  </span>
+                </div>
+                <CategoryPieChart entries={visibleEntries} isDark={isDark} />
+              </div>
             </div>
           </div>
 

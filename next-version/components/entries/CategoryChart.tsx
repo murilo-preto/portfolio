@@ -15,14 +15,9 @@ import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
 type CategoryChartProps = {
   entries: Entry[];
   isDark: boolean;
-  showAll: boolean;
 };
 
-export function CategoryChart({
-  entries,
-  isDark,
-  showAll,
-}: CategoryChartProps) {
+export function CategoryChart({ entries, isDark }: CategoryChartProps) {
   const palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
 
   const grouped: Record<string, number> = {};
@@ -38,23 +33,25 @@ export function CategoryChart({
   }));
 
   return (
-    <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Hours by Category</h2>
-        <span className="text-xs opacity-70">
-          Scope: {showAll ? "All entries" : "Selected week"}
-        </span>
-      </div>
-
+    <div>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart
           data={data}
           margin={{ top: 4, right: 4, left: -36, bottom: 4 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="category" />
+          <XAxis
+            dataKey="category"
+            angle={0}
+            minTickGap={5}
+            tickMargin={8}
+            tick={{ fontSize: 14 }}
+          />
           <YAxis />
-          <Tooltip cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }} />
+          <Tooltip
+            cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }}
+            labelStyle={{ color: isDark ? "#000000" : undefined }} // label text color
+          />
           <Bar dataKey="hours" />
         </BarChart>
       </ResponsiveContainer>

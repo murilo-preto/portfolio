@@ -1,4 +1,4 @@
-import { useMemo, memo } from "react";
+import { memo, useMemo } from "react";
 import { Entry } from "@/components/entries/types";
 import { stripTime, formatDuration } from "@/components/entries/utils";
 import { getDarkEventColor } from "@/components/entries/colors";
@@ -7,8 +7,8 @@ type Segment = {
   segStart: Date;
   segEnd: Date;
   segDurationSeconds: number;
-  topPct: number;
-  heightPct: number;
+  topPct: number; // % from 00:00 over full day
+  heightPct: number; // % of full day
 };
 
 type PackedEvent = {
@@ -45,29 +45,29 @@ function getSegment(entry: Entry, dayStart: Date): Segment | null {
 function assignColumns(dayEntries: Entry[], dayStart: Date): PackedEvent[] {
   const segs = dayEntries
     .map((ev) => ({ ev, seg: getSegment(ev, dayStart) }))
-    .filter((x): x is { ev: Entry; seg: Segment } => x.seg !== null);
-
-  segs.sort((a, b) => a.seg.segStart.getTime() - b.seg.segStart.getTime());
+    .filter((x): x is { ev: Entry; seg: Segment } => x.seg !== null)
+    .sort((a, b) => a.seg.segStart.getTime() - b.seg.segStart.getTime());
 
   const n = segs.length;
   const hasOverlap = new Array<boolean>(n).fill(false);
 
+  // Mark overlaps
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       if (segs[j].seg.segStart >= segs[i].seg.segEnd) break;
-      const overlapping =
+      const overlap =
         segs[i].seg.segStart < segs[j].seg.segEnd &&
         segs[j].seg.segStart < segs[i].seg.segEnd;
-      if (overlapping) {
+      if (overlap) {
         hasOverlap[i] = true;
         hasOverlap[j] = true;
       }
     }
   }
 
+  // Pack into up to 2 columns for overlapping ones
   const packed: PackedEvent[] = [];
   const colEnd: (Date | null)[] = [null, null];
-
   for (let i = 0; i < n; i++) {
     const { ev, seg } = segs[i];
 
@@ -114,11 +114,11 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
   const entriesByDay = useMemo(() => {
     const byDay: Entry[][] = days.map(() => []);
     const weekStartTime = stripTime(weekStart).getTime();
-    entries.forEach((entry) => {
+    for (const entry of entries) {
       const d = stripTime(new Date(entry.start_time)).getTime();
-      const idx = Math.round((d - weekStartTime) / (1000 * 60 * 60 * 24));
+      const idx = Math.round((d - weekStartTime) / 86400000);
       if (idx >= 0 && idx < 7) byDay[idx].push(entry);
-    });
+    }
     return byDay;
   }, [entries, days, weekStart]);
 
@@ -130,64 +130,14 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
   const eventColors = useMemo(() => {
     const colors: Record<number, string> = {};
-    entries.forEach((ev) => {
-      if (!colors[ev.id]) {
-        colors[ev.id] = getDarkEventColor(ev.category);
-      }
-    });
+    for (const ev of entries) {
+      if (!colors[ev.id]) colors[ev.id] = getDarkEventColor(ev.category);
+    }
     return colors;
   }, [entries]);
 
-  const hourRange = useMemo(() => {
-    if (entries.length === 0) return { min: 8, max: 22 };
-
-    let minHour = 23;
-    let maxHour = 0;
-
-    entries.forEach((entry) => {
-      const start = new Date(entry.start_time);
-      const end = new Date(entry.end_time);
-      minHour = Math.min(minHour, start.getHours());
-      maxHour = Math.max(maxHour, end.getHours());
-    });
-
-    const defaultMin = 8;
-    const defaultMax = 22;
-
-    return {
-      min: Math.min(minHour, defaultMin),
-      max: Math.max(maxHour, defaultMax),
-    };
-  }, [entries]);
-
-  const visibleHours = useMemo(() => {
-    const hours: number[] = [];
-    for (let h = hourRange.min; h <= hourRange.max; h++) {
-      hours.push(h);
-    }
-    return hours;
-  }, [hourRange]);
-
-  const totalMinutes = (hourRange.max - hourRange.min + 1) * 60;
-
-  const getAdjustedSegment = (seg: Segment) => {
-    const startMinutes =
-      seg.segStart.getHours() * 60 + seg.segStart.getMinutes();
-    const endMinutes = seg.segEnd.getHours() * 60 + seg.segEnd.getMinutes();
-    const rangeStartMinutes = hourRange.min * 60;
-    const rangeEndMinutes = (hourRange.max + 1) * 60;
-
-    const clampedStart = Math.max(startMinutes, rangeStartMinutes);
-    const clampedEnd = Math.min(endMinutes, rangeEndMinutes);
-
-    const topPct = ((clampedStart - rangeStartMinutes) / totalMinutes) * 100;
-    const heightPct = Math.max(
-      ((clampedEnd - clampedStart) / totalMinutes) * 100,
-      1.5,
-    );
-
-    return { topPct, heightPct };
-  };
+  // Fixed 24h scale
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, h) => h), []);
 
   return (
     <div
@@ -198,15 +148,16 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
           : undefined
       }
     >
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-base md:text-lg font-semibold">Weekly Calendar</h2>
-        <span className="text-xs opacity-70">
-          Displays the selected week (24h). Uses half-width on overlap.
-        </span>
-      </div>
+      {/* <div className="flex items-center justify-between mb-2"> */}
+      {/* <h2 className="text-base md:text-lg font-semibold">Weekly Calendar</h2> */}
+      {/* <span className="text-xs opacity-70"> */}
+      {/*   Displays the selected week (24h). Uses half-width on overlap. */}
+      {/* </span> */}
+      {/* </div> */}
 
       <div className="w-full text-center">
         <div className="w-full">
+          {/* Header row: day labels */}
           <div
             className="grid"
             style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}
@@ -219,19 +170,21 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
               >
                 {d.toLocaleDateString(undefined, {
                   weekday: "short",
-                  month: "short",
+                  month: "numeric",
                   day: "numeric",
                 })}
               </div>
             ))}
           </div>
 
+          {/* Body: hour rulers + day columns */}
           <div
             className="grid"
             style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}
           >
+            {/* Left hour gutter */}
             <div className="relative">
-              {visibleHours.map((h) => (
+              {hours.map((h) => (
                 <div
                   key={h}
                   className="h-8 border-t border-neutral-300 dark:border-neutral-800 text-[10px] pr-1 text-right"
@@ -244,12 +197,12 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
               <div className="border-t border-neutral-300 dark:border-neutral-800" />
             </div>
 
-            {days.map((dayStart, dayIdx) => {
+            {/* 7 day columns */}
+            {days.map((_, dayIdx) => {
               const packed = packedByDay[dayIdx];
-
               return (
                 <div key={dayIdx} className="relative">
-                  {visibleHours.map((h) => (
+                  {hours.map((h) => (
                     <div
                       key={h}
                       className="h-8 border-t border-neutral-300 dark:border-neutral-800"
@@ -272,36 +225,39 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
                             }
                           : { width: "80%", left: "10%", right: "10%" };
 
+                        const topPct = seg.topPct;
+                        const heightPct = Math.max(seg.heightPct, 0.8);
                         const darkColorClass = isDark ? eventColors[ev.id] : "";
-                        const { topPct, heightPct } = getAdjustedSegment(seg);
 
                         return (
                           <div
                             key={ev.id}
-                            className={`absolute rounded-md shadow-sm text-white text-xs p-1 ${isDark ? darkColorClass : "bg-green-600 border-green-800/40"}`}
+                            className={`absolute rounded-md shadow-sm text-white text-xs p-1 content-center-safe ${
+                              isDark
+                                ? darkColorClass
+                                : "bg-green-600 border-green-800/40"
+                            }`}
                             style={{
                               top: `${topPct}%`,
                               height: `${heightPct}%`,
                               overflow: "hidden",
                               ...layout,
                             }}
-                            title={`${ev.category} • ${formatDuration(seg.segDurationSeconds)}`}
+                            title={`${ev.category} • ${seg.segStart.toLocaleTimeString(
+                              undefined,
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              },
+                            )} – ${seg.segEnd.toLocaleTimeString(undefined, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
+                            })} • ${formatDuration(seg.segDurationSeconds)}`}
                           >
-                            <div className="font-semibold truncate mb-1">
+                            <div className="font-semibold text-clip mb-1">
                               {ev.category}
-                            </div>
-                            <div className="opacity-90 truncate">
-                              {seg.segStart.toLocaleTimeString(undefined, {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: false,
-                              })}
-                              {" – "}
-                              {seg.segEnd.toLocaleTimeString(undefined, {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: false,
-                              })}
                             </div>
                             <div className="opacity-90 truncate">
                               {formatDuration(seg.segDurationSeconds)}
