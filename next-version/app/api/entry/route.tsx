@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   let flaskRes: Response;
 
   try {
-    flaskRes = await fetch("http://flask:3000/entry", {
+    flaskRes = await fetch("http://flask:3000/create/entry", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

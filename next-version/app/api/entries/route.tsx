@@ -11,7 +11,7 @@ export async function GET() {
 
   console.log(token);
 
-  const flaskRes = await fetch("http://flask:3000/myentries", {
+  const flaskRes = await fetch("http://flask:3000/get/entries", {
     headers: {
       Authorization: `Bearer ${token}`,
     },

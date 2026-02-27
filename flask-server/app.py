@@ -128,7 +128,7 @@ def protected():
     ), 200
 
 
-@app.get("/myentries")
+@app.get("/get/entries")
 @jwt_required()
 def myentries():
     """
@@ -142,25 +142,7 @@ def myentries():
     return retrieve_entry_from_username(username)
 
 
-@app.route('/entries/<string:username>', methods=['GET'])
-def get_entries_by_user(username):
-    """
-    Retrieve all time entries for a given username.
-
-    Returns:
-        200: List of entries
-        404: User not found
-        500: Server error
-    """
-    username = username.strip()
-
-    if not username:
-        return jsonify({'error': 'Username is required'}), 400
-
-    return retrieve_entry_from_username(username)
-
-
-@app.route('/categories', methods=['GET'])
+@app.route('/get/categories', methods=['GET'])
 def list_categories():
     """
     List all categories.
@@ -291,27 +273,6 @@ def login_user():
         return jsonify({'error': 'Invalid username or password'}), 401
 
 
-@app.route('/users', methods=['GET'])
-def list_users():
-    """
-    List all users (without sensitive data).
-
-    Returns:
-        200: List of users
-        500: Server error
-    """
-    try:
-        with get_cursor() as cursor:
-            cursor.execute("SELECT id, username FROM users ORDER BY id")
-            users = cursor.fetchall()
-
-        return jsonify({'users': users}), 200
-
-    except Error as e:
-        print(f"Database error: {e}")
-        return jsonify({'error': 'Failed to fetch users'}), 500
-
-
 @app.route('/category', methods=['POST'])
 def create_category():
     """
@@ -362,7 +323,7 @@ def create_category():
         return jsonify({'error': 'Failed to create category'}), 500
 
 
-@app.route('/entry', methods=['POST'])
+@app.route('/create/entry', methods=['POST'])
 def create_time_entry():
     """
     Create a new time entry.

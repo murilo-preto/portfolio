@@ -47,7 +47,7 @@ export default function EntriesDemo() {
   ).toFixed(2);
 
   return (
-    <main className="flex-1 p-4 md:p-6 space-y-8 md:space-y-12 max-w-6xl mx-auto">
+    <main className="flex-1 p-4 md:p-6 space-y-8 md:space-y-12 max-w-4/5 mx-auto">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">
           {data.username}'s Dashboard
@@ -64,24 +64,49 @@ export default function EntriesDemo() {
         onToggleShowAll={() => setShowAll((s) => !s)}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card title="Total Hours" value={`${totalHours}h`} />
-        <Card title="Sessions" value={visibleEntries.length} />
-        <Card title="Longest Session" value={`${longestSessionHours}h`} />
-      </div>
+      {showAll ? (
+        <div className="space-y-8 md:space-y-12">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card title="Total Hours" value={`${totalHours}h`} />
+            <Card title="Sessions" value={visibleEntries.length} />
+            <Card title="Longest Session" value={`${longestSessionHours}h`} />
+          </div>
 
-      <CategoryChart
-        entries={visibleEntries}
-        isDark={isDark}
-        showAll={showAll}
-      />
+          <CategoryChart
+            entries={visibleEntries}
+            isDark={isDark}
+            showAll={showAll}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-8 md:space-y-12">
+            <div className="space-y-8 md:space-y-12">
+              <div className="grid grid-cols-1 2xl:grid-cols-3 gap-4">
+                <Card title="Total Hours" value={`${totalHours}h`} />
+                <Card title="Sessions" value={visibleEntries.length} />
+                <Card
+                  title="Longest Session"
+                  value={`${longestSessionHours}h`}
+                />
+              </div>
 
-      {!showAll && (
-        <WeeklyCalendar
-          weekStart={weekStart}
-          entries={filteredEntries}
-          isDark={isDark}
-        />
+              <CategoryChart
+                entries={visibleEntries}
+                isDark={isDark}
+                showAll={showAll}
+              />
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <WeeklyCalendar
+              weekStart={weekStart}
+              entries={filteredEntries}
+              isDark={isDark}
+            />
+          </div>
+        </div>
       )}
 
       <EntriesTable entries={visibleEntries} showAll={showAll} />

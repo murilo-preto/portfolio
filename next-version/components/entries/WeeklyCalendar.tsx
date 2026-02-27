@@ -91,14 +91,14 @@ type WeeklyCalendarProps = {
   weekStart: Date;
   entries: Entry[];
   isDark?: boolean;
+  maxHeight?: number;
 };
-
-const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 export const WeeklyCalendar = memo(function WeeklyCalendar({
   weekStart,
   entries,
   isDark = false,
+  maxHeight,
 }: WeeklyCalendarProps) {
   const days = useMemo(
     () =>
@@ -138,24 +138,85 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
     return colors;
   }, [entries]);
 
+  const hourRange = useMemo(() => {
+    if (entries.length === 0) return { min: 8, max: 22 };
+
+    let minHour = 23;
+    let maxHour = 0;
+
+    entries.forEach((entry) => {
+      const start = new Date(entry.start_time);
+      const end = new Date(entry.end_time);
+      minHour = Math.min(minHour, start.getHours());
+      maxHour = Math.max(maxHour, end.getHours());
+    });
+
+    const defaultMin = 8;
+    const defaultMax = 22;
+
+    return {
+      min: Math.min(minHour, defaultMin),
+      max: Math.max(maxHour, defaultMax),
+    };
+  }, [entries]);
+
+  const visibleHours = useMemo(() => {
+    const hours: number[] = [];
+    for (let h = hourRange.min; h <= hourRange.max; h++) {
+      hours.push(h);
+    }
+    return hours;
+  }, [hourRange]);
+
+  const totalMinutes = (hourRange.max - hourRange.min + 1) * 60;
+
+  const getAdjustedSegment = (seg: Segment) => {
+    const startMinutes =
+      seg.segStart.getHours() * 60 + seg.segStart.getMinutes();
+    const endMinutes = seg.segEnd.getHours() * 60 + seg.segEnd.getMinutes();
+    const rangeStartMinutes = hourRange.min * 60;
+    const rangeEndMinutes = (hourRange.max + 1) * 60;
+
+    const clampedStart = Math.max(startMinutes, rangeStartMinutes);
+    const clampedEnd = Math.min(endMinutes, rangeEndMinutes);
+
+    const topPct = ((clampedStart - rangeStartMinutes) / totalMinutes) * 100;
+    const heightPct = Math.max(
+      ((clampedEnd - clampedStart) / totalMinutes) * 100,
+      1.5,
+    );
+
+    return { topPct, heightPct };
+  };
+
   return (
-    <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Weekly Calendar</h2>
+    <div
+      className="bg-bone dark:bg-neutral-900 p-3 md:p-4 rounded-xl shadow text-black dark:text-white overflow-hidden"
+      style={
+        maxHeight
+          ? { maxHeight: `${maxHeight}px`, overflowY: "auto" }
+          : undefined
+      }
+    >
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-base md:text-lg font-semibold">Weekly Calendar</h2>
         <span className="text-xs opacity-70">
           Displays the selected week (24h). Uses half-width on overlap.
         </span>
       </div>
 
-      <div className="w-full overflow-x-auto text-center">
-        <div className="min-w-225">
+      <div className="w-full text-center">
+        <div className="w-full">
           <div
             className="grid"
-            style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}
+            style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}
           >
             <div />
             {days.map((d, i) => (
-              <div key={i} className="px-2 pb-2 text-sm font-semibold">
+              <div
+                key={i}
+                className="px-1 pb-2 text-xs md:text-sm font-semibold"
+              >
                 {d.toLocaleDateString(undefined, {
                   weekday: "short",
                   month: "short",
@@ -167,13 +228,13 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
           <div
             className="grid"
-            style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}
+            style={{ gridTemplateColumns: "48px repeat(7, 1fr)" }}
           >
             <div className="relative">
-              {HOURS.map((h) => (
+              {visibleHours.map((h) => (
                 <div
                   key={h}
-                  className="h-16 border-t border-neutral-300 dark:border-neutral-800 text-xs pr-1 text-right"
+                  className="h-8 border-t border-neutral-300 dark:border-neutral-800 text-[10px] pr-1 text-right"
                 >
                   <div className="-translate-y-2 opacity-70">
                     {h.toString().padStart(2, "0")}:00
@@ -188,10 +249,10 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
               return (
                 <div key={dayIdx} className="relative">
-                  {HOURS.map((h) => (
+                  {visibleHours.map((h) => (
                     <div
                       key={h}
-                      className="h-16 border-t border-neutral-300 dark:border-neutral-800"
+                      className="h-8 border-t border-neutral-300 dark:border-neutral-800"
                     />
                   ))}
                   <div className="border-t border-neutral-300 dark:border-neutral-800" />
@@ -212,14 +273,15 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
                           : { width: "80%", left: "10%", right: "10%" };
 
                         const darkColorClass = isDark ? eventColors[ev.id] : "";
+                        const { topPct, heightPct } = getAdjustedSegment(seg);
 
                         return (
                           <div
                             key={ev.id}
                             className={`absolute rounded-md shadow-sm text-white text-xs p-1 ${isDark ? darkColorClass : "bg-green-600 border-green-800/40"}`}
                             style={{
-                              top: `${seg.topPct}%`,
-                              height: `${seg.heightPct}%`,
+                              top: `${topPct}%`,
+                              height: `${heightPct}%`,
                               overflow: "hidden",
                               ...layout,
                             }}
