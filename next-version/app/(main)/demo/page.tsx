@@ -15,7 +15,7 @@ export default function EntriesDemo() {
 
   const [isDark, setIsDark] = useState(false);
   const [weekStart, setWeekStart] = useState(() =>
-    getMondayOf(new Date("2026-02-16")),
+    getMondayOf(new Date("2026-02-18")),
   );
   const [showAll, setShowAll] = useState(false);
 
