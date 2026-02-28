@@ -15,6 +15,7 @@ CATEGORIES = ["Work", "Study", "Exercise", "Reading"]
 ENTRIES_PER_USER = 10
 DAYS_SPAN = 7
 
+
 def to_iso_utc(dt: datetime) -> str:
     """
     Ensure datetime is UTC and return ISO 8601 string with Z.
@@ -54,7 +55,7 @@ def create_category(name):
 
 def create_entry(username, category, start_time, end_time):
     response = requests.post(
-        f"{BASE_URL}/entry",
+        f"{BASE_URL}/create/entry",
         json={
             "username": username,
             "category": category,
