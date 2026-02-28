@@ -6,6 +6,13 @@ export const DEMO_DATA: ApiResponse = {
     {
       category: "Reading",
       duration_seconds: 7320,
+      end_time: "Mon, 12 Feb 2026 12:44:08 GMT",
+      id: 1,
+      start_time: "Mon, 12 Feb 2026 10:42:08 GMT",
+    },
+    {
+      category: "Reading",
+      duration_seconds: 7320,
       end_time: "Mon, 16 Feb 2026 12:44:08 GMT",
       id: 12,
       start_time: "Mon, 16 Feb 2026 10:42:08 GMT",

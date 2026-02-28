@@ -74,13 +74,28 @@ export default function EntriesDemo() {
 
       {/* showAll reliant */}
       {showAll ? (
-        <div className="row-span-1">
-          <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Hours by Category</h2>
-              <span className="text-xs opacity-70">Scope: {"All entries"}</span>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="col-span-1">
+            <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Hours by Category</h2>
+                <span className="text-xs opacity-70">
+                  Scope: {"All entries"}
+                </span>
+              </div>
+              <CategoryChart entries={visibleEntries} isDark={isDark} />
             </div>
-            <CategoryChart entries={visibleEntries} isDark={isDark} />
+          </div>
+          <div className="col-span-1">
+            <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Relative time</h2>
+                <span className="text-xs opacity-70">
+                  Scope: {"All entries"}
+                </span>
+              </div>
+              <CategoryPieChart entries={visibleEntries} isDark={isDark} />
+            </div>
           </div>
         </div>
       ) : (
@@ -90,7 +105,7 @@ export default function EntriesDemo() {
             <div className="row-span-1">
               <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Hours by Category</h2>
+                  <h2 className="text-lg font-semibold">Hours per category</h2>
                   <span className="text-xs opacity-70">
                     Scope: {"Selected week"}
                   </span>
