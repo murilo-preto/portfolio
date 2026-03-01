@@ -73,6 +73,44 @@ export default function TimerPage() {
     fetchCategories();
   }, []);
 
+  // ── Restore timer from localStorage ─────────────────────────────────────────
+
+  useEffect(() => {
+    const saved = localStorage.getItem("timerState");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.categoryId) {
+          setCategoryId(parsed.categoryId);
+        }
+        if (parsed.state === "running" && parsed.startTime) {
+          setStartTime(new Date(parsed.startTime));
+          setStartInput(toLocalDatetimeValue(new Date(parsed.startTime)));
+          setTimerState("running");
+          setElapsed(
+            Math.floor(
+              (Date.now() - new Date(parsed.startTime).getTime()) / 1000,
+            ),
+          );
+        } else if (
+          parsed.state === "stopped" &&
+          parsed.startTime &&
+          parsed.endTime
+        ) {
+          const start = new Date(parsed.startTime);
+          const end = new Date(parsed.endTime);
+          setStartTime(start);
+          setEndTime(end);
+          setStartInput(toLocalDatetimeValue(start));
+          setEndInput(toLocalDatetimeValue(end));
+          setTimerState("stopped");
+        }
+      } catch (e) {
+        localStorage.removeItem("timerState");
+      }
+    }
+  }, []);
+
   // ── Tick ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -103,6 +141,17 @@ export default function TimerPage() {
     setTimerState("running");
     setSubmitStatus("idle");
     setSubmitMessage(null);
+
+    if (categoryId) {
+      localStorage.setItem(
+        "timerState",
+        JSON.stringify({
+          state: "running",
+          startTime: now.toISOString(),
+          categoryId,
+        }),
+      );
+    }
   }
 
   function handleStop() {
@@ -110,6 +159,16 @@ export default function TimerPage() {
     setEndTime(now);
     setEndInput(toLocalDatetimeValue(now));
     setTimerState("stopped");
+
+    localStorage.setItem(
+      "timerState",
+      JSON.stringify({
+        state: "stopped",
+        startTime: startTime?.toISOString(),
+        endTime: now.toISOString(),
+        categoryId,
+      }),
+    );
   }
 
   function handleStartInputChange(value: string) {
@@ -120,13 +179,33 @@ export default function TimerPage() {
       if (timerState === "running") {
         setElapsed(Math.floor((Date.now() - parsed.getTime()) / 1000));
       }
+      localStorage.setItem(
+        "timerState",
+        JSON.stringify({
+          state: timerState,
+          startTime: parsed.toISOString(),
+          endTime: endTime?.toISOString(),
+          categoryId,
+        }),
+      );
     }
   }
 
   function handleEndInputChange(value: string) {
     setEndInput(value);
     const parsed = new Date(value);
-    if (!isNaN(parsed.getTime())) setEndTime(parsed);
+    if (!isNaN(parsed.getTime())) {
+      setEndTime(parsed);
+      localStorage.setItem(
+        "timerState",
+        JSON.stringify({
+          state: timerState,
+          startTime: startTime?.toISOString(),
+          endTime: parsed.toISOString(),
+          categoryId,
+        }),
+      );
+    }
   }
 
   // ── Validation ───────────────────────────────────────────────────────────────
@@ -186,6 +265,7 @@ export default function TimerPage() {
       setStartInput("");
       setEndInput("");
       setCategoryId(null);
+      localStorage.removeItem("timerState");
     } catch (err: any) {
       setSubmitStatus("error");
       setSubmitMessage(err.message);
