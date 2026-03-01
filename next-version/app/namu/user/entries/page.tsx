@@ -20,7 +20,7 @@ export default function Entries() {
 
   async function get_entries() {
     try {
-      const res = await fetch("/api/entries", {
+      const res = await fetch("/api/entry", {
         method: "GET",
         credentials: "include",
       });

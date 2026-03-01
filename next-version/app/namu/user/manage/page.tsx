@@ -80,7 +80,7 @@ export default function ManagePage() {
     setError(null);
     try {
       const [entriesRes, catsRes] = await Promise.all([
-        fetch("/api/entries", { credentials: "include" }),
+        fetch("/api/entry", { credentials: "include" }),
         fetch("/api/categories"),
       ]);
 
@@ -218,7 +218,7 @@ export default function ManagePage() {
       const tokenData = await tokenRes.json();
       const username: string = tokenData.user;
 
-      const res = await fetch("/api/entry", {
+      const res = await fetch("/api/entry/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

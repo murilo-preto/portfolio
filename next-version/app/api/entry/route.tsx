@@ -1,30 +1,26 @@
-import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-export async function POST(req: Request) {
-  let body: unknown;
+export async function GET() {
+  const cookieStore = await cookies();
 
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  const token = cookieStore.get("access_token")?.value;
+
+  if (!token) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let flaskRes: Response;
+  console.log(token);
 
-  try {
-    flaskRes = await fetch("http://flask:3000/create/entry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    console.error("Failed to reach Flask:", err);
-    return NextResponse.json(
-      { error: "Could not reach Flask service" },
-      { status: 502 },
-    );
+  const flaskRes = await fetch("http://flask:3000/entry", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!flaskRes.ok) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const data = await flaskRes.json();
-  return NextResponse.json(data, { status: flaskRes.status });
+  return Response.json(data);
 }

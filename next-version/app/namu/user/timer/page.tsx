@@ -165,7 +165,7 @@ export default function TimerPage() {
         end_time: endTime.toISOString(),
       };
 
-      const res = await fetch("/api/entry", {
+      const res = await fetch("/api/entry/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

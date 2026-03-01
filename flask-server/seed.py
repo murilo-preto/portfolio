@@ -55,7 +55,7 @@ def create_category(name):
 
 def create_entry(username, category, start_time, end_time):
     response = requests.post(
-        f"{BASE_URL}/create/entry",
+        f"{BASE_URL}/entry/create",
         json={
             "username": username,
             "category": category,
