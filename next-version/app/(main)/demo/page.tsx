@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "../../../components/entries/Card";
-import { WeekNavigator } from "../../../components/entries/WeekNavigator";
-import { CategoryChart } from "../../../components/entries/CategoryChart";
+import { Card } from "@/components/entries/Card";
+import { WeekNavigator } from "@/components/entries/WeekNavigator";
+import { CategoryChart } from "@/components/entries/CategoryChart";
 import { CategoryPieChart } from "@/components/entries/CategoryPieChart";
-import { WeeklyCalendar } from "../../../components/entries/WeeklyCalendar";
-import { EntriesTable } from "../../../components/entries/EntriesTable";
-import { getMondayOf, addDays } from "../../../components/entries/utils";
+import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
+import { EntriesTable } from "@/components/entries/EntriesTable";
+import { getMondayOf, addDays } from "@/components/entries/utils";
 import { DEMO_DATA } from "./constants";
+
+type FilterMode = "today" | "week" | "all";
 
 export default function EntriesDemo() {
   const data = DEMO_DATA;
@@ -17,7 +19,7 @@ export default function EntriesDemo() {
   const [weekStart, setWeekStart] = useState(() =>
     getMondayOf(new Date("2026-02-18")),
   );
-  const [showAll, setShowAll] = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>("week");
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -31,13 +33,35 @@ export default function EntriesDemo() {
 
   const filteredEntries = useMemo(() => {
     const weekEndInclusive = addDays(weekEnd, 1);
+
+    if (filterMode === "today") {
+      const today = new Date("2026-02-23");
+      const todayStart = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+      );
+      const todayEnd = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        23,
+        59,
+        59,
+      );
+      return data.entries.filter((entry) => {
+        const start = new Date(entry.start_time);
+        return start >= todayStart && start <= todayEnd;
+      });
+    }
+
     return data.entries.filter((entry) => {
       const start = new Date(entry.start_time);
       return start >= weekStart && start <= weekEndInclusive;
     });
-  }, [data, weekStart, weekEnd]);
+  }, [data, weekStart, weekEnd, filterMode]);
 
-  const visibleEntries = showAll ? data.entries : filteredEntries;
+  const visibleEntries = filterMode === "all" ? data.entries : filteredEntries;
 
   const totalHours = (
     visibleEntries.reduce((acc, e) => acc + e.duration_seconds, 0) / 3600
@@ -60,10 +84,10 @@ export default function EntriesDemo() {
       <WeekNavigator
         weekStart={weekStart}
         weekEnd={weekEnd}
-        showAll={showAll}
+        filterMode={filterMode}
         onPrev={() => setWeekStart(addDays(weekStart, -7))}
         onNext={() => setWeekStart(addDays(weekStart, 7))}
-        onToggleShowAll={() => setShowAll((s) => !s)}
+        onFilterModeChange={setFilterMode}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -72,8 +96,8 @@ export default function EntriesDemo() {
         <Card title="Longest Session" value={`${longestSessionHours}h`} />
       </div>
 
-      {/* showAll reliant */}
-      {showAll ? (
+      {/* filterMode reliant */}
+      {filterMode === "all" ? (
         <div className="grid grid-cols-2 gap-6">
           <div className="col-span-1">
             <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
@@ -107,7 +131,7 @@ export default function EntriesDemo() {
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Hours per category</h2>
                   <span className="text-xs opacity-70">
-                    Scope: {"Selected week"}
+                    Scope: {filterMode === "today" ? "Today" : "Selected week"}
                   </span>
                 </div>
                 <CategoryChart entries={visibleEntries} isDark={isDark} />
@@ -122,7 +146,7 @@ export default function EntriesDemo() {
                     Relative time per category
                   </h2>
                   <span className="text-xs opacity-70">
-                    Scope: {"Selected week"}
+                    Scope: {filterMode === "today" ? "Today" : "Selected week"}
                   </span>
                 </div>
                 <CategoryPieChart entries={visibleEntries} isDark={isDark} />
@@ -132,7 +156,11 @@ export default function EntriesDemo() {
 
           <div className="lg:col-span-2">
             <WeeklyCalendar
-              weekStart={weekStart}
+              weekStart={
+                filterMode === "today"
+                  ? new Date(new Date("2026-02-23").setHours(0, 0, 0, 0))
+                  : weekStart
+              }
               entries={filteredEntries}
               isDark={isDark}
             />
@@ -140,7 +168,7 @@ export default function EntriesDemo() {
         </div>
       )}
 
-      <EntriesTable entries={visibleEntries} showAll={showAll} />
+      <EntriesTable entries={visibleEntries} showAll={filterMode === "all"} />
     </main>
   );
 }

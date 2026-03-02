@@ -1,82 +1,88 @@
+type FilterMode = "today" | "week" | "all";
+
 type WeekNavigatorProps = {
   weekStart: Date;
   weekEnd: Date;
-  showAll: boolean;
+  filterMode: FilterMode;
   onPrev: () => void;
   onNext: () => void;
-  onToggleShowAll: () => void;
+  onFilterModeChange: (mode: FilterMode) => void;
 };
 
 export function WeekNavigator({
   weekStart,
   weekEnd,
-  showAll,
+  filterMode,
   onPrev,
   onNext,
-  onToggleShowAll,
+  onFilterModeChange,
 }: WeekNavigatorProps) {
+  const showAll = filterMode === "all";
+  const showToday = filterMode === "today";
+
+  function FilterButton({ mode, label }: { mode: FilterMode; label: string }) {
+    const isActive = filterMode === mode;
+    return (
+      <button
+        type="button"
+        onClick={() => onFilterModeChange(mode)}
+        className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+          isActive
+            ? "bg-stone-700 dark:bg-blue-500 text-white"
+            : "bg-gray-200 dark:bg-neutral-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-neutral-600"
+        }`}
+      >
+        {label}
+      </button>
+    );
+  }
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-bone dark:bg-neutral-900 p-3 rounded-xl shadow">
       <div className="flex items-center gap-2">
         <button
           onClick={onPrev}
           className="px-3 rounded bg-gray-200 dark:bg-neutral-700 disabled:opacity-50"
-          disabled={showAll}
+          disabled={showAll || showToday}
           title={
-            showAll ? "Disable 'Show all' to navigate weeks" : "Previous week"
+            showAll || showToday
+              ? `Disable '${showAll ? "Show all" : "Today"}' to navigate weeks`
+              : "Previous week"
           }
         >
           ←
         </button>
 
         <div className="font-semibold text-center">
-          Week of{" "}
-          {weekStart.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-          })}
-          {" – "}
-          {weekEnd.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-          })}
+          {showToday
+            ? "Today"
+            : `Week of ${weekStart.toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}${" – "}${weekEnd.toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}`}
         </div>
 
         <button
           onClick={onNext}
           className="px-3 rounded bg-gray-200 dark:bg-neutral-700 disabled:opacity-50"
-          disabled={showAll}
-          title={showAll ? "Disable 'Show all' to navigate weeks" : "Next week"}
+          disabled={showAll || showToday}
+          title={
+            showAll || showToday
+              ? `Disable '${showAll ? "Show all" : "Today"}' to navigate weeks`
+              : "Next week"
+          }
         >
           →
         </button>
       </div>
 
-      <button
-        type="button"
-        aria-pressed={showAll}
-        onClick={onToggleShowAll}
-        className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-700 rounded-full transition"
-        title="Toggle between current week and all entries"
-      >
-        <span
-          className={[
-            "inline-block h-4 w-7 rounded-full relative transition",
-            showAll ? "bg-green-500" : "bg-gray-400",
-          ].join(" ")}
-          aria-hidden="true"
-        >
-          <span
-            className={[
-              "absolute top-0.5 h-3 w-3 rounded-full bg-white transition",
-              showAll ? "left-3.5" : "left-0.5",
-            ].join(" ")}
-          />
-        </span>
-        <span className="text-sm font-medium">
-          {showAll ? "Show all" : "This week"}
-        </span>
-      </button>
+      <div className="flex items-center gap-2">
+        <FilterButton mode="today" label="Today" />
+        <FilterButton mode="week" label="Week" />
+        <FilterButton mode="all" label="All time" />
+      </div>
     </div>
   );
 }

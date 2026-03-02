@@ -4,6 +4,8 @@ from flask_jwt_extended import (
     create_access_token,
     jwt_required,
     get_jwt_identity,
+    get_jwt,
+    set_access_cookies,
 )
 
 import mysql.connector
@@ -20,7 +22,7 @@ app = Flask(__name__)
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
-    minutes=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_MINUTES", "60"))
+    minutes=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_MINUTES", "60")) * 12
 )
 
 if not app.config["JWT_SECRET_KEY"]:
@@ -121,6 +123,20 @@ def protected():
     current_user = get_jwt_identity()
 
     return jsonify(message="Access granted", user=current_user), 200
+
+
+@app.after_request
+def refresh_expiring_jwts(response):
+    try:
+        exp_timestamp = get_jwt()["exp"]
+        now = datetime.now(timezone.utc)
+        target_timestamp = datetime.timestamp(now + timedelta(minutes=30))
+        if target_timestamp > exp_timestamp:
+            access_token = create_access_token(identity=get_jwt_identity())
+            set_access_cookies(response, access_token)
+        return response
+    except (RuntimeError, KeyError):
+        return response
 
 
 @app.get("/entry")
