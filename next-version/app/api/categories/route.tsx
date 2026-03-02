@@ -1,8 +1,10 @@
+import { FLASK_BASE_URL } from "@/lib/constants";
+
 export async function GET() {
   let flaskRes: Response;
 
   try {
-    flaskRes = await fetch("http://flask:3000/get/categories");
+    flaskRes = await fetch(`${FLASK_BASE_URL}/get/categories`);
   } catch (err) {
     console.error("Failed to reach Flask:", err);
     return Response.json(

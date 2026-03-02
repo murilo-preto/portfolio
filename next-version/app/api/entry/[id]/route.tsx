@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { FLASK_BASE_URL } from "@/lib/constants";
 
 export async function PUT(
   req: Request,
@@ -22,7 +23,7 @@ export async function PUT(
 
   let flaskRes: Response;
   try {
-    flaskRes = await fetch(`http://flask:3000/entry/${id}`, {
+    flaskRes = await fetch(`${FLASK_BASE_URL}/entry/${id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

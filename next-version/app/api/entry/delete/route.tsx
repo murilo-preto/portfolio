@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { FLASK_BASE_URL } from "@/lib/constants";
 
 export async function POST(req: Request) {
   const cookieStore = await cookies();
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
 
   let flaskRes: Response;
   try {
-    flaskRes = await fetch("http://flask:3000/entry/delete", {
+    flaskRes = await fetch(`${FLASK_BASE_URL}/entry/delete`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",

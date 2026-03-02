@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { FLASK_BASE_URL } from "@/lib/constants";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -11,7 +12,7 @@ export async function GET() {
 
   console.log(token);
 
-  const flaskRes = await fetch("http://flask:3000/entry", {
+  const flaskRes = await fetch(`${FLASK_BASE_URL}/entry`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

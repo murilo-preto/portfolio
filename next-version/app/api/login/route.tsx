@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { FLASK_BASE_URL } from "@/lib/constants";
 
 export async function POST(req: Request) {
   const body = await req.json();
 
   let res: Response;
   try {
-    res = await fetch("http://flask:3000/login", {
+    res = await fetch(`${FLASK_BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

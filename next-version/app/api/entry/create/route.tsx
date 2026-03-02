@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { FLASK_BASE_URL } from "@/lib/constants";
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
   let flaskRes: Response;
 
   try {
-    flaskRes = await fetch("http://flask:3000/entry/create", {
+    flaskRes = await fetch(`${FLASK_BASE_URL}/entry/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
