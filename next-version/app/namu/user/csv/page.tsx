@@ -22,9 +22,10 @@ function parseCSV(csv: string): ParsedEntry[] {
     if (!line) continue;
 
     const parts = line.split(",");
-    if (parts.length < 6) continue;
+    if (parts.length < 5) continue;
 
-    const [, , , , , category] = parts;
+    const hasDuration = parts.length >= 6;
+    const category = parts[hasDuration ? 5 : 4].trim();
     const startDate = parts[0].trim();
     const startTime = parts[1].trim();
     const endDate = parts[2].trim();
@@ -184,6 +185,26 @@ export default function CSVPage() {
       </div>
 
       <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow">
+        <div className="mb-4">
+          <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Expected CSV Format
+          </h2>
+          <div className="bg-gray-100 dark:bg-neutral-800 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+            <p className="text-gray-600 dark:text-gray-400 mb-2">
+              Columns (in order): start_date, start_time, end_date, end_time, [duration, ]category
+            </p>
+            <p className="text-gray-500 dark:text-gray-500 mb-2">
+              Duration is optional. Date format: MM/DD/YYYY &nbsp;|&nbsp; Time format: HH:MM (24-hour)
+            </p>
+            <p className="text-gray-600 dark:text-gray-400 mb-2">Example (with duration):</p>
+            <pre className="text-gray-800 dark:text-gray-300 whitespace-pre">{`01/15/2024,09:00,01/15/2024,10:30,90,Work
+01/16/2024,14:00,01/16/2024,15:30,90,Study`}</pre>
+            <p className="text-gray-600 dark:text-gray-400 mb-2 mt-3">Example (without duration):</p>
+            <pre className="text-gray-800 dark:text-gray-300 whitespace-pre">{`01/15/2024,09:00,01/15/2024,10:30,Work
+01/16/2024,14:00,01/16/2024,15:30,Study`}</pre>
+          </div>
+        </div>
+
         <div className="mb-4">
           <input
             ref={fileInputRef}

@@ -19,8 +19,8 @@ export default function CVPage() {
     <main className="flex-1 p-6 space-y-12 max-w-5xl mx-auto">
       <ImageCarousel images={images} />
 
-      <PersonalInfo />
       <Summary />
+      <PersonalInfo />
       <Skills />
       <Experience />
       <Languages />

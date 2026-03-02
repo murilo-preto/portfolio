@@ -614,7 +614,10 @@ export default function ManagePage() {
       ]);
       if (!entriesRes.ok) throw new Error("Failed to fetch entries");
       const { entries: e } = await entriesRes.json();
-      setEntries(e ?? []);
+      const sorted = (e ?? []).sort(
+        (a: Entry, b: Entry) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+      );
+      setEntries(sorted);
       if (catsRes.ok) {
         const { categories: c } = await catsRes.json();
         setCategories(c ?? []);
@@ -654,6 +657,12 @@ export default function ManagePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <a
+            href="/namu/user/csv"
+            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            Import from CSV
+          </a>
           <button
             onClick={() => (showEntryForm ? closeEntryForm() : openEntryForm())}
             className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"

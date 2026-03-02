@@ -90,6 +90,13 @@ export default function LoginPage() {
           >
             {loading ? "Logging in..." : "Submit"}
           </button>
+
+          <p className="text-center text-sm text-neutral-600 dark:text-neutral-400">
+            Do not have an account?{" "}
+            <a href="/register" className="text-blue-600 hover:underline dark:text-blue-400">
+              Register
+            </a>
+          </p>
         </form>
       </div>
     </main>
