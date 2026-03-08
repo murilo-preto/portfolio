@@ -47,6 +47,39 @@ function formatDate(iso: string): string {
   });
 }
 
+function formatCSVDate(iso: string): string {
+  const d = new Date(iso.includes("T") ? iso : iso.replace(" ", "T") + "Z");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${month}/${day}/${year},${hours}:${minutes}`;
+}
+
+function exportToCSV(entries: Entry[]) {
+  if (entries.length === 0) {
+    alert("No entries to export");
+    return;
+  }
+
+  const header = "start_date,start_time,end_date,end_time,duration_seconds,category";
+  const rows = entries.map((entry) => {
+    const startParts = formatCSVDate(entry.start_time).split(",");
+    const endParts = formatCSVDate(entry.end_time).split(",");
+    return `${startParts[0]},${startParts[1]},${endParts[0]},${endParts[1]},${entry.duration_seconds},${entry.category}`;
+  });
+
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `time_entries_${new Date().toISOString().split("T")[0]}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function calcDuration(start: string, end: string): number | null {
   if (!start || !end) return null;
   return Math.floor(
@@ -657,6 +690,12 @@ export default function ManagePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => exportToCSV(entries)}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            Export CSV
+          </button>
           <a
             href="/namu/user/csv"
             className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
