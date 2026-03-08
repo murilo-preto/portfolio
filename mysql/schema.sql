@@ -57,3 +57,42 @@ CREATE TABLE IF NOT EXISTS time_entries (
   CONSTRAINT chk_time_range
     CHECK (end_time > start_time)
 ) ENGINE=InnoDB;
+
+-- Finance categories table
+CREATE TABLE IF NOT EXISTS finance_categories (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_finance_category_name (name)
+) ENGINE=InnoDB;
+
+-- Finance entries table
+CREATE TABLE IF NOT EXISTS finance_entries (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+  user_id INT UNSIGNED NOT NULL,
+  category_id INT UNSIGNED NOT NULL,
+
+  product_name VARCHAR(255) NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  purchase_date DATETIME NOT NULL,
+  status ENUM('planned', 'done') NOT NULL DEFAULT 'planned',
+
+  PRIMARY KEY (id),
+
+  KEY idx_finance_entries_user (user_id),
+  KEY idx_finance_entries_category (category_id),
+
+  CONSTRAINT fk_finance_entries_user
+    FOREIGN KEY (user_id)
+    REFERENCES users (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+  CONSTRAINT fk_finance_entries_category
+    FOREIGN KEY (category_id)
+    REFERENCES finance_categories (id)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;

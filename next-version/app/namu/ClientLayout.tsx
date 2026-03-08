@@ -59,6 +59,7 @@ function Header() {
           <NavLink href="/namu/user/entries">Entries</NavLink>
           <NavLink href="/namu/user/timer">Timer</NavLink>
           <NavLink href="/namu/user/manage">Manage</NavLink>
+          <NavLink href="/namu/user/finance">Finance</NavLink>
         </div>
 
         {/* Right */}
@@ -130,6 +131,9 @@ function Header() {
           </NavLink>
           <NavLink href="/namu/user/manage" onClick={close}>
             Manage
+          </NavLink>
+          <NavLink href="/namu/user/finance" onClick={close}>
+            Finance
           </NavLink>
 
           <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-1 mt-2">

@@ -11,8 +11,10 @@ DEFAULT_PASSWORD = os.getenv("SEED_USER_PASSWORD", "password123")
 
 USERS = ["alice", "bob", "charlie"]
 CATEGORIES = ["Work", "Study", "Exercise", "Reading"]
+FINANCE_CATEGORIES = ["Groceries", "Utilities", "Entertainment", "Shopping", "Transport", "Healthcare"]
 
 ENTRIES_PER_USER = 10
+FINANCE_ENTRIES_PER_USER = 8
 DAYS_SPAN = 7
 
 
@@ -53,6 +55,14 @@ def create_category(name):
     print(f"Category {name}: {response.status_code}")
 
 
+def create_finance_category(name):
+    response = requests.post(
+        f"{BASE_URL}/finance/category",
+        json={"name": name},
+    )
+    print(f"Finance category {name}: {response.status_code}")
+
+
 def create_entry(username, category, start_time, end_time):
     response = requests.post(
         f"{BASE_URL}/entry/create",
@@ -68,6 +78,34 @@ def create_entry(username, category, start_time, end_time):
         print("Entry error:", response.status_code, response.text)
 
 
+def get_auth_token(username):
+    """Login and get access token for a user."""
+    response = requests.post(
+        f"{BASE_URL}/login",
+        json={"username": username, "password": DEFAULT_PASSWORD},
+    )
+    if response.status_code == 200:
+        return response.json().get("access_token")
+    return None
+
+
+def create_finance_entry(token, product_name, category, price, purchase_date, status="planned"):
+    response = requests.post(
+        f"{BASE_URL}/finance/create",
+        json={
+            "product_name": product_name,
+            "category": category,
+            "price": price,
+            "purchase_date": to_iso_utc(purchase_date),
+            "status": status,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    if response.status_code != 201:
+        print("Finance entry error:", response.status_code, response.text)
+
+
 def seed():
     print(f"Seeding API at {BASE_URL}")
 
@@ -75,11 +113,15 @@ def seed():
     for category in CATEGORIES:
         create_category(category)
 
+    print("Creating finance categories...")
+    for category in FINANCE_CATEGORIES:
+        create_finance_category(category)
+
     print("Creating users...")
     for user in USERS:
         register_user(user)
 
-    print("Creating entries...")
+    print("Creating time entries...")
     for user in USERS:
         for _ in range(ENTRIES_PER_USER):
             start_time = random_datetime_within_week()
@@ -89,7 +131,37 @@ def seed():
             category = random.choice(CATEGORIES)
             create_entry(user, category, start_time, end_time)
 
-        print(f"Seeded entries for {user}")
+        print(f"Seeded time entries for {user}")
+
+    print("Creating finance entries...")
+    for user in USERS:
+        token = get_auth_token(user)
+        if not token:
+            print(f"Failed to get token for {user}, skipping finance entries")
+            continue
+
+        products = [
+            ("Netflix Subscription", "Entertainment"),
+            ("Electric Bill", "Utilities"),
+            ("Grocery Run", "Groceries"),
+            ("Bus Pass", "Transport"),
+            ("New Shoes", "Shopping"),
+            ("Doctor Visit", "Healthcare"),
+            ("Movie Tickets", "Entertainment"),
+            ("Internet Bill", "Utilities"),
+            ("Gym Membership", "Healthcare"),
+            ("Restaurant Dinner", "Entertainment"),
+        ]
+
+        for _ in range(FINANCE_ENTRIES_PER_USER):
+            product_name, category = random.choice(products)
+            price = round(random.uniform(5.0, 150.0), 2)
+            purchase_date = random_datetime_within_week()
+            status = random.choice(["planned", "done"])
+
+            create_finance_entry(token, product_name, category, price, purchase_date, status)
+
+        print(f"Seeded finance entries for {user}")
 
     print("Done.")
 
