@@ -22,7 +22,7 @@ app = Flask(__name__)
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
-    minutes=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_MINUTES", "60")) * 12
+    hours=int(os.getenv("TOKEN_DURATION_HOURS"))
 )
 
 if not app.config["JWT_SECRET_KEY"]:
@@ -130,7 +130,7 @@ def refresh_expiring_jwts(response):
     try:
         exp_timestamp = get_jwt()["exp"]
         now = datetime.now(timezone.utc)
-        target_timestamp = datetime.timestamp(now + timedelta(minutes=30))
+        target_timestamp = datetime.timestamp(now + timedelta(hours=24))
         if target_timestamp > exp_timestamp:
             access_token = create_access_token(identity=get_jwt_identity())
             set_access_cookies(response, access_token)

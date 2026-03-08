@@ -37,6 +37,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD}
       DB_NAME: ${DB_NAME}
       PORT: 3000
+      TOKEN_DURATION_HOURS: 48
     depends_on:
       mysql:
         condition: service_healthy
