@@ -33,3 +33,9 @@ curl http://localhost:3000/api/health
 - **Next.js TypeScript errors**: Fix type mismatches in `.tsx` files
 - **Flask errors**: Check Python syntax and imports in `app.py`
 - **Database schema changes**: Run `docker compose up` to apply new migrations
+
+After modifying authentication-related files (JWT, tokens, sessions, cookies), always verify the auth flow works end-to-end before considering the task complete
+
+Run tests after any multi-file changes, especially when modifying backend API endpoints that frontend depends on
+
+When working with Flask decorators or complex syntax, verify the exact syntax pattern works before proceeding with implementation
