@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { addDays, getMondayOf } from "@/components/finance/utils";
+import { addDays } from "@/components/finance/utils";
 
-type FilterMode = "today" | "week" | "all";
+type FilterMode = "today" | "week" | "month" | "all";
 
 type WeekNavigatorProps = {
   weekStart: Date;
   weekEnd: Date;
+  monthStart?: Date;
+  monthEnd?: Date;
   filterMode: FilterMode;
   onPrev: () => void;
   onNext: () => void;
@@ -17,24 +18,30 @@ type WeekNavigatorProps = {
 export function WeekNavigator({
   weekStart,
   weekEnd,
+  monthStart,
+  monthEnd,
   filterMode,
   onPrev,
   onNext,
   onFilterModeChange,
 }: WeekNavigatorProps) {
   const today = new Date();
-  const isThisWeek =
-    today >= weekStart && today <= addDays(weekEnd, 1);
+
+  // Only disabled when "all" mode is selected
+  const isDisabled = filterMode === "all";
 
   const formatDate = (date: Date) =>
     date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  const filterModes: FilterMode[] = ["today", "week", "month", "all"];
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div className="flex items-center gap-2">
         <button
+          type="button"
           onClick={onPrev}
-          disabled={filterMode === "all" || isThisWeek}
+          disabled={isDisabled}
           className="p-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Previous period"
         >
@@ -49,11 +56,14 @@ export function WeekNavigator({
               })
             : filterMode === "week"
               ? `${formatDate(weekStart)} - ${formatDate(weekEnd)}`
-              : "All Time"}
+              : filterMode === "month"
+                ? monthStart?.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+                : "All Time"}
         </div>
         <button
+          type="button"
           onClick={onNext}
-          disabled={filterMode === "all" || isThisWeek}
+          disabled={isDisabled}
           className="p-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Next period"
         >
@@ -62,9 +72,10 @@ export function WeekNavigator({
       </div>
 
       <div className="flex gap-2">
-        {(["today", "week", "all"] as FilterMode[]).map((mode) => (
+        {filterModes.map((mode) => (
           <button
             key={mode}
+            type="button"
             onClick={() => onFilterModeChange(mode)}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               filterMode === mode

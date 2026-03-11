@@ -9,13 +9,13 @@ BASE_URL = f"http://{API_HOST}:{API_PORT}"
 
 DEFAULT_PASSWORD = os.getenv("SEED_USER_PASSWORD", "password123")
 
-USERS = ["alice", "bob", "charlie"]
+USERS = ["alice"]
 CATEGORIES = ["Work", "Study", "Exercise", "Reading"]
 FINANCE_CATEGORIES = ["Groceries", "Utilities", "Entertainment", "Shopping", "Transport", "Healthcare"]
 
-ENTRIES_PER_USER = 10
-FINANCE_ENTRIES_PER_USER = 8
-DAYS_SPAN = 7
+ENTRIES_PER_USER = 12
+FINANCE_ENTRIES_PER_USER = 50
+DAYS_SPAN = 30
 
 
 def to_iso_utc(dt: datetime) -> str:
