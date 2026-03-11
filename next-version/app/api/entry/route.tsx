@@ -10,8 +10,6 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  console.log(token);
-
   const flaskRes = await fetch(`${FLASK_BASE_URL}/entry`, {
     headers: {
       Authorization: `Bearer ${token}`,

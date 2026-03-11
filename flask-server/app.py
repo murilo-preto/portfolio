@@ -7,6 +7,8 @@ from flask_jwt_extended import (
     get_jwt,
     set_access_cookies,
 )
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 import mysql.connector
 from mysql.connector import Error
@@ -15,7 +17,15 @@ from mysql.connector.pooling import MySQLConnectionPool
 from contextlib import contextmanager
 import bcrypt
 import os
+import logging
 from datetime import datetime, timedelta, timezone
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -27,6 +37,14 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
 
 if not app.config["JWT_SECRET_KEY"]:
     raise RuntimeError("JWT_SECRET_KEY environment variable is not set")
+
+# Rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["100 per hour", "20 per minute"],
+    storage_uri="memory://",
+)
 
 jwt = JWTManager(app)
 
@@ -107,7 +125,7 @@ def retrieve_entry_from_username(username):
         return jsonify({"username": username, "entries": entries}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to fetch entries"}), 500
 
 
@@ -170,11 +188,13 @@ def list_categories():
         return jsonify({"categories": categories}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to fetch categories"}), 500
 
 
 @app.route("/register", methods=["POST"])
+@limiter.limit("5 per minute")
+@limiter.limit("10 per hour")
 def register_user():
     """
     Register a new user.
@@ -228,11 +248,13 @@ def register_user():
         return jsonify({"error": "Username already exists"}), 409
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to register user"}), 500
 
 
 @app.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
+@limiter.limit("30 per hour")
 def login_user():
     """
     Login a user.
@@ -265,7 +287,7 @@ def login_user():
             )
             user = cursor.fetchone()
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Login failed"}), 500
 
     if not user:
@@ -337,7 +359,7 @@ def create_category():
         ), 201
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to create category"}), 500
 
 
@@ -427,7 +449,7 @@ def create_time_entry():
         ), 201
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to create time entry"}), 500
 
 
@@ -516,7 +538,7 @@ def update_time_entry(entry_id):
         return jsonify({"message": "Entry updated successfully", "id": entry_id}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to update entry"}), 500
 
 
@@ -566,7 +588,7 @@ def delete_time_entry():
         return jsonify({"message": "Entry deleted successfully", "id": entry_id}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to delete entry"}), 500
 
 
@@ -608,7 +630,7 @@ def retrieve_finance_entries_from_username(username):
         return jsonify({"username": username, "entries": entries}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to fetch finance entries"}), 500
 
 
@@ -642,7 +664,7 @@ def list_finance_categories():
         return jsonify({"categories": categories}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to fetch finance categories"}), 500
 
 
@@ -699,7 +721,7 @@ def create_finance_category():
         ), 201
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to create finance category"}), 500
 
 
@@ -808,7 +830,7 @@ def create_finance_entry():
         ), 201
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to create finance entry"}), 500
 
 
@@ -910,7 +932,7 @@ def update_finance_entry(entry_id):
         return jsonify({"message": "Finance entry updated successfully", "id": entry_id}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to update finance entry"}), 500
 
 
@@ -960,7 +982,7 @@ def delete_finance_entry():
         return jsonify({"message": "Finance entry deleted successfully", "id": entry_id}), 200
 
     except Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to delete finance entry"}), 500
 
 

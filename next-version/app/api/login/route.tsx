@@ -42,9 +42,9 @@ export async function POST(req: Request) {
     value: data.access_token,
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
-    maxAge: 60 * 60,
+    maxAge: 60 * 60 * 48, // 48 hours to match TOKEN_DURATION_HOURS
   });
 
   return response;
