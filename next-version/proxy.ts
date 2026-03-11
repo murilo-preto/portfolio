@@ -12,18 +12,5 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Optional: verify with Flask
-  const res = await fetch("http://flask:3000/protected", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!res.ok) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.delete("access_token"); // cleanup invalid token
-    return response;
-  }
-
   return NextResponse.next();
 }

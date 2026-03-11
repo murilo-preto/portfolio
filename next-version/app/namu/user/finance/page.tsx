@@ -124,6 +124,12 @@ export default function FinanceDashboard() {
         >
           Manage Finance
         </a>
+        <a
+          href="/namu/user/finance/recurring"
+          className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+        >
+          Recurring Expenses
+        </a>
       </div>
 
       <WeekNavigator

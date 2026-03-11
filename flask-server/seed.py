@@ -106,6 +106,29 @@ def create_finance_entry(token, product_name, category, price, purchase_date, st
         print("Finance entry error:", response.status_code, response.text)
 
 
+def create_recurring_expense(token, name, category, amount, frequency, start_date, end_date=None, next_payment_date=None):
+    payload = {
+        "name": name,
+        "category": category,
+        "amount": amount,
+        "frequency": frequency,
+        "start_date": start_date,
+    }
+    if end_date:
+        payload["end_date"] = end_date
+    if next_payment_date:
+        payload["next_payment_date"] = next_payment_date
+
+    response = requests.post(
+        f"{BASE_URL}/recurring-expenses/create",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    if response.status_code != 201:
+        print("Recurring expense error:", response.status_code, response.text)
+
+
 def seed():
     print(f"Seeding API at {BASE_URL}")
 
@@ -162,6 +185,34 @@ def seed():
             create_finance_entry(token, product_name, category, price, purchase_date, status)
 
         print(f"Seeded finance entries for {user}")
+
+    print("Creating recurring expenses...")
+    for user in USERS:
+        token = get_auth_token(user)
+        if not token:
+            print(f"Failed to get token for {user}, skipping recurring expenses")
+            continue
+
+        recurring_expenses = [
+            ("Netflix Subscription", "Entertainment", 15.99, "monthly"),
+            ("Internet Bill", "Utilities", 79.99, "monthly"),
+            ("Gym Membership", "Healthcare", 49.99, "monthly"),
+            ("Electric Bill", "Utilities", 120.00, "monthly"),
+            ("Spotify Premium", "Entertainment", 9.99, "monthly"),
+            ("Bus Pass", "Transport", 50.00, "monthly"),
+            ("Amazon Prime", "Shopping", 139.00, "yearly"),
+            ("Car Insurance", "Transport", 450.00, "quarterly"),
+        ]
+
+        for name, category, amount, frequency in recurring_expenses:
+            start_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            next_payment = datetime.now(timezone.utc) + timedelta(days=7)
+            create_recurring_expense(
+                token, name, category, amount, frequency, start_date,
+                next_payment_date=next_payment.strftime("%Y-%m-%d")
+            )
+
+        print(f"Seeded recurring expenses for {user}")
 
     print("Done.")
 

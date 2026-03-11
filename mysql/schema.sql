@@ -96,3 +96,39 @@ CREATE TABLE IF NOT EXISTS finance_entries (
     ON DELETE RESTRICT
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+-- Recurring expenses table
+CREATE TABLE IF NOT EXISTS recurring_expenses (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+  user_id INT UNSIGNED NOT NULL,
+  category_id INT UNSIGNED NOT NULL,
+
+  name VARCHAR(255) NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  frequency ENUM('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly') NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE DEFAULT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  next_payment_date DATE DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  KEY idx_recurring_expenses_user (user_id),
+  KEY idx_recurring_expenses_category (category_id),
+  KEY idx_recurring_expenses_active (is_active),
+
+  CONSTRAINT fk_recurring_expenses_user
+    FOREIGN KEY (user_id)
+    REFERENCES users (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+  CONSTRAINT fk_recurring_expenses_category
+    FOREIGN KEY (category_id)
+    REFERENCES finance_categories (id)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;

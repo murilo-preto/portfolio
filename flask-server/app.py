@@ -1001,6 +1001,359 @@ def expired_token_callback(jwt_header, jwt_payload):
     return jsonify(error="Token expired"), 401
 
 
+# ─── Recurring Expense Routes ──────────────────────────────────────────────────
+
+
+def retrieve_recurring_expenses_from_username(username):
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                """
+                SELECT
+                    re.id,
+                    fc.name AS category,
+                    re.name,
+                    re.amount,
+                    re.frequency,
+                    re.start_date,
+                    re.end_date,
+                    re.is_active,
+                    re.next_payment_date,
+                    re.created_at,
+                    re.updated_at
+                FROM recurring_expenses re
+                JOIN finance_categories fc ON re.category_id = fc.id
+                WHERE re.user_id = %s
+                ORDER BY re.is_active DESC, re.next_payment_date ASC
+                """,
+                (user["id"],),
+            )
+            expenses = cursor.fetchall()
+
+            # Convert Decimal to float for JSON serialization
+            for expense in expenses:
+                if expense["amount"] is not None:
+                    expense["amount"] = float(expense["amount"])
+                # Convert date objects to strings
+                for field in ["start_date", "end_date", "next_payment_date", "created_at", "updated_at"]:
+                    if expense[field] is not None:
+                        expense[field] = expense[field].isoformat()
+
+        return jsonify({"username": username, "expenses": expenses}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to fetch recurring expenses"}), 500
+
+
+@app.get("/recurring-expenses")
+@jwt_required()
+def my_recurring_expenses():
+    """
+    Retrieves recurring expenses from a user from token username
+    """
+    username = get_jwt_identity()
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    return retrieve_recurring_expenses_from_username(username)
+
+
+@app.route("/recurring-expenses/create", methods=["POST"])
+@jwt_required()
+def create_recurring_expense():
+    """
+    Create a new recurring expense.
+
+    Expected JSON:
+    {
+        "name": "string",
+        "category": "string",
+        "amount": number,
+        "frequency": "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
+        "start_date": "YYYY-MM-DD",
+        "end_date": "YYYY-MM-DD" (optional),
+        "next_payment_date": "YYYY-MM-DD" (optional)
+    }
+
+    Returns:
+        201: Expense created
+        400: Validation error
+        404: User or category not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    required_fields = ["name", "category", "amount", "frequency", "start_date"]
+    if not data or not all(field in data for field in required_fields):
+        return jsonify(
+            {"error": "name, category, amount, frequency and start_date are required"}
+        ), 400
+
+    name = data["name"].strip()
+    category_name = data["category"].strip()
+    amount = data["amount"]
+    frequency = data["frequency"]
+    start_date_str = data["start_date"]
+    end_date_str = data.get("end_date")
+    next_payment_date_str = data.get("next_payment_date")
+
+    valid_frequencies = ("weekly", "biweekly", "monthly", "quarterly", "yearly")
+    if frequency not in valid_frequencies:
+        return jsonify({"error": f"Frequency must be one of: {', '.join(valid_frequencies)}"}), 400
+
+    try:
+        amount_value = float(amount)
+        if amount_value < 0:
+            return jsonify({"error": "Amount must be non-negative"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Amount must be a valid number"}), 400
+
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "start_date must be in YYYY-MM-DD format"}), 400
+
+    end_date = None
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            if end_date < start_date:
+                return jsonify({"error": "end_date must be after start_date"}), 400
+        except ValueError:
+            return jsonify({"error": "end_date must be in YYYY-MM-DD format"}), 400
+
+    next_payment_date = None
+    if next_payment_date_str:
+        try:
+            next_payment_date = datetime.strptime(next_payment_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({"error": "next_payment_date must be in YYYY-MM-DD format"}), 400
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s", (current_user,)
+            )
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id FROM finance_categories WHERE name = %s", (category_name,)
+            )
+            category = cursor.fetchone()
+
+            if not category:
+                return jsonify({"error": "Category not found"}), 404
+
+            cursor.execute(
+                """
+                INSERT INTO recurring_expenses (user_id, category_id, name, amount, frequency, start_date, end_date, next_payment_date)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (user["id"], category["id"], name, amount_value, frequency, start_date, end_date, next_payment_date),
+            )
+            expense_id = cursor.lastrowid
+
+        return jsonify(
+            {
+                "message": "Recurring expense created successfully",
+                "expense": {
+                    "id": expense_id,
+                    "name": name,
+                    "category": category_name,
+                    "amount": amount_value,
+                    "frequency": frequency,
+                    "start_date": start_date_str,
+                    "end_date": end_date_str,
+                    "next_payment_date": next_payment_date_str,
+                },
+            }
+        ), 201
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to create recurring expense"}), 500
+
+
+@app.route("/recurring-expenses/<int:expense_id>", methods=["PUT"])
+@jwt_required()
+def update_recurring_expense(expense_id):
+    """
+    Update an existing recurring expense.
+
+    Expected JSON:
+    {
+        "name": "string",
+        "category": "string",
+        "amount": number,
+        "frequency": "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
+        "start_date": "YYYY-MM-DD",
+        "end_date": "YYYY-MM-DD" (optional),
+        "next_payment_date": "YYYY-MM-DD" (optional),
+        "is_active": boolean
+    }
+
+    Returns:
+        200: Expense updated
+        400: Validation error
+        403: Not owner of expense
+        404: Expense or category not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    name = data.get("name", "").strip()
+    category_name = data.get("category", "").strip()
+    amount = data.get("amount")
+    frequency = data.get("frequency")
+    start_date_str = data.get("start_date")
+    end_date_str = data.get("end_date")
+    next_payment_date_str = data.get("next_payment_date")
+    is_active = data.get("is_active", True)
+
+    if not name or not category_name or not start_date_str:
+        return jsonify(
+            {"error": "name, category and start_date are required"}
+        ), 400
+
+    valid_frequencies = ("weekly", "biweekly", "monthly", "quarterly", "yearly")
+    if frequency and frequency not in valid_frequencies:
+        return jsonify({"error": f"Frequency must be one of: {', '.join(valid_frequencies)}"}), 400
+
+    try:
+        amount_value = float(amount) if amount is not None else None
+        if amount_value is not None and amount_value < 0:
+            return jsonify({"error": "Amount must be non-negative"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Amount must be a valid number"}), 400
+
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "start_date must be in YYYY-MM-DD format"}), 400
+
+    end_date = None
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            if end_date < start_date:
+                return jsonify({"error": "end_date must be after start_date"}), 400
+        except ValueError:
+            return jsonify({"error": "end_date must be in YYYY-MM-DD format"}), 400
+
+    next_payment_date = None
+    if next_payment_date_str:
+        try:
+            next_payment_date = datetime.strptime(next_payment_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({"error": "next_payment_date must be in YYYY-MM-DD format"}), 400
+
+    try:
+        with get_cursor() as cursor:
+            # Verify expense belongs to this user
+            cursor.execute(
+                """
+                SELECT re.id FROM recurring_expenses re
+                JOIN users u ON re.user_id = u.id
+                WHERE re.id = %s AND u.username = %s
+                """,
+                (expense_id, current_user),
+            )
+            expense = cursor.fetchone()
+
+            if not expense:
+                return jsonify({"error": "Expense not found or access denied"}), 404
+
+            # Resolve category
+            cursor.execute(
+                "SELECT id FROM finance_categories WHERE name = %s", (category_name,)
+            )
+            category = cursor.fetchone()
+
+            if not category:
+                return jsonify({"error": "Category not found"}), 404
+
+            cursor.execute(
+                """
+                UPDATE recurring_expenses
+                SET category_id = %s, name = %s, amount = %s, frequency = %s, 
+                    start_date = %s, end_date = %s, next_payment_date = %s, is_active = %s
+                WHERE id = %s
+                """,
+                (category["id"], name, amount_value, frequency, start_date, end_date, next_payment_date, is_active, expense_id),
+            )
+
+        return jsonify({"message": "Recurring expense updated successfully", "id": expense_id}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to update recurring expense"}), 500
+
+
+@app.route("/recurring-expenses/delete", methods=["POST"])
+@jwt_required()
+def delete_recurring_expense():
+    """
+    Delete a recurring expense by expense_id.
+
+    Expects JSON:
+    {
+        "expense_id": int
+    }
+
+    Returns:
+        200: Expense deleted
+        400: Validation error
+        403: Not owner of expense
+        404: Expense not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "expense_id" not in data:
+        return jsonify({"error": "expense_id is required"}), 400
+
+    expense_id = data["expense_id"]
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT re.id FROM recurring_expenses re
+                JOIN users u ON re.user_id = u.id
+                WHERE re.id = %s AND u.username = %s
+                """,
+                (expense_id, current_user),
+            )
+            expense = cursor.fetchone()
+
+            if not expense:
+                return jsonify({"error": "Expense not found or access denied"}), 404
+
+            cursor.execute("DELETE FROM recurring_expenses WHERE id = %s", (expense_id,))
+
+        return jsonify({"message": "Recurring expense deleted successfully", "id": expense_id}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to delete recurring expense"}), 500
+
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
