@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TimerDisplay } from "@/components/timer/TimerDisplay";
+import { QuickStats } from "@/components/timer/QuickStats";
+import { CategorySelector } from "@/components/timer/CategorySelector";
+import { TimeInputs } from "@/components/timer/TimeInputs";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -89,8 +93,8 @@ export default function TimerPage() {
           setTimerState("running");
           setElapsed(
             Math.floor(
-              (Date.now() - new Date(parsed.startTime).getTime()) / 1000,
-            ),
+              (Date.now() - new Date(parsed.startTime).getTime()) / 1000
+            )
           );
         } else if (
           parsed.state === "stopped" &&
@@ -129,6 +133,27 @@ export default function TimerPage() {
     };
   }, [timerState, startTime]);
 
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Space to start/stop (when not typing in input)
+      if (e.code === "Space" && e.target === document.body) {
+        e.preventDefault();
+        if (timerState === "running") {
+          handleStop();
+        } else if (timerState === "idle" && categoryId) {
+          handleStart();
+        } else if (timerState === "stopped" && categoryId) {
+          handleStart();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [timerState, categoryId, startTime, endTime]);
+
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   function handleStart() {
@@ -149,7 +174,7 @@ export default function TimerPage() {
           state: "running",
           startTime: now.toISOString(),
           categoryId,
-        }),
+        })
       );
     }
   }
@@ -167,7 +192,7 @@ export default function TimerPage() {
         startTime: startTime?.toISOString(),
         endTime: now.toISOString(),
         categoryId,
-      }),
+      })
     );
   }
 
@@ -186,7 +211,7 @@ export default function TimerPage() {
           startTime: parsed.toISOString(),
           endTime: endTime?.toISOString(),
           categoryId,
-        }),
+        })
       );
     }
   }
@@ -203,7 +228,7 @@ export default function TimerPage() {
           startTime: startTime?.toISOString(),
           endTime: parsed.toISOString(),
           categoryId,
-        }),
+        })
       );
     }
   }
@@ -278,183 +303,134 @@ export default function TimerPage() {
   const isStopped = timerState === "stopped";
 
   return (
-    /*
-     * max-w-xl keeps it centred on desktop.
-     * p-4 on mobile, p-6 on larger screens.
-     * space-y-6 tightens the gaps a bit for smaller screens.
-     */
-    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
-      {/* ── Title ── */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold">Timer</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Select a category, start the timer, then submit your entry.
-        </p>
-      </div>
-
-      {/* ── Category Selector ── */}
-      <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Category
-        </label>
-
-        {catLoading && (
-          <p className="text-sm text-gray-400">Loading categories…</p>
-        )}
-        {catError && <p className="text-sm text-red-500">{catError}</p>}
-
-        {!catLoading && !catError && (
-          <select
-            value={categoryId ?? ""}
-            onChange={(e) =>
-              setCategoryId(e.target.value ? Number(e.target.value) : null)
-            }
-            /* Bigger tap target on mobile via py-3 */
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3
-                       text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-green-500
-                       dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
-          >
-            <option value="">— select a category —</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      {/* ── Timer Display ── */}
-      <div className="bg-bone dark:bg-neutral-900 p-6 rounded-xl shadow flex flex-col items-center gap-5">
-        {/* Clock — smaller font on tiny screens */}
-        <div
-          className={`font-mono text-5xl sm:text-6xl font-bold tracking-widest transition-colors ${
-            isRunning
-              ? "text-green-500"
-              : isStopped
-                ? "text-gray-700 dark:text-gray-300"
-                : "text-gray-400 dark:text-gray-600"
-          }`}
-        >
-          {formatElapsed(
-            isRunning
-              ? elapsed
-              : isStopped
-                ? Math.max(0, durationSeconds ?? 0)
-                : 0,
-          )}
-        </div>
-
-        {/* Start / Stop — full-width on mobile for easy tapping */}
-        <div className="w-full flex gap-3">
-          {!isRunning ? (
-            <button
-              onClick={handleStart}
-              className="flex-1 py-4 rounded-xl bg-green-500 hover:bg-green-600
-                         text-white font-semibold text-lg transition active:scale-95"
-            >
-              {isStopped ? "Restart" : "Start"}
-            </button>
-          ) : (
-            <button
-              onClick={handleStop}
-              className="flex-1 py-4 rounded-xl bg-red-500 hover:bg-red-600
-                         text-white font-semibold text-lg transition active:scale-95"
-            >
-              Stop
-            </button>
-          )}
-        </div>
-
-        {/* Status label */}
-        <p className="text-xs text-gray-500 dark:text-gray-500 uppercase tracking-widest">
-          {isRunning ? "Running…" : isStopped ? "Stopped" : "Idle"}
-        </p>
-      </div>
-
-      {/* ── Time Editors ── */}
-      <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow space-y-4">
-        <h2 className="font-semibold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-          Adjust times
-        </h2>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Start time
-          </label>
-          <input
-            type="datetime-local"
-            value={startInput}
-            onChange={(e) => handleStartInputChange(e.target.value)}
-            /* text-base prevents iOS from zooming in on focus */
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3
-                       text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-green-500
-                       dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            End time
-          </label>
-          <input
-            type="datetime-local"
-            value={endInput}
-            onChange={(e) => handleEndInputChange(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3
-                       text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-green-500
-                       dark:border-neutral-700 dark:bg-neutral-800 dark:text-gray-100"
-          />
-        </div>
-
-        {durationSeconds !== null && (
-          <p
-            className={`text-sm font-medium ${
-              durationSeconds > 0 ? "text-green-500" : "text-red-500"
-            }`}
-          >
-            Duration: {formatElapsed(Math.max(0, durationSeconds))}
-            {durationSeconds <= 0 && " — end must be after start"}
+    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-6xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Timer
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Track your time by category
           </p>
-        )}
+        </div>
+        <a
+          href="/namu/user/entries"
+          className="text-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 
+                     bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 
+                     transition-colors text-gray-700 dark:text-gray-200 font-medium"
+        >
+          View Entries
+        </a>
       </div>
 
-      {/* ── Submit ── */}
-      <div className="space-y-3 pb-8">
-        <button
-          onClick={handleSubmit}
-          disabled={!isValid || submitStatus === "loading"}
-          className="w-full py-4 rounded-xl font-semibold text-white text-lg transition active:scale-95
-                     bg-blue-600 hover:bg-blue-700
-                     disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {submitStatus === "loading" ? "Submitting…" : "Submit Entry"}
-        </button>
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Timer and Category */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Timer Display */}
+          <TimerDisplay
+            elapsed={isRunning ? elapsed : isStopped ? Math.max(0, durationSeconds ?? 0) : 0}
+            isRunning={isRunning}
+            isStopped={isStopped}
+            onStart={handleStart}
+            onStop={handleStop}
+            disabled={!categoryId}
+          />
 
-        {/* Validation hints */}
-        {!isValid && (
-          <ul className="text-xs text-gray-400 dark:text-gray-500 space-y-0.5 pl-1">
-            {!selectedCategory && <li>· Select a category</li>}
-            {!startTime && <li>· Start the timer or set a start time</li>}
-            {!endTime && <li>· Stop the timer or set an end time</li>}
-            {durationSeconds !== null && durationSeconds <= 0 && (
-              <li>· End time must be after start time</li>
+          {/* Category Selector */}
+          <CategorySelector
+            categories={categories}
+            selectedId={categoryId}
+            onSelect={setCategoryId}
+            loading={catLoading}
+            error={catError}
+          />
+
+          {/* Time Inputs */}
+          <TimeInputs
+            startInput={startInput}
+            endInput={endInput}
+            durationSeconds={durationSeconds}
+            onStartChange={handleStartInputChange}
+            onEndChange={handleEndInputChange}
+          />
+        </div>
+
+        {/* Right Column - Stats and Submit */}
+        <div className="flex flex-col gap-6">
+          {/* Quick Stats - Grows to fill space */}
+          <div className="flex-1">
+            <QuickStats currentCategoryId={categoryId} />
+          </div>
+
+          {/* Submit Card */}
+          <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              Submit Entry
+            </h2>
+
+            <button
+              onClick={handleSubmit}
+              disabled={!isValid || submitStatus === "loading"}
+              className="w-full py-4 rounded-xl font-semibold text-white text-lg transition active:scale-95
+                         bg-blue-600 hover:bg-blue-700
+                         disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+                         flex items-center justify-center gap-2"
+            >
+              {submitStatus === "loading" && (
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              {submitStatus === "loading" ? "Submitting..." : "Submit Entry"}
+            </button>
+
+            {/* Validation hints */}
+            {!isValid && (
+              <ul className="mt-4 text-xs text-gray-400 dark:text-gray-500 space-y-1">
+                {!selectedCategory && (
+                  <li className="flex items-center gap-1.5">
+                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                    Select a category
+                  </li>
+                )}
+                {!startTime && (
+                  <li className="flex items-center gap-1.5">
+                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                    Start the timer or set a start time
+                  </li>
+                )}
+                {!endTime && (
+                  <li className="flex items-center gap-1.5">
+                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                    Stop the timer or set an end time
+                  </li>
+                )}
+                {durationSeconds !== null && durationSeconds <= 0 && (
+                  <li className="flex items-center gap-1.5">
+                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                    End time must be after start time
+                  </li>
+                )}
+              </ul>
             )}
-          </ul>
-        )}
 
-        {/* Feedback */}
-        {submitMessage && (
-          <p
-            className={`text-sm px-4 py-2 rounded-lg ${
-              submitStatus === "success"
-                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
-                : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200"
-            }`}
-          >
-            {submitMessage}
-          </p>
-        )}
+            {/* Feedback */}
+            {submitMessage && (
+              <div
+                className={`mt-4 p-3 rounded-lg text-sm ${
+                  submitStatus === "success"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                }`}
+              >
+                {submitMessage}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );
