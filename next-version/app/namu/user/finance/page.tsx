@@ -8,10 +8,43 @@ import { EntriesTable } from "@/components/finance/EntriesTable";
 import { getMondayOf, addDays, formatPrice } from "@/components/finance/utils";
 import { SummaryCard } from "@/components/finance/SummaryCard";
 import { RecurringSummary } from "@/components/finance/RecurringSummary";
+import { BatchImportModal } from "@/components/BatchImportModal";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
 import type { RecurringExpense } from "@/components/finance/types";
 
 type FilterMode = "today" | "week" | "month" | "all";
+
+function formatCSVDate(iso: string): string {
+  const d = new Date(iso.includes("T") ? iso : iso.replace(" ", "T") + "Z");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const seconds = String(d.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function exportToCSV(entries: FinanceEntry[]) {
+  if (entries.length === 0) {
+    alert("No entries to export");
+    return;
+  }
+
+  const header = "category,product_name,price,purchase_date,status";
+  const rows = entries.map((entry) => {
+    return `${entry.category},${entry.product_name},${entry.price},${formatCSVDate(entry.purchase_date)},${entry.status}`;
+  });
+
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `finance_entries_${new Date().toISOString().split("T")[0]}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function FinanceDashboard() {
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -22,6 +55,7 @@ export default function FinanceDashboard() {
   const [monthStart, setMonthStart] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   async function getEntries() {
     try {
@@ -199,6 +233,18 @@ export default function FinanceDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => exportToCSV(data?.entries ?? [])}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors text-gray-700 dark:text-gray-200"
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors text-gray-700 dark:text-gray-200"
+          >
+            Import CSV
+          </button>
           <a
             href="/namu/user/finance/recurring"
             className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors text-gray-700 dark:text-gray-200"
@@ -381,6 +427,13 @@ export default function FinanceDashboard() {
           </div>
         </div>
       </div>
+
+      <BatchImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        importType="finance"
+        onImportSuccess={getEntries}
+      />
     </main>
   );
 }

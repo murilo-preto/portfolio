@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RecurringExpense } from "@/components/finance/types";
+import { BatchImportModal } from "@/components/BatchImportModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -681,6 +682,7 @@ export default function RecurringExpensesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showCatForm, setShowCatForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   async function fetchAll() {
     setLoading(true);
@@ -730,6 +732,12 @@ export default function RecurringExpensesPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            Import CSV
+          </button>
           <a
             href="/namu/user/finance"
             className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
@@ -804,6 +812,13 @@ export default function RecurringExpensesPage() {
           )}
         </div>
       </div>
+
+      <BatchImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        importType="recurring"
+        onImportSuccess={fetchAll}
+      />
     </main>
   );
 }

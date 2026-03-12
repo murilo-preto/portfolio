@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BatchImportModal } from "@/components/BatchImportModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,7 +64,8 @@ function exportToCSV(entries: Entry[]) {
     return;
   }
 
-  const header = "start_date,start_time,end_date,end_time,duration_seconds,category";
+  const header =
+    "start_date,start_time,end_date,end_time,duration_seconds,category";
   const rows = entries.map((entry) => {
     const startParts = formatCSVDate(entry.start_time).split(",");
     const endParts = formatCSVDate(entry.end_time).split(",");
@@ -636,6 +638,7 @@ export default function ManagePage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showCatForm, setShowCatForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   async function fetchAll() {
     setLoading(true);
@@ -648,7 +651,8 @@ export default function ManagePage() {
       if (!entriesRes.ok) throw new Error("Failed to fetch entries");
       const { entries: e } = await entriesRes.json();
       const sorted = (e ?? []).sort(
-        (a: Entry, b: Entry) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+        (a: Entry, b: Entry) =>
+          new Date(b.start_time).getTime() - new Date(a.start_time).getTime(),
       );
       setEntries(sorted);
       if (catsRes.ok) {
@@ -696,12 +700,12 @@ export default function ManagePage() {
           >
             Export CSV
           </button>
-          <a
-            href="/namu/user/csv"
+          <button
+            onClick={() => setShowImportModal(true)}
             className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
           >
-            Import from CSV
-          </a>
+            Import CSV
+          </button>
           <button
             onClick={() => (showEntryForm ? closeEntryForm() : openEntryForm())}
             className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
@@ -764,6 +768,13 @@ export default function ManagePage() {
           )}
         </div>
       </div>
+
+      <BatchImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        importType="time"
+        onImportSuccess={fetchAll}
+      />
     </main>
   );
 }

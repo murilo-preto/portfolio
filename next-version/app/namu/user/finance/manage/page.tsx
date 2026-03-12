@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BatchImportModal } from "@/components/BatchImportModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -662,6 +663,7 @@ export default function FinanceManagePage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showCatForm, setShowCatForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   async function fetchAll() {
     setLoading(true);
@@ -713,6 +715,12 @@ export default function FinanceManagePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            Import CSV
+          </button>
           <a
             href="/namu/user/finance"
             className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
@@ -781,6 +789,13 @@ export default function FinanceManagePage() {
           )}
         </div>
       </div>
+
+      <BatchImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        importType="finance"
+        onImportSuccess={fetchAll}
+      />
     </main>
   );
 }

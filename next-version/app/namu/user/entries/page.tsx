@@ -133,7 +133,7 @@ export default function Entries() {
         </div>
         <div className="flex gap-2">
           <a
-            href="/namu/user/entries/manage"
+            href="/namu/user/manage"
             className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 dark:bg-neutral-100 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors text-white dark:text-neutral-900"
           >
             Add Entry

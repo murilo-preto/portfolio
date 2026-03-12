@@ -592,6 +592,113 @@ def delete_time_entry():
         return jsonify({"error": "Failed to delete entry"}), 500
 
 
+@app.route("/entry/batch-import", methods=["POST"])
+@jwt_required()
+def batch_import_time_entries():
+    """
+    Batch import multiple time entries from a single request.
+
+    Expected JSON:
+    {
+        "entries": [
+            {
+                "category": "string",
+                "start_time": "YYYY-MM-DD HH:MM:SS",
+                "end_time": "YYYY-MM-DD HH:MM:SS"
+            },
+            ...
+        ]
+    }
+
+    Returns:
+        200: { success: number, failed: number, errors: Array<{index, error}> }
+        400: Validation error
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "entries" not in data:
+        return jsonify({"error": "entries array is required"}), 400
+
+    entries = data["entries"]
+    if not isinstance(entries, list):
+        return jsonify({"error": "entries must be an array"}), 400
+
+    results = {"success": 0, "failed": 0, "errors": []}
+
+    # First, get or create all categories
+    category_cache = {}
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM category")
+            existing_categories = cursor.fetchall()
+            for cat in existing_categories:
+                category_cache[cat["name"]] = cat["id"]
+    except Error as e:
+        logger.error(f"Database error fetching categories: {e}")
+        return jsonify({"error": "Failed to fetch categories"}), 500
+
+    for i, entry in enumerate(entries):
+        try:
+            category_name = entry.get("category", "").strip()
+            start_time_str = entry.get("start_time")
+            end_time_str = entry.get("end_time")
+
+            if not category_name or not start_time_str or not end_time_str:
+                raise ValueError("category, start_time and end_time are required")
+
+            # Parse and validate dates
+            start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
+            end_time = datetime.fromisoformat(end_time_str.replace("Z", "+00:00"))
+
+            if start_time.tzinfo is None or end_time.tzinfo is None:
+                raise ValueError("Timezone information required")
+
+            start_time = start_time.astimezone(timezone.utc)
+            end_time = end_time.astimezone(timezone.utc)
+
+            if end_time <= start_time:
+                raise ValueError("end_time must be after start_time")
+
+            # Get or create category
+            if category_name not in category_cache:
+                with get_cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO category (name) VALUES (%s)",
+                        (category_name,)
+                    )
+                    category_cache[category_name] = cursor.lastrowid
+
+            category_id = category_cache[category_name]
+
+            # Get user ID
+            with get_cursor() as cursor:
+                cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
+                user = cursor.fetchone()
+
+                if not user:
+                    raise ValueError("User not found")
+
+                # Insert time entry
+                cursor.execute(
+                    """
+                    INSERT INTO time_entries (user_id, category_id, start_time, end_time)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (user["id"], category_id, start_time, end_time)
+                )
+
+            results["success"] += 1
+
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({"index": i, "error": str(e)})
+            logger.error(f"Failed to import entry {i}: {e}")
+
+    return jsonify(results), 200
+
+
 # ─── Finance Routes ────────────────────────────────────────────────────────────
 
 
@@ -986,6 +1093,127 @@ def delete_finance_entry():
         return jsonify({"error": "Failed to delete finance entry"}), 500
 
 
+@app.route("/finance/batch-import", methods=["POST"])
+@jwt_required()
+def batch_import_finance_entries():
+    """
+    Batch import multiple finance entries from a single request.
+
+    Expected JSON:
+    {
+        "entries": [
+            {
+                "category": "string",
+                "product_name": "string",
+                "price": number,
+                "purchase_date": "YYYY-MM-DD HH:MM:SS",
+                "status": "planned" | "done" (optional, defaults to "planned")
+            },
+            ...
+        ]
+    }
+
+    Returns:
+        200: { success: number, failed: number, errors: Array<{index, error}> }
+        400: Validation error
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "entries" not in data:
+        return jsonify({"error": "entries array is required"}), 400
+
+    entries = data["entries"]
+    if not isinstance(entries, list):
+        return jsonify({"error": "entries must be an array"}), 400
+
+    results = {"success": 0, "failed": 0, "errors": []}
+
+    # First, get or create all finance categories
+    category_cache = {}
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM finance_categories")
+            existing_categories = cursor.fetchall()
+            for cat in existing_categories:
+                category_cache[cat["name"]] = cat["id"]
+    except Error as e:
+        logger.error(f"Database error fetching categories: {e}")
+        return jsonify({"error": "Failed to fetch categories"}), 500
+
+    # Get user ID once
+    user_id = None
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
+            user = cursor.fetchone()
+            if user:
+                user_id = user["id"]
+    except Error as e:
+        logger.error(f"Database error fetching user: {e}")
+        return jsonify({"error": "Failed to fetch user"}), 500
+
+    if not user_id:
+        return jsonify({"error": "User not found"}), 404
+
+    for i, entry in enumerate(entries):
+        try:
+            category_name = entry.get("category", "").strip()
+            product_name = entry.get("product_name", "").strip()
+            price = entry.get("price")
+            purchase_date_str = entry.get("purchase_date")
+            status = entry.get("status", "planned")
+
+            if not category_name or not product_name or not purchase_date_str:
+                raise ValueError("category, product_name and purchase_date are required")
+
+            # Validate price
+            price_value = float(price)
+            if price_value < 0:
+                raise ValueError("Price must be non-negative")
+
+            # Validate status
+            if status not in ("planned", "done"):
+                raise ValueError("Status must be 'planned' or 'done'")
+
+            # Parse and validate date
+            purchase_date = datetime.fromisoformat(purchase_date_str.replace("Z", "+00:00"))
+            if purchase_date.tzinfo is None:
+                raise ValueError("Timezone information required")
+            purchase_date = purchase_date.astimezone(timezone.utc)
+
+            # Get or create category
+            if category_name not in category_cache:
+                with get_cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO finance_categories (name) VALUES (%s)",
+                        (category_name,)
+                    )
+                    category_cache[category_name] = cursor.lastrowid
+
+            category_id = category_cache[category_name]
+
+            # Insert finance entry
+            with get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO finance_entries (user_id, category_id, product_name, price, purchase_date, status)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (user_id, category_id, product_name, price_value, purchase_date, status)
+                )
+
+            results["success"] += 1
+
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({"index": i, "error": str(e)})
+            logger.error(f"Failed to import finance entry {i}: {e}")
+
+    return jsonify(results), 200
+
+
 @jwt.unauthorized_loader
 def unauthorized_callback(callback):
     return jsonify(error="Missing or invalid token"), 401
@@ -1352,6 +1580,142 @@ def delete_recurring_expense():
     except Error as e:
         logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to delete recurring expense"}), 500
+
+
+@app.route("/recurring-expenses/batch-import", methods=["POST"])
+@jwt_required()
+def batch_import_recurring_expenses():
+    """
+    Batch import multiple recurring expenses from a single request.
+
+    Expected JSON:
+    {
+        "expenses": [
+            {
+                "category": "string",
+                "name": "string",
+                "amount": number,
+                "frequency": "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
+                "start_date": "YYYY-MM-DD",
+                "end_date": "YYYY-MM-DD" (optional),
+                "next_payment_date": "YYYY-MM-DD" (optional),
+                "is_active": boolean (optional, defaults to true)
+            },
+            ...
+        ]
+    }
+
+    Returns:
+        200: { success: number, failed: number, errors: Array<{index, error}> }
+        400: Validation error
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "expenses" not in data:
+        return jsonify({"error": "expenses array is required"}), 400
+
+    expenses = data["expenses"]
+    if not isinstance(expenses, list):
+        return jsonify({"error": "expenses must be an array"}), 400
+
+    results = {"success": 0, "failed": 0, "errors": []}
+
+    # First, get or create all finance categories
+    category_cache = {}
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM finance_categories")
+            existing_categories = cursor.fetchall()
+            for cat in existing_categories:
+                category_cache[cat["name"]] = cat["id"]
+    except Error as e:
+        logger.error(f"Database error fetching categories: {e}")
+        return jsonify({"error": "Failed to fetch categories"}), 500
+
+    # Get user ID once
+    user_id = None
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
+            user = cursor.fetchone()
+            if user:
+                user_id = user["id"]
+    except Error as e:
+        logger.error(f"Database error fetching user: {e}")
+        return jsonify({"error": "Failed to fetch user"}), 500
+
+    if not user_id:
+        return jsonify({"error": "User not found"}), 404
+
+    valid_frequencies = ("weekly", "biweekly", "monthly", "quarterly", "yearly")
+
+    for i, expense in enumerate(expenses):
+        try:
+            category_name = expense.get("category", "").strip()
+            name = expense.get("name", "").strip()
+            amount = expense.get("amount")
+            frequency = expense.get("frequency", "monthly")
+            start_date_str = expense.get("start_date")
+            end_date_str = expense.get("end_date")
+            next_payment_date_str = expense.get("next_payment_date")
+            is_active = expense.get("is_active", True)
+
+            if not category_name or not name or not start_date_str:
+                raise ValueError("category, name and start_date are required")
+
+            # Validate amount
+            amount_value = float(amount)
+            if amount_value < 0:
+                raise ValueError("Amount must be non-negative")
+
+            # Validate frequency
+            if frequency not in valid_frequencies:
+                raise ValueError(f"Frequency must be one of: {', '.join(valid_frequencies)}")
+
+            # Parse and validate dates
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+
+            end_date = None
+            if end_date_str:
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                if end_date < start_date:
+                    raise ValueError("end_date must be after start_date")
+
+            next_payment_date = None
+            if next_payment_date_str:
+                next_payment_date = datetime.strptime(next_payment_date_str, "%Y-%m-%d").date()
+
+            # Get or create category
+            if category_name not in category_cache:
+                with get_cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO finance_categories (name) VALUES (%s)",
+                        (category_name,)
+                    )
+                    category_cache[category_name] = cursor.lastrowid
+
+            category_id = category_cache[category_name]
+
+            # Insert recurring expense
+            with get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO recurring_expenses (user_id, category_id, name, amount, frequency, start_date, end_date, next_payment_date, is_active)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (user_id, category_id, name, amount_value, frequency, start_date, end_date, next_payment_date, is_active)
+                )
+
+            results["success"] += 1
+
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({"index": i, "error": str(e)})
+            logger.error(f"Failed to import recurring expense {i}: {e}")
+
+    return jsonify(results), 200
 
 
 if __name__ == "__main__":

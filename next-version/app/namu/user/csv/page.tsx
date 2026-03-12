@@ -114,60 +114,27 @@ export default function CSVPage() {
     setMsg(null);
 
     try {
-      const tokenRes = await fetch("/api/token", { credentials: "include" });
-      if (!tokenRes.ok) throw new Error("Not authenticated");
-      const { user: username } = await tokenRes.json();
+      const response = await fetch("/api/entry/batch-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ entries }),
+      });
 
-      const categoriesRes = await fetch("/api/categories");
-      const { categories: existingCats } = await categoriesRes.json();
-      const existingCatNames = new Set(existingCats.map((c: { name: string }) => c.name));
+      const result = await response.json();
 
-      const categoriesToCreate = [...new Set(entries.map(e => e.category))];
-      for (const catName of categoriesToCreate) {
-        if (!existingCatNames.has(catName)) {
-          await fetch("/api/category", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: catName }),
-          });
-        }
+      if (!response.ok) {
+        throw new Error(result.error || "Import failed");
       }
 
-      let successCount = 0;
-      let failedCount = 0;
-
-      for (const entry of entries) {
-        const res = await fetch("/api/entry/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            username,
-            category: entry.category,
-            start_time: entry.start_time,
-            end_time: entry.end_time,
-          }),
-        });
-
-        if (res.ok) {
-          successCount++;
-        } else {
-          const err = await res.json();
-          console.error("Failed to create entry:", err);
-          failedCount++;
-        }
-      }
-
-      if (failedCount === 0) {
+      if (result.failed > 0) {
+        setStatus("error");
+        setMsg(`Imported ${result.success} entries. ${result.failed} failed.`);
+      } else {
         setStatus("success");
-        setMsg(`Successfully imported ${successCount} entries!`);
+        setMsg(`Successfully imported ${result.success} entries!`);
         setEntries([]);
         if (fileInputRef.current) fileInputRef.current.value = "";
-      } else {
-        setStatus("error");
-        setMsg(
-          `Imported ${successCount} entries. ${failedCount} failed.`,
-        );
       }
     } catch (err: any) {
       setStatus("error");
