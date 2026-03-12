@@ -1,0 +1,269 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('flask-server/requirements.txt', 'test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Flask dependencies
+        run: |
+          pip install -r flask-server/requirements.txt
+
+      - name: Install test dependencies
+        run: |
+          pip install -r test-requirements.txt
+
+      - name: Run Flask unit tests
+        run: |
+          pytest test/test_flask_app.py -v --tb=short
+
+  nextjs-tests:
+    name: Next.js Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: next-version/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd next-version
+          npm ci
+
+      - name: Run lint
+        run: |
+          cd next-version
+          npm run lint
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: test_time_tracker
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          JWT_SECRET_KEY=test-secret-key-for-ci-tests-min-32-chars
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=test_time_tracker
+          DB_USER=test_user
+          DB_PASSWORD=test_password
+          TOKEN_DURATION_HOURS=48
+          EOF
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('flask-server/requirements.txt', 'test-requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Flask dependencies
+        run: |
+          pip install -r flask-server/requirements.txt
+
+      - name: Install test dependencies
+        run: |
+          pip install -r test-requirements.txt
+
+      - name: Wait for MySQL
+        run: |
+          for i in {30..0}; do
+            if mysqladmin ping -h 127.0.0.1 -u root -prootpassword --silent 2>/dev/null; then
+              echo "MySQL is ready"
+              break
+            fi
+            echo "Waiting for MySQL... $i"
+            sleep 1
+          done
+
+      - name: Initialize database schema
+        run: |
+          mysql -h 127.0.0.1 -u root -prootpassword test_time_tracker < mysql/schema.sql
+
+      - name: Run integration tests
+        env:
+          RUN_INTEGRATION_TESTS: true
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: 3306
+          TEST_DB_USER: test_user
+          TEST_DB_PASSWORD: test_password
+          TEST_DB_NAME: test_time_tracker
+        run: |
+          pytest test/test_flask_integration.py -v --tb=short
+
+  build-test:
+    name: Build & Docker Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          JWT_SECRET_KEY=test-secret-key-for-ci-tests-min-32-chars
+          DB_HOST=mysql
+          DB_PORT=3306
+          DB_NAME=time_tracker
+          MYSQL_USER=app_user
+          MYSQL_PASSWORD=VERY_STRONG_PASSWORD
+          MYSQL_ROOT_PASSWORD=SUPER_STRONG_ROOT_PASSWORD
+          MYSQL_DATABASE=time_tracker
+          TOKEN_DURATION_HOURS=48
+          EOF
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Flask service
+        run: |
+          docker compose build flask
+
+      - name: Build Next.js service
+        run: |
+          docker compose build nextjs
+
+      - name: Start services
+        run: |
+          docker compose up -d
+
+      - name: Wait for services
+        run: |
+          sleep 30
+
+      - name: Check service health
+        run: |
+          docker compose ps
+
+      - name: Run health checks
+        run: |
+          curl -f http://localhost:3000/health || exit 1
+          curl -f http://localhost:5000/api/health || exit 1
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          docker compose logs
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose down
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          JWT_SECRET_KEY=test-secret-key-for-ci-tests-min-32-chars
+          DB_HOST=mysql
+          DB_PORT=3306
+          DB_NAME=time_tracker
+          MYSQL_USER=app_user
+          MYSQL_PASSWORD=VERY_STRONG_PASSWORD
+          MYSQL_ROOT_PASSWORD=SUPER_STRONG_ROOT_PASSWORD
+          MYSQL_DATABASE=time_tracker
+          TOKEN_DURATION_HOURS=48
+          EOF
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          pip install -r test-requirements.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start services
+        run: |
+          docker compose up -d --build
+
+      - name: Wait for services
+        run: |
+          sleep 45
+
+      - name: Check service status
+        run: |
+          docker compose ps
+
+      - name: Run E2E tests
+        env:
+          RUN_E2E_TESTS: true
+          FLASK_URL: http://localhost:3000
+          NEXTJS_URL: http://localhost:5000
+          SERVICE_TIMEOUT: 60
+        run: |
+          pytest test/test_e2e_health.py -v --tb=short
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose down
