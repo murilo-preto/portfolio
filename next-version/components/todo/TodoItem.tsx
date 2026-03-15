@@ -10,6 +10,8 @@ type TodoItemProps = {
   onToggleComplete: (item: TodoItem) => void;
   onEdit: (item: TodoItem) => void;
   onDelete: (item: TodoItem) => void;
+  onSelectForPomodoro?: (item: TodoItem) => void;
+  isSelectedForPomodoro?: boolean;
 };
 
 export function TodoItemComponent({
@@ -17,21 +19,29 @@ export function TodoItemComponent({
   onToggleComplete,
   onEdit,
   onDelete,
+  onSelectForPomodoro,
+  isSelectedForPomodoro = false,
 }: TodoItemProps) {
   const overdue = isOverdue(item.due_date, item.status);
 
   return (
     <div
-      className={`p-4 rounded-xl border transition-all ${
-        item.status === "completed"
-          ? "bg-gray-50 dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 opacity-75"
-          : "bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500"
-      } ${overdue ? "border-red-300 dark:border-red-700" : ""}`}
+      onClick={() => onSelectForPomodoro?.(item)}
+      className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
+        isSelectedForPomodoro
+          ? "bg-green-50 dark:bg-green-900/20 border-green-500 ring-2 ring-green-500/20 shadow-md shadow-green-500/10"
+          : item.status === "completed"
+          ? "bg-gray-50 dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 opacity-75 hover:shadow-sm"
+          : "bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 hover:shadow-sm"
+      } ${overdue && !isSelectedForPomodoro ? "border-red-300 dark:border-red-700" : ""}`}
     >
       <div className="flex items-start gap-3">
         {/* Checkbox */}
         <button
-          onClick={() => onToggleComplete(item)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleComplete(item);
+          }}
           className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
             item.status === "completed"
               ? "bg-green-500 border-green-500 text-white"
@@ -52,6 +62,9 @@ export function TodoItemComponent({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
+            {isSelectedForPomodoro && (
+              <span className="text-lg">🍎</span>
+            )}
             <h3
               className={`font-medium text-gray-900 dark:text-gray-100 ${
                 item.status === "completed" ? "line-through text-gray-500" : ""
@@ -84,7 +97,10 @@ export function TodoItemComponent({
         {/* Actions */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => onEdit(item)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(item);
+            }}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             title="Edit"
           >
@@ -98,7 +114,10 @@ export function TodoItemComponent({
             </svg>
           </button>
           <button
-            onClick={() => onDelete(item)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(item);
+            }}
             className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
             title="Delete"
           >

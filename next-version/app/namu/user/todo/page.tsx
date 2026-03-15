@@ -263,6 +263,8 @@ export default function TodoPage() {
             onToggleComplete={handleToggleComplete}
             onEdit={handleEdit}
             onDelete={handleDeleteTodo}
+            onSelectForPomodoro={setSelectedTodo}
+            selectedTodo={selectedTodo}
             categories={uniqueCategories}
           />
         </div>

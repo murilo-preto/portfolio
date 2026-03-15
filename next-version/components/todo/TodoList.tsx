@@ -16,6 +16,8 @@ type TodoListProps = {
   onToggleComplete: (item: TodoItem) => void;
   onEdit: (item: TodoItem) => void;
   onDelete: (item: TodoItem) => void;
+  onSelectForPomodoro?: (item: TodoItem) => void;
+  selectedTodo?: TodoItem | null;
   categories: string[];
 };
 
@@ -32,6 +34,8 @@ export function TodoList({
   onToggleComplete,
   onEdit,
   onDelete,
+  onSelectForPomodoro,
+  selectedTodo = null,
   categories,
 }: TodoListProps) {
   // Filter items
@@ -125,6 +129,8 @@ export function TodoList({
               onToggleComplete={onToggleComplete}
               onEdit={onEdit}
               onDelete={onDelete}
+              onSelectForPomodoro={onSelectForPomodoro}
+              isSelectedForPomodoro={selectedTodo?.id === item.id}
             />
           ))}
         </div>
