@@ -132,3 +132,86 @@ CREATE TABLE IF NOT EXISTS recurring_expenses (
     ON DELETE RESTRICT
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+-- TODO categories table
+CREATE TABLE IF NOT EXISTS todo_categories (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_todo_category_name (name)
+) ENGINE=InnoDB;
+
+-- Insert default TODO categories
+INSERT INTO todo_categories (name) VALUES
+  ('Personal'),
+  ('Work'),
+  ('Study'),
+  ('Shopping');
+
+-- TODO items table
+CREATE TABLE IF NOT EXISTS todo_items (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+  user_id INT UNSIGNED NOT NULL,
+  category_id INT UNSIGNED NOT NULL,
+
+  title VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  priority ENUM('low', 'medium', 'high') NOT NULL DEFAULT 'medium',
+  status ENUM('pending', 'in_progress', 'completed') NOT NULL DEFAULT 'pending',
+  due_date DATETIME DEFAULT NULL,
+  completed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  KEY idx_todo_items_user (user_id),
+  KEY idx_todo_items_category (category_id),
+  KEY idx_todo_items_status (status),
+  KEY idx_todo_items_priority (priority),
+
+  CONSTRAINT fk_todo_items_user
+    FOREIGN KEY (user_id)
+    REFERENCES users (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+  CONSTRAINT fk_todo_items_category
+    FOREIGN KEY (category_id)
+    REFERENCES todo_categories (id)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- Pomodoro sessions table
+CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+  user_id INT UNSIGNED NOT NULL,
+  todo_id INT UNSIGNED DEFAULT NULL,
+
+  duration_seconds INT UNSIGNED NOT NULL,
+  completed BOOLEAN NOT NULL DEFAULT FALSE,
+  session_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  KEY idx_pomodoro_sessions_user (user_id),
+  KEY idx_pomodoro_sessions_todo (todo_id),
+  KEY idx_pomodoro_sessions_date (session_date),
+
+  CONSTRAINT fk_pomodoro_sessions_user
+    FOREIGN KEY (user_id)
+    REFERENCES users (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+  CONSTRAINT fk_pomodoro_sessions_todo
+    FOREIGN KEY (todo_id)
+    REFERENCES todo_items (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
