@@ -31,6 +31,7 @@ app = Flask(__name__)
 
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
+app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
     hours=int(os.getenv("TOKEN_DURATION_HOURS", "48"))
 )
