@@ -25,14 +25,6 @@ function toLocalDatetimeValue(date: Date): string {
   );
 }
 
-function formatElapsed(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function TimerPage() {
@@ -338,38 +330,34 @@ export default function TimerPage() {
             disabled={!categoryId}
           />
 
-          {/* Category Selector */}
-          <CategorySelector
-            categories={categories}
-            selectedId={categoryId}
-            onSelect={setCategoryId}
-            loading={catLoading}
-            error={catError}
-          />
+          {/* Category + Time Inputs */}
+          <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 space-y-4">
+            <CategorySelector
+              categories={categories}
+              selectedId={categoryId}
+              onSelect={setCategoryId}
+              loading={catLoading}
+              error={catError}
+            />
 
-          {/* Time Inputs */}
-          <TimeInputs
-            startInput={startInput}
-            endInput={endInput}
-            durationSeconds={durationSeconds}
-            onStartChange={handleStartInputChange}
-            onEndChange={handleEndInputChange}
-          />
+            <TimeInputs
+              startInput={startInput}
+              endInput={endInput}
+              onStartChange={handleStartInputChange}
+              onEndChange={handleEndInputChange}
+            />
+          </div>
         </div>
 
         {/* Right Column - Stats and Submit */}
         <div className="flex flex-col gap-6">
           {/* Quick Stats - Grows to fill space */}
           <div className="flex-1">
-            <QuickStats currentCategoryId={categoryId} />
+            <QuickStats />
           </div>
 
           {/* Submit Card */}
           <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Submit Entry
-            </h2>
-
             <button
               onClick={handleSubmit}
               disabled={!isValid || submitStatus === "loading"}

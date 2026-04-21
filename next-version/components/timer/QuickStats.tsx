@@ -9,11 +9,7 @@ type Entry = {
   start_time: string;
 };
 
-type QuickStatsProps = {
-  currentCategoryId?: number | null;
-};
-
-export function QuickStats({ currentCategoryId }: QuickStatsProps) {
+export function QuickStats() {
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [sessionCount, setSessionCount] = useState(0);
   const [topCategory, setTopCategory] = useState<string | null>(null);
@@ -110,17 +106,6 @@ export function QuickStats({ currentCategoryId }: QuickStatsProps) {
           </div>
         </div>
 
-        {/* Current Category Indicator */}
-        {currentCategoryId && (
-          <div className="pt-3 border-t border-gray-200 dark:border-neutral-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Tracking category
-            </p>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-1">
-              Select a category to start
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
