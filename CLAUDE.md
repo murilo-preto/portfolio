@@ -24,50 +24,17 @@ cd next-version && npx vitest run ../test/test_nextjs_api.test.ts
 
 ### Testing
 
-A comprehensive test suite is available. All tests can be run inside Docker (no local dependencies needed):
+All tests run inside Docker — no local Python or MySQL setup required:
 
 ```bash
-# Full rebuild + all tests inside Docker (unit, integration, e2e)
-./run_tests.sh --compose
-
-# Unit tests only (no dependencies)
+# Full rebuild + all tests (unit, integration, e2e)
 ./run_tests.sh
 
-# Integration tests (requires MySQL)
-./run_tests.sh -i
-
-# E2E tests (requires running services)
-./run_tests.sh -e
-
-# Docker deployment tests
-./run_tests.sh -d
-
-# All tests (local)
-./run_tests.sh --all
-
-# With coverage
-./run_tests.sh --all --coverage
-
-# Individual test suites
-pytest test/test_flask_app.py -v
-RUN_INTEGRATION_TESTS=true pytest test/test_flask_integration.py -v
-RUN_E2E_TESTS=true pytest test/test_e2e_health.py -v
-RUN_DOCKER_TESTS=true pytest test/test_docker_deployment.py -v
+# Next.js API tests (local dev only)
 cd next-version && npx vitest run ../test/test_nextjs_api.test.ts
 ```
 
-### Test coverage
-
-| Command | Scope | Requirements |
-|---------|-------|-------------|
-| `./run_tests.sh` | Unit | None |
-| `./run_tests.sh -i` | Integration | MySQL database |
-| `./run_tests.sh -e` | E2E | Running services |
-| `./run_tests.sh -d` | Docker | Docker running |
-| `./run_tests.sh -a` | All | Full stack |
-| `./run_tests.sh --compose` | All (in Docker) | Docker only |
-
-Covers: health endpoints, authentication (register, login, JWT), input validation, DB operations (CRUD, transactions), API integration (Flask ↔ Next.js), Docker configuration (networks, volumes, health checks), security (IDOR, SQLi, auth bypass, token manipulation).
+Covers: health endpoints, authentication (register, login, JWT), input validation, DB operations (CRUD, transactions), API integration (Flask ↔ Next.js), security (IDOR, SQLi, auth bypass, token manipulation).
 
 ### Health verification
 ```bash
@@ -79,22 +46,21 @@ curl http://localhost:5000/api/health  # Next.js
 
 Before considering a task complete:
 
-1. **Build**: `docker compose build`
-2. **Unit Tests**: `./run_tests.sh`
-3. **Full Suite**: `./run_tests.sh --compose`
-4. **Verify Health**: All endpoints return 200
+1. **Build**: `docker compose build` (catches TypeScript/Python compile errors early)
+2. **Full Suite**: `./run_tests.sh`
+3. **Verify Health**: All endpoints return 200
 
 ## Common Build Issues
 
 - **Next.js TypeScript errors**: Fix type mismatches in `.tsx` files
 - **Flask errors**: Check Python syntax and imports in `app.py`
 - **Database schema changes**: Run `docker compose up` to apply new migrations (re-init on fresh volumes with `docker compose down -v`)
-- **Rate limiting in tests**: Some tests may be skipped due to rate limiting (use `--compose` which disables it)
+- **Rate limiting in tests**: Some tests may be skipped due to rate limiting; rate limiting is always disabled inside Docker (`RATELIMIT_ENABLED=false` is set by `docker-compose.test.yml`)
 
 ## After Code Changes
 
 1. **Run `docker compose build`** to catch TypeScript and Python compile errors early
-2. **Run full test suite**: `./run_tests.sh --compose`
+2. **Run full test suite**: `./run_tests.sh`
 3. **Auth changes**: Always verify login/token-refresh flows end-to-end
 4. **Flask decorators**: Verify exact syntax before proceeding
 
@@ -135,7 +101,7 @@ Next.js API routes are thin proxies: they handle cookie-based JWT token refresh 
 
 ## Important notes
 
-- **Before suggesting a commit**, always run the full test suite (`./run_tests.sh --compose`) and confirm all tests pass. Do not consider work done until tests are green. This rebuilds all Docker services and runs every test tier (unit, integration, e2e) inside Docker where all dependencies are available.
+- **Before suggesting a commit**, always run the full test suite (`./run_tests.sh`) and confirm all tests pass. Do not consider work done until tests are green. This rebuilds all Docker services and runs every test tier (unit, integration, e2e) inside Docker where all dependencies are available.
 - **Never add Claude as a co-author** in commit messages. The user owns all features and the technical debt they may entail.
 - Environment variables come from `.env` (copy from `env.example.txt`); `JWT_SECRET_KEY` must be ≥64 chars.
 - See `test/README.md` for detailed test documentation.

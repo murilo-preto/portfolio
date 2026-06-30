@@ -30,4 +30,4 @@ jobs:
           EOF
 
       - name: Run full test suite inside Docker
-        run: ./run_tests.sh --compose
+        run: ./run_tests.sh

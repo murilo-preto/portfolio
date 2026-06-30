@@ -144,28 +144,15 @@ docker compose down -v
 ## Testing
 
 ```bash
-# Full rebuild + all tests inside Docker (recommended)
-./run_tests.sh --compose
-
-# Unit tests only (no external dependencies)
+# Full rebuild + all tests inside Docker
 ./run_tests.sh
 
-# Integration tests (requires MySQL)
-./run_tests.sh -i
-
-# E2E tests (requires running services)
-./run_tests.sh -e
-
-# Docker deployment tests
-./run_tests.sh -d
-
-# All tests with coverage
-./run_tests.sh --all --coverage
+# Next.js API tests (local dev only)
+cd next-version && npx vitest run ../test/test_nextjs_api.test.ts
 ```
 
 ## Pre-Deployment Checklist
 
 1. `docker compose build` — catches TypeScript/Python errors
-2. `./run_tests.sh` — unit tests pass
-3. `./run_tests.sh --compose` — full suite green
-4. Health endpoints return 200
+2. `./run_tests.sh` — full suite green
+3. Health endpoints return 200
