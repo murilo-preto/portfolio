@@ -33,7 +33,8 @@ function exportToCSV(entries: FinanceEntry[]) {
 
   const header = "category,product_name,price,purchase_date,status";
   const rows = entries.map((entry) => {
-    return `${entry.category},${entry.product_name},${entry.price},${formatCSVDate(entry.purchase_date)},${entry.status}`;
+    const q = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    return `${q(entry.category)},${q(entry.product_name)},${entry.price},${formatCSVDate(entry.purchase_date)},${q(entry.status)}`;
   });
 
   const csv = [header, ...rows].join("\n");

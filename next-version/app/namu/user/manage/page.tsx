@@ -69,7 +69,8 @@ function exportToCSV(entries: Entry[]) {
   const rows = entries.map((entry) => {
     const startParts = formatCSVDate(entry.start_time).split(",");
     const endParts = formatCSVDate(entry.end_time).split(",");
-    return `${startParts[0]},${startParts[1]},${endParts[0]},${endParts[1]},${entry.duration_seconds},${entry.category}`;
+    const q = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    return `${startParts[0]},${startParts[1]},${endParts[0]},${endParts[1]},${entry.duration_seconds},${q(entry.category)}`;
   });
 
   const csv = [header, ...rows].join("\n");

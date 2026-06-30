@@ -166,12 +166,14 @@ class TestCategoryIntegration:
         assert isinstance(data["categories"], list)
     
     @pytest.mark.integration
-    def test_create_new_category(self, client):
+    def test_create_new_category(self, client, auth_token):
         """Should create a new category in database."""
+        if not auth_token:
+            pytest.skip("Authentication failed")
         category_name = f"Test Category {datetime.now().timestamp()}"
-        
-        response = client.post("/category", json={"name": category_name})
-        
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        response = client.post("/category", json={"name": category_name}, headers=headers)
+
         assert response.status_code in [200, 201]
         data = response.get_json()
         assert "category" in data or "message" in data
@@ -181,25 +183,24 @@ class TestTimeEntryIntegration:
     """Integration tests for time entries."""
     
     @pytest.mark.integration
-    def test_create_time_entry(self, registered_user, client):
+    def test_create_time_entry(self, registered_user, auth_token, client):
         """Should create a time entry in database."""
-        if not registered_user:
-            pytest.skip("User registration failed")
-        
-        # Ensure category exists
+        if not registered_user or not auth_token:
+            pytest.skip("User registration or login failed")
+
+        headers = {"Authorization": f"Bearer {auth_token}"}
         category_name = "Work"
-        client.post("/category", json={"name": category_name})
-        
+        client.post("/category", json={"name": category_name}, headers=headers)
+
         start_time = datetime.now(timezone.utc)
         end_time = start_time + timedelta(hours=1)
-        
-        response = client.post("/entry/create", json={
-            "username": registered_user["username"],
+
+        response = client.post("/entry/create", headers=headers, json={
             "category": category_name,
             "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat()
+            "end_time": end_time.isoformat(),
         })
-        
+
         assert response.status_code == 201
         data = response.get_json()
         assert "entry" in data
@@ -223,24 +224,22 @@ class TestTimeEntryIntegration:
         """Should update an existing time entry."""
         if not auth_token:
             pytest.skip("Authentication failed")
-        
-        # First create an entry
+
+        headers = {"Authorization": f"Bearer {auth_token}"}
         category_name = "Work"
         start_time = datetime.now(timezone.utc)
         end_time = start_time + timedelta(hours=1)
-        
-        create_response = client.post("/entry/create", json={
-            "username": registered_user["username"],
+
+        create_response = client.post("/entry/create", headers=headers, json={
             "category": category_name,
             "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat()
+            "end_time": end_time.isoformat(),
         })
         
         if create_response.status_code != 201:
             pytest.skip("Failed to create entry for update test")
-        
+
         entry_id = create_response.get_json()["entry"]["id"]
-        headers = {"Authorization": f"Bearer {auth_token}"}
         
         # Update the entry
         new_end_time = start_time + timedelta(hours=2)
@@ -261,24 +260,22 @@ class TestTimeEntryIntegration:
         """Should delete a time entry."""
         if not auth_token:
             pytest.skip("Authentication failed")
-        
-        # First create an entry
+
+        headers = {"Authorization": f"Bearer {auth_token}"}
         category_name = "Work"
         start_time = datetime.now(timezone.utc)
         end_time = start_time + timedelta(hours=1)
-        
-        create_response = client.post("/entry/create", json={
-            "username": registered_user["username"],
+
+        create_response = client.post("/entry/create", headers=headers, json={
             "category": category_name,
             "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat()
+            "end_time": end_time.isoformat(),
         })
-        
+
         if create_response.status_code != 201:
             pytest.skip("Failed to create entry for delete test")
-        
+
         entry_id = create_response.get_json()["entry"]["id"]
-        headers = {"Authorization": f"Bearer {auth_token}"}
         
         # Delete the entry
         delete_response = client.delete(
@@ -303,12 +300,14 @@ class TestFinanceEntryIntegration:
         assert "categories" in data
     
     @pytest.mark.integration
-    def test_create_finance_category(self, client):
+    def test_create_finance_category(self, client, auth_token):
         """Should create a new finance category."""
+        if not auth_token:
+            pytest.skip("Authentication failed")
         category_name = f"Finance Test {datetime.now().timestamp()}"
-        
-        response = client.post("/finance/category", json={"name": category_name})
-        
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        response = client.post("/finance/category", json={"name": category_name}, headers=headers)
+
         assert response.status_code in [200, 201]
 
 

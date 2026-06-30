@@ -17,6 +17,7 @@ RUN_INTEGRATION=false
 RUN_E2E=false
 RUN_DOCKER=false
 RUN_COVERAGE=false
+RUN_COMPOSE=false
 TEST_FILE=""
 VERBOSITY="-v"
 
@@ -30,6 +31,7 @@ usage() {
     echo "  -e, --e2e           Run end-to-end tests (requires running services)"
     echo "  -d, --docker        Run Docker deployment tests"
     echo "  -a, --all           Run all tests"
+    echo "  -k, --compose       Rebuild all Docker services and run full test suite inside Docker"
     echo "  -c, --coverage      Generate coverage report"
     echo "  -f, --file FILE     Run specific test file"
     echo "  -q, --quiet         Quiet mode (minimal output)"
@@ -38,6 +40,7 @@ usage() {
     echo "Examples:"
     echo "  $0                          # Run unit tests"
     echo "  $0 --all                    # Run all tests"
+    echo "  $0 --compose                # Full rebuild + all tests inside Docker"
     echo "  $0 -i -c                    # Run integration tests with coverage"
     echo "  $0 -f test_flask_app.py     # Run specific test file"
     exit 1
@@ -70,6 +73,10 @@ while [[ $# -gt 0 ]]; do
             RUN_INTEGRATION=true
             RUN_E2E=true
             RUN_DOCKER=true
+            shift
+            ;;
+        -k|--compose)
+            RUN_COMPOSE=true
             shift
             ;;
         -c|--coverage)
@@ -117,6 +124,29 @@ else
     export DB_NAME=time_tracker
     export DB_USER=app_user
     export DB_PASSWORD=test_password
+fi
+
+# Run full suite inside Docker if --compose was requested
+if [ "$RUN_COMPOSE" == true ]; then
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}Error: Docker is required but not installed${NC}"
+        exit 1
+    fi
+    echo -e "${YELLOW}Rebuilding all services and running full test suite inside Docker...${NC}"
+    docker compose -f docker-compose.yml -f docker-compose.test.yml \
+        up --build --abort-on-container-exit --exit-code-from test
+    EXIT_CODE=$?
+    docker compose -f docker-compose.yml -f docker-compose.test.yml down
+    if [ $EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}========================================${NC}"
+        echo -e "${GREEN}          All Tests Passed!           ${NC}"
+        echo -e "${GREEN}========================================${NC}"
+    else
+        echo -e "${RED}========================================${NC}"
+        echo -e "${RED}           Tests Failed!                ${NC}"
+        echo -e "${RED}========================================${NC}"
+    fi
+    exit $EXIT_CODE
 fi
 
 # Set environment variables based on test types

@@ -18,6 +18,7 @@ from contextlib import contextmanager
 import bcrypt
 import os
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 
 # Configure logging
@@ -39,12 +40,14 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
 if not app.config["JWT_SECRET_KEY"]:
     raise RuntimeError("JWT_SECRET_KEY environment variable is not set")
 
-# Rate limiting
+# Rate limiting — disabled when RATELIMIT_ENABLED=false (e.g. in tests)
+_ratelimit_enabled = os.getenv("RATELIMIT_ENABLED", "true").lower() != "false"
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["100 per hour", "20 per minute"],
     storage_uri="memory://",
+    enabled=_ratelimit_enabled,
 )
 
 jwt = JWTManager(app)
@@ -62,15 +65,18 @@ if missing:
     raise RuntimeError(f"Missing required DB environment variables: {missing}")
 
 _pool = None
+_pool_lock = threading.Lock()
 
 
 def get_pool():
     """Return the connection pool, creating it on first call."""
     global _pool
     if _pool is None:
-        _pool = MySQLConnectionPool(
-            pool_name="time_tracker_pool", pool_size=5, **DB_CONFIG
-        )
+        with _pool_lock:
+            if _pool is None:
+                _pool = MySQLConnectionPool(
+                    pool_name="time_tracker_pool", pool_size=5, **DB_CONFIG
+                )
     return _pool
 
 
@@ -312,6 +318,7 @@ def login_user():
 
 
 @app.route("/category", methods=["POST"])
+@jwt_required()
 def create_category():
     """
     Create a new category if it does not already exist.
@@ -365,6 +372,7 @@ def create_category():
 
 
 @app.route("/entry/create", methods=["POST"])
+@jwt_required()
 def create_time_entry():
     """
     Create a new time entry.
@@ -385,13 +393,12 @@ def create_time_entry():
     """
     data = request.get_json()
 
-    required_fields = ["username", "category", "start_time", "end_time"]
+    username = get_jwt_identity()
+    required_fields = ["category", "start_time", "end_time"]
     if not data or not all(field in data for field in required_fields):
         return jsonify(
-            {"error": "username, category, start_time and end_time are required"}
+            {"error": "category, start_time and end_time are required"}
         ), 400
-
-    username = data["username"].strip()
     category_name = data["category"].strip()
     start_time_str = data["start_time"]
     end_time_str = data["end_time"]
@@ -628,6 +635,17 @@ def batch_import_time_entries():
 
     results = {"success": 0, "failed": 0, "errors": []}
 
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
+            user = cursor.fetchone()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        user_id = user["id"]
+    except Error as e:
+        logger.error(f"Database error fetching user: {e}")
+        return jsonify({"error": "Failed to fetch user"}), 500
+
     # First, get or create all categories
     category_cache = {}
     try:
@@ -673,21 +691,13 @@ def batch_import_time_entries():
 
             category_id = category_cache[category_name]
 
-            # Get user ID
             with get_cursor() as cursor:
-                cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
-                user = cursor.fetchone()
-
-                if not user:
-                    raise ValueError("User not found")
-
-                # Insert time entry
                 cursor.execute(
                     """
                     INSERT INTO time_entries (user_id, category_id, start_time, end_time)
                     VALUES (%s, %s, %s, %s)
                     """,
-                    (user["id"], category_id, start_time, end_time)
+                    (user_id, category_id, start_time, end_time)
                 )
 
             results["success"] += 1
@@ -777,6 +787,7 @@ def list_finance_categories():
 
 
 @app.route("/finance/category", methods=["POST"])
+@jwt_required()
 def create_finance_category():
     """
     Create a new finance category if it does not already exist.
@@ -1809,6 +1820,7 @@ def list_todo_categories():
 
 
 @app.route("/todo/category", methods=["POST"])
+@jwt_required()
 def create_todo_category():
     """
     Create a new TODO category if it does not already exist.
@@ -1917,7 +1929,7 @@ def create_todo_item():
             if due_date.tzinfo is None:
                 return jsonify(
                     {"error": "Timezone information required (ISO 8601 with offset)"}
-                )
+                ), 400
             due_date = due_date.astimezone(timezone.utc)
         except ValueError:
             return jsonify({"error": "due_date must be ISO 8601 format with timezone"}), 400
@@ -2019,7 +2031,7 @@ def update_todo_item(item_id):
             if due_date.tzinfo is None:
                 return jsonify(
                     {"error": "Timezone information required (ISO 8601 with offset)"}
-                )
+                ), 400
             due_date = due_date.astimezone(timezone.utc)
         except ValueError:
             return jsonify({"error": "due_date must be ISO 8601 format with timezone"}), 400

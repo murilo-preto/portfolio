@@ -226,30 +226,33 @@ class TestCategories:
 class TestCreateCategory:
     """Tests for category creation endpoint."""
     
-    def test_create_category_missing_name(self, client):
+    def test_create_category_missing_name(self, client, sample_jwt_token):
         """Category creation should fail without name."""
-        response = client.post("/category", json={})
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.post("/category", json={}, headers=headers)
         assert response.status_code == 400
-    
-    def test_create_category_name_too_long(self, client):
+
+    def test_create_category_name_too_long(self, client, sample_jwt_token):
         """Category creation should fail with name > 100 chars."""
-        response = client.post("/category", json={"name": "a" * 101})
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.post("/category", json={"name": "a" * 101}, headers=headers)
         assert response.status_code == 400
-    
+
     @patch('app.get_cursor')
-    def test_create_category_already_exists(self, mock_cursor_context, client):
+    def test_create_category_already_exists(self, mock_cursor_context, client, sample_jwt_token):
         """Should return 200 if category already exists."""
         mock_cursor = MagicMock()
         mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
         mock_cursor.__exit__ = MagicMock(return_value=False)
         mock_cursor.fetchone.return_value = {"id": 1, "name": "Existing"}
         mock_cursor_context.return_value = mock_cursor
-        
-        response = client.post("/category", json={"name": "Existing"})
+
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.post("/category", json={"name": "Existing"}, headers=headers)
         assert response.status_code == 200
-    
+
     @patch('app.get_cursor')
-    def test_create_category_success(self, mock_cursor_context, client):
+    def test_create_category_success(self, mock_cursor_context, client, sample_jwt_token):
         """Should create new category successfully."""
         mock_cursor = MagicMock()
         mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
@@ -257,58 +260,60 @@ class TestCreateCategory:
         mock_cursor.fetchone.side_effect = [None, {"id": 1, "name": "New"}]
         mock_cursor.lastrowid = 1
         mock_cursor_context.return_value = mock_cursor
-        
-        response = client.post("/category", json={"name": "New"})
+
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.post("/category", json={"name": "New"}, headers=headers)
         assert response.status_code == 201
 
 
 class TestTimeEntryCreation:
     """Tests for time entry creation endpoint."""
     
-    def test_create_entry_missing_fields(self, client):
+    def test_create_entry_missing_fields(self, client, sample_jwt_token):
         """Entry creation should fail with missing fields."""
-        response = client.post("/entry/create", json={})
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.post("/entry/create", json={}, headers=headers)
         assert response.status_code == 400
-    
-    def test_create_entry_invalid_datetime_format(self, client):
+
+    def test_create_entry_invalid_datetime_format(self, client, sample_jwt_token):
         """Entry creation should fail with invalid datetime format."""
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.post("/entry/create", json={
-            "username": "testuser",
             "category": "Work",
             "start_time": "invalid",
             "end_time": "invalid"
-        })
+        }, headers=headers)
         assert response.status_code == 400
-    
-    def test_create_entry_end_before_start(self, client):
+
+    def test_create_entry_end_before_start(self, client, sample_jwt_token):
         """Entry creation should fail if end_time <= start_time."""
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.post("/entry/create", json={
-            "username": "testuser",
             "category": "Work",
             "start_time": "2024-01-01T12:00:00+00:00",
             "end_time": "2024-01-01T10:00:00+00:00"
-        })
+        }, headers=headers)
         assert response.status_code == 400
-    
+
     @patch('app.get_cursor')
-    def test_create_entry_user_not_found(self, mock_cursor_context, client):
-        """Entry creation should fail if user doesn't exist."""
+    def test_create_entry_user_not_found(self, mock_cursor_context, client, sample_jwt_token):
+        """Entry creation should fail if the JWT identity resolves to no DB user."""
         mock_cursor = MagicMock()
         mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
         mock_cursor.__exit__ = MagicMock(return_value=False)
         mock_cursor.fetchone.return_value = None
         mock_cursor_context.return_value = mock_cursor
-        
+
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.post("/entry/create", json={
-            "username": "nonexistent",
             "category": "Work",
             "start_time": "2024-01-01T10:00:00+00:00",
             "end_time": "2024-01-01T12:00:00+00:00"
-        })
+        }, headers=headers)
         assert response.status_code == 404
-    
+
     @patch('app.get_cursor')
-    def test_create_entry_success(self, mock_cursor_context, client):
+    def test_create_entry_success(self, mock_cursor_context, client, sample_jwt_token):
         """Should create time entry successfully."""
         mock_cursor = MagicMock()
         mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
@@ -319,13 +324,13 @@ class TestTimeEntryCreation:
         ]
         mock_cursor.lastrowid = 1
         mock_cursor_context.return_value = mock_cursor
-        
+
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.post("/entry/create", json={
-            "username": "testuser",
             "category": "Work",
             "start_time": "2024-01-01T10:00:00+00:00",
             "end_time": "2024-01-01T12:00:00+00:00"
-        })
+        }, headers=headers)
         assert response.status_code == 201
 
 

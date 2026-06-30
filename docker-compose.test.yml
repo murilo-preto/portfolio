@@ -1,0 +1,32 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      mysql:
+        condition: service_healthy
+      flask:
+        condition: service_healthy
+      nextjs:
+        condition: service_started
+    networks:
+      - backend
+      - frontend
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${MYSQL_USER}
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - TOKEN_DURATION_HOURS=48
+      - FLASK_URL=http://flask:3000
+      - NEXTJS_URL=http://nextjs:5000
+      - RUN_INTEGRATION_TESTS=true
+      - RUN_E2E_TESTS=true
+      - RATELIMIT_ENABLED=false
+
+networks:
+  backend:
+  frontend:
