@@ -1,34 +1,65 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import type { TodoItem, Category, PomodoroSession, StatusFilter, PriorityFilter } from "../../../../components/todo/types";
-import { TodoList } from "../../../../components/todo/TodoList";
-import { TodoForm } from "../../../../components/todo/TodoForm";
-import { PomodoroTimer } from "../../../../components/todo/PomodoroTimer";
-import { PomodoroStats } from "../../../../components/todo/PomodoroStats";
-import { SummaryCards } from "../../../../components/todo/SummaryCards";
+import type {
+  TodoItem,
+  Category,
+  Tag,
+  StatusFilter,
+  PriorityFilter,
+  RecurrenceRule,
+} from "@/lib/types";
+import { TodoList, type SortOption } from "@/components/todo/TodoList";
+import { TodoForm } from "@/components/todo/TodoForm";
+import { SummaryCards } from "@/components/todo/SummaryCards";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
+const FILTERS_STORAGE_KEY = "todoFilters";
+
+type PersistedFilters = {
+  statusFilter: StatusFilter;
+  priorityFilter: PriorityFilter;
+  categoryFilter: string;
+  tagFilter: string[];
+  searchQuery: string;
+  sortOption: SortOption;
+};
+
+const DEFAULT_FILTERS: PersistedFilters = {
+  statusFilter: "all",
+  priorityFilter: "all",
+  categoryFilter: "",
+  tagFilter: [],
+  searchQuery: "",
+  sortOption: "priority",
+};
+
+type SubmitData = {
+  title: string;
+  category: string;
+  description: string;
+  priority: "low" | "medium" | "high";
+  due_date: string | null;
+  recurrence_rule: RecurrenceRule;
+  tags: string[];
+};
 
 export default function TodoPage() {
-  // TODO items state
   const [items, setItems] = useState<TodoItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // UI state
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<TodoItem | null>(null);
-  const [selectedTodo, setSelectedTodo] = useState<TodoItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TodoItem | null>(null);
 
-  // Filters
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [filters, setFilters] = useState<PersistedFilters>(DEFAULT_FILTERS);
 
-  // Pomodoro sessions today
-  const [pomodoroSessionsToday, setPomodoroSessionsToday] = useState(0);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // Fetch TODO items
   async function fetchTodoItems() {
     try {
       const res = await fetch("/api/todo", { credentials: "include" });
@@ -45,14 +76,10 @@ export default function TodoPage() {
     }
   }
 
-  // Fetch categories
   async function fetchCategories() {
     try {
       const res = await fetch("/api/todo/categories");
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to fetch categories");
-      }
+      if (!res.ok) return;
       const data = await res.json();
       setCategories(data.categories ?? []);
     } catch (err) {
@@ -60,40 +87,54 @@ export default function TodoPage() {
     }
   }
 
-  // Fetch Pomodoro sessions
-  async function fetchPomodoroSessions() {
+  async function fetchTags() {
     try {
-      const res = await fetch("/api/pomodoro/sessions", { credentials: "include" });
+      const res = await fetch("/api/todo/tags");
       if (!res.ok) return;
       const data = await res.json();
-      
-      // Count today's completed sessions
-      const today = new Date().toDateString();
-      const todaySessions = (data.sessions ?? []).filter((s: PomodoroSession) => {
-        const sessionDate = new Date(s.session_date);
-        return s.completed && sessionDate.toDateString() === today;
-      });
-      
-      setPomodoroSessionsToday(todaySessions.length);
+      setAllTags(data.tags ?? []);
     } catch (err) {
-      console.error("Failed to fetch Pomodoro sessions:", err);
+      console.error("Failed to fetch tags:", err);
     }
   }
 
   useEffect(() => {
     fetchTodoItems();
     fetchCategories();
-    fetchPomodoroSessions();
+    fetchTags();
+
+    try {
+      const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+      if (raw) setFilters({ ...DEFAULT_FILTERS, ...JSON.parse(raw) });
+    } catch {
+      // ignore malformed/unavailable storage
+    }
   }, []);
 
-  // Create TODO item
-  async function handleCreateTodo(data: {
-    title: string;
-    category: string;
-    description: string;
-    priority: "low" | "medium" | "high";
-    due_date: string | null;
-  }) {
+  function updateFilters(partial: Partial<PersistedFilters>) {
+    setFilters((prev) => {
+      const next = { ...prev, ...partial };
+      try {
+        localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
+  function resolveTagObjects(names: string[], previousTags: Tag[]): Tag[] {
+    return names.map((name, i) => {
+      const existing =
+        previousTags.find((t) => t.name === name) ??
+        allTags.find((t) => t.name === name);
+      return existing ?? { id: -(i + 1), name };
+    });
+  }
+
+  // Create TODO item — optimistic append using the server's response, which
+  // already includes real ids for title/category/tags, so no refetch needed.
+  async function handleCreateTodo(data: SubmitData) {
     const res = await fetch("/api/todo/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -101,25 +142,39 @@ export default function TodoPage() {
       body: JSON.stringify(data),
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Failed to create TODO");
-    }
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Failed to create TODO");
 
-    await fetchTodoItems();
+    const now = new Date().toISOString();
+    const newItem: TodoItem = {
+      id: body.item.id,
+      category: body.item.category,
+      title: body.item.title,
+      description: body.item.description || null,
+      priority: body.item.priority,
+      status: "pending",
+      due_date: body.item.due_date,
+      recurrence_rule: body.item.recurrence_rule ?? "none",
+      recurrence_parent_id: null,
+      completed_at: null,
+      created_at: now,
+      updated_at: now,
+      tags: body.item.tags ?? [],
+    };
+    setItems((prev) => [newItem, ...prev]);
+
+    if (newItem.tags.some((t) => !allTags.some((at) => at.id === t.id))) {
+      fetchTags();
+    }
   }
 
-  // Update TODO item
-  async function handleUpdateTodo(data: {
-    title: string;
-    category: string;
-    description: string;
-    priority: "low" | "medium" | "high";
-    due_date: string | null;
-  }) {
+  // Update TODO item — merge submitted fields locally (the PUT endpoint only
+  // returns {id}, not the full row), avoiding a full-list refetch.
+  async function handleUpdateTodo(data: SubmitData) {
     if (!editingItem) return;
+    const target = editingItem;
 
-    const res = await fetch(`/api/todo/${editingItem.id}`, {
+    const res = await fetch(`/api/todo/${target.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -131,13 +186,48 @@ export default function TodoPage() {
       throw new Error(err.error || "Failed to update TODO");
     }
 
-    await fetchTodoItems();
+    const resolvedTags = resolveTagObjects(data.tags, target.tags);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === target.id
+          ? {
+              ...item,
+              title: data.title,
+              category: data.category,
+              description: data.description || null,
+              priority: data.priority,
+              due_date: data.due_date,
+              recurrence_rule: data.recurrence_rule,
+              tags: resolvedTags,
+            }
+          : item
+      )
+    );
     setEditingItem(null);
+
+    if (resolvedTags.some((t) => t.id < 0)) {
+      fetchTags();
+    }
   }
 
-  // Toggle complete
+  // Toggle complete — optimistic flip with rollback on failure. Recurring
+  // items get one quiet background refetch afterward to reveal the
+  // server-spawned next occurrence (its fields aren't in this response).
   async function handleToggleComplete(item: TodoItem) {
     const newStatus = item.status === "completed" ? "pending" : "completed";
+    const previous = item;
+
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id
+          ? {
+              ...i,
+              status: newStatus,
+              completed_at: newStatus === "completed" ? new Date().toISOString() : null,
+            }
+          : i
+      )
+    );
 
     try {
       const res = await fetch(`/api/todo/${item.id}`, {
@@ -152,15 +242,23 @@ export default function TodoPage() {
         throw new Error(err.error || "Failed to update TODO");
       }
 
-      await fetchTodoItems();
+      if (newStatus === "completed" && previous.recurrence_rule !== "none") {
+        fetchTodoItems();
+      }
     } catch (err) {
       console.error("Failed to toggle complete:", err);
+      setItems((prev) => prev.map((i) => (i.id === item.id ? previous : i)));
     }
   }
 
-  // Delete TODO item
-  async function handleDeleteTodo(item: TodoItem) {
-    if (!confirm(`Delete "${item.title}"?`)) return;
+  // Delete TODO item — optimistic removal with rollback on failure.
+  async function handleConfirmDelete() {
+    const item = deleteTarget;
+    if (!item) return;
+    setDeleteTarget(null);
+
+    const previousItems = items;
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
 
     try {
       const res = await fetch("/api/todo/delete", {
@@ -174,37 +272,108 @@ export default function TodoPage() {
         const err = await res.json();
         throw new Error(err.error || "Failed to delete TODO");
       }
-
-      await fetchTodoItems();
     } catch (err) {
       console.error("Failed to delete TODO:", err);
+      setItems(previousItems);
     }
   }
 
-  // Handle edit
   function handleEdit(item: TodoItem) {
     setEditingItem(item);
     setShowForm(true);
   }
 
-  // Handle Pomodoro complete
-  async function handlePomodoroComplete(duration: number) {
-    // Update the session in backend (done in PomodoroTimer component)
-    // Just refresh the sessions count
-    await fetchPomodoroSessions();
+  function handleCategoryCreated(category: Category) {
+    setCategories((prev) =>
+      prev.some((c) => c.id === category.id) ? prev : [...prev, category]
+    );
   }
 
-  // Handle Pomodoro cancel
-  async function handlePomodoroCancel() {
-    // Session already cancelled in backend
-    await fetchPomodoroSessions();
+  // ── Bulk actions ──────────────────────────────────────────────────────────
+
+  function toggleSelectMode() {
+    setSelectMode((prev) => !prev);
+    setSelectedIds(new Set());
   }
 
-  // Get unique categories from items
-  const uniqueCategories = useMemo(() => {
-    const cats = new Set(items.map((i) => i.category));
-    return Array.from(cats);
-  }, [items]);
+  function toggleSelectItem(item: TodoItem) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
+  }
+
+  async function handleBulkStatusChange(status: "pending" | "in_progress" | "completed") {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    const previousItems = items;
+    setItems((prev) =>
+      prev.map((item) =>
+        ids.includes(item.id)
+          ? {
+              ...item,
+              status,
+              completed_at: status === "completed" ? new Date().toISOString() : null,
+            }
+          : item
+      )
+    );
+    setSelectedIds(new Set());
+
+    try {
+      const res = await fetch("/api/todo/bulk-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          updates: ids.map((item_id) => ({ item_id, status })),
+        }),
+      });
+      if (!res.ok) throw new Error("Bulk update failed");
+
+      if (status === "completed" && ids.some((id) => {
+        const item = previousItems.find((i) => i.id === id);
+        return item && item.recurrence_rule !== "none";
+      })) {
+        fetchTodoItems();
+      }
+    } catch (err) {
+      console.error("Bulk status update failed:", err);
+      setItems(previousItems);
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    const previousItems = items;
+    setItems((prev) => prev.filter((item) => !ids.includes(item.id)));
+    setSelectedIds(new Set());
+
+    try {
+      await Promise.all(
+        ids.map((item_id) =>
+          fetch("/api/todo/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ item_id }),
+          })
+        )
+      );
+    } catch (err) {
+      console.error("Bulk delete failed:", err);
+      setItems(previousItems);
+    }
+  }
+
+  // Master category list (not derived from currently-loaded items), so a
+  // zero-todo category still shows up as a filter option.
+  const categoryNames = useMemo(() => categories.map((c) => c.name), [categories]);
 
   return (
     <main className="flex-1 p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
@@ -212,10 +381,10 @@ export default function TodoPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-            TODO & Pomodoro
+            TODO
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manage your tasks and track focus sessions
+            Manage your tasks
           </p>
         </div>
         <button
@@ -229,57 +398,57 @@ export default function TodoPage() {
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <SummaryCards items={items} pomodoroSessionsToday={pomodoroSessionsToday} />
+      <SummaryCards items={items} />
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - TODO List */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* TODO Form Modal */}
-          {showForm && (
-            <TodoForm
-              categories={categories}
-              editingItem={editingItem}
-              onClose={() => {
-                setShowForm(false);
-                setEditingItem(null);
-              }}
-              onSubmit={editingItem ? handleUpdateTodo : handleCreateTodo}
-            />
-          )}
+      <TodoForm
+        isOpen={showForm}
+        categories={categories}
+        onCategoryCreated={handleCategoryCreated}
+        editingItem={editingItem}
+        onClose={() => {
+          setShowForm(false);
+          setEditingItem(null);
+        }}
+        onSubmit={editingItem ? handleUpdateTodo : handleCreateTodo}
+      />
 
-          {/* TODO List */}
-          <TodoList
-            items={items}
-            loading={loading}
-            error={error}
-            statusFilter={statusFilter}
-            priorityFilter={priorityFilter}
-            categoryFilter={categoryFilter}
-            onStatusFilterChange={setStatusFilter}
-            onPriorityFilterChange={setPriorityFilter}
-            onCategoryFilterChange={setCategoryFilter}
-            onToggleComplete={handleToggleComplete}
-            onEdit={handleEdit}
-            onDelete={handleDeleteTodo}
-            onSelectForPomodoro={setSelectedTodo}
-            selectedTodo={selectedTodo}
-            categories={uniqueCategories}
-          />
-        </div>
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title="Delete TODO item"
+        message={`Delete "${deleteTarget?.title}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
-        {/* Right Column - Pomodoro Timer & Stats */}
-        <div className="space-y-6">
-          <PomodoroTimer
-            selectedTodo={selectedTodo}
-            onSelectTodo={setSelectedTodo}
-            onComplete={handlePomodoroComplete}
-            onCancel={handlePomodoroCancel}
-          />
-          <PomodoroStats />
-        </div>
-      </div>
+      <TodoList
+        items={items}
+        loading={loading}
+        error={error}
+        statusFilter={filters.statusFilter}
+        priorityFilter={filters.priorityFilter}
+        categoryFilter={filters.categoryFilter}
+        tagFilter={filters.tagFilter}
+        searchQuery={filters.searchQuery}
+        sortOption={filters.sortOption}
+        onStatusFilterChange={(v) => updateFilters({ statusFilter: v })}
+        onPriorityFilterChange={(v) => updateFilters({ priorityFilter: v })}
+        onCategoryFilterChange={(v) => updateFilters({ categoryFilter: v })}
+        onTagFilterChange={(v) => updateFilters({ tagFilter: v })}
+        onSearchQueryChange={(v) => updateFilters({ searchQuery: v })}
+        onSortOptionChange={(v) => updateFilters({ sortOption: v })}
+        onToggleComplete={handleToggleComplete}
+        onEdit={handleEdit}
+        onDelete={setDeleteTarget}
+        categories={categoryNames}
+        allTags={allTags}
+        selectMode={selectMode}
+        onToggleSelectMode={toggleSelectMode}
+        selectedIds={selectedIds}
+        onToggleSelectItem={toggleSelectItem}
+        onBulkStatusChange={handleBulkStatusChange}
+        onBulkDelete={handleBulkDelete}
+      />
     </main>
   );
 }

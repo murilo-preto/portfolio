@@ -25,6 +25,15 @@ function toLocalDatetimeValue(date: Date): string {
   );
 }
 
+function saveTimerState(state: unknown) {
+  try {
+    localStorage.setItem("timerState", JSON.stringify(state));
+  } catch {
+    // localStorage unavailable (private browsing, disabled storage) — the
+    // timer just won't survive a refresh, which is a safe fallback.
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function TimerPage() {
@@ -160,14 +169,11 @@ export default function TimerPage() {
     setSubmitMessage(null);
 
     if (categoryId) {
-      localStorage.setItem(
-        "timerState",
-        JSON.stringify({
-          state: "running",
-          startTime: now.toISOString(),
-          categoryId,
-        })
-      );
+      saveTimerState({
+        state: "running",
+        startTime: now.toISOString(),
+        categoryId,
+      });
     }
   }
 
@@ -177,15 +183,12 @@ export default function TimerPage() {
     setEndInput(toLocalDatetimeValue(now));
     setTimerState("stopped");
 
-    localStorage.setItem(
-      "timerState",
-      JSON.stringify({
-        state: "stopped",
-        startTime: startTime?.toISOString(),
-        endTime: now.toISOString(),
-        categoryId,
-      })
-    );
+    saveTimerState({
+      state: "stopped",
+      startTime: startTime?.toISOString(),
+      endTime: now.toISOString(),
+      categoryId,
+    });
   }
 
   function handleStartInputChange(value: string) {
@@ -196,15 +199,12 @@ export default function TimerPage() {
       if (timerState === "running") {
         setElapsed(Math.floor((Date.now() - parsed.getTime()) / 1000));
       }
-      localStorage.setItem(
-        "timerState",
-        JSON.stringify({
-          state: timerState,
-          startTime: parsed.toISOString(),
-          endTime: endTime?.toISOString(),
-          categoryId,
-        })
-      );
+      saveTimerState({
+        state: timerState,
+        startTime: parsed.toISOString(),
+        endTime: endTime?.toISOString(),
+        categoryId,
+      });
     }
   }
 
@@ -213,15 +213,12 @@ export default function TimerPage() {
     const parsed = new Date(value);
     if (!isNaN(parsed.getTime())) {
       setEndTime(parsed);
-      localStorage.setItem(
-        "timerState",
-        JSON.stringify({
-          state: timerState,
-          startTime: startTime?.toISOString(),
-          endTime: parsed.toISOString(),
-          categoryId,
-        })
-      );
+      saveTimerState({
+        state: timerState,
+        startTime: startTime?.toISOString(),
+        endTime: parsed.toISOString(),
+        categoryId,
+      });
     }
   }
 

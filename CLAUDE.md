@@ -93,8 +93,9 @@ Next.js API routes are thin proxies: they handle cookie-based JWT token refresh 
 - `app/namu/` — authenticated time management app
   - `user/entries/` — time tracking
   - `user/finance/` — expense tracking (+ `recurring/`)
-  - `user/todo/` — todo management
-  - `user/timer/` — Pomodoro timer
+  - `user/todo/` — todo management (tags, recurrence, bulk actions)
+  - `user/timer/` — stopwatch (start/stop time tracking, manual entry)
+  - `user/pomodoro/` — Pomodoro focus timer
   - `user/csv/` — CSV batch import
 - `app/api/` — Next.js API routes proxying to Flask
 - `components/` — shared UI components (`BatchImportModal`, `ImageCarousel`, `LogoutButton`)

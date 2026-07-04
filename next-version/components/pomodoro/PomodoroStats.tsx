@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { PomodoroStats as PomodoroStatsType } from "./types";
-import { formatDuration } from "./utils";
+import type { PomodoroStats as PomodoroStatsType } from "@/lib/types";
+import { formatDuration } from "@/components/todo/utils";
 
 export function PomodoroStats() {
   const [stats, setStats] = useState<PomodoroStatsType | null>(null);
@@ -54,13 +54,28 @@ export function PomodoroStats() {
         <div className="p-3 rounded-lg bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Today</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Today (focus)</p>
               <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 {stats.stats.today.sessions} sessions
               </p>
             </div>
             <p className="text-sm font-medium text-red-500">
               {formatDuration(stats.stats.today.total_seconds)}
+            </p>
+          </div>
+        </div>
+
+        {/* Today's breaks */}
+        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-500/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Today (breaks)</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {stats.stats.today_breaks.sessions} sessions
+              </p>
+            </div>
+            <p className="text-sm font-medium text-green-600 dark:text-green-400">
+              {formatDuration(stats.stats.today_breaks.total_seconds)}
             </p>
           </div>
         </div>

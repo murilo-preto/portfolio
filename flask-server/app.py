@@ -19,6 +19,7 @@ import bcrypt
 import os
 import logging
 import threading
+import calendar
 from datetime import datetime, timedelta, timezone
 
 # Configure logging
@@ -1733,6 +1734,99 @@ def batch_import_recurring_expenses():
 # ─── TODO Routes ──────────────────────────────────────────────────────────────
 
 
+def _next_recurrence_date(dt, rule):
+    """Compute the next occurrence of dt for a given recurrence rule."""
+    if rule == "daily":
+        return dt + timedelta(days=1)
+    if rule == "weekly":
+        return dt + timedelta(weeks=1)
+    if rule == "monthly":
+        year = dt.year + (dt.month // 12)
+        month = dt.month % 12 + 1
+        day = min(dt.day, calendar.monthrange(year, month)[1])
+        return dt.replace(year=year, month=month, day=day)
+    return dt
+
+
+def _resolve_or_create_tag_ids(cursor, tag_names):
+    """Get-or-create each tag name and return their ids."""
+    tag_ids = []
+    for raw_name in tag_names:
+        name = (raw_name or "").strip()
+        if not name or len(name) > 50:
+            continue
+        cursor.execute("SELECT id FROM todo_tags WHERE name = %s", (name,))
+        tag = cursor.fetchone()
+        if not tag:
+            cursor.execute("INSERT INTO todo_tags (name) VALUES (%s)", (name,))
+            tag_id = cursor.lastrowid
+        else:
+            tag_id = tag["id"]
+        tag_ids.append(tag_id)
+    return tag_ids
+
+
+def _set_todo_item_tags(cursor, item_id, tag_ids):
+    """Replace the tag set for a TODO item."""
+    cursor.execute("DELETE FROM todo_item_tags WHERE todo_id = %s", (item_id,))
+    for tag_id in tag_ids:
+        cursor.execute(
+            "INSERT IGNORE INTO todo_item_tags (todo_id, tag_id) VALUES (%s, %s)",
+            (item_id, tag_id),
+        )
+
+
+def _copy_todo_item_tags(cursor, from_item_id, to_item_id):
+    cursor.execute(
+        "SELECT tag_id FROM todo_item_tags WHERE todo_id = %s", (from_item_id,)
+    )
+    tag_ids = [row["tag_id"] for row in cursor.fetchall()]
+    _set_todo_item_tags(cursor, to_item_id, tag_ids)
+
+
+def _spawn_next_recurrence(cursor, item):
+    """
+    When a recurring TODO item is completed, insert its next occurrence.
+    `item` must contain: user_id, category_id, title, description, priority,
+    recurrence_rule, due_date, id.
+    No-op if recurrence_rule is 'none', due_date is not set, or this item has
+    already spawned an occurrence before (e.g. it was un-completed and
+    completed again) — each occurrence spawns its successor at most once.
+    """
+    if item["recurrence_rule"] == "none" or item["due_date"] is None:
+        return
+
+    cursor.execute(
+        "SELECT id FROM todo_items WHERE recurrence_parent_id = %s LIMIT 1",
+        (item["id"],),
+    )
+    if cursor.fetchone():
+        return
+
+    next_due = _next_recurrence_date(item["due_date"], item["recurrence_rule"])
+
+    cursor.execute(
+        """
+        INSERT INTO todo_items
+            (user_id, category_id, title, description, priority, status,
+             due_date, recurrence_rule, recurrence_parent_id)
+        VALUES (%s, %s, %s, %s, %s, 'pending', %s, %s, %s)
+        """,
+        (
+            item["user_id"],
+            item["category_id"],
+            item["title"],
+            item["description"],
+            item["priority"],
+            next_due,
+            item["recurrence_rule"],
+            item["id"],
+        ),
+    )
+    new_item_id = cursor.lastrowid
+    _copy_todo_item_tags(cursor, item["id"], new_item_id)
+
+
 def retrieve_todo_items_from_username(username):
     """Helper function to fetch TODO items for a user."""
     try:
@@ -1753,6 +1847,8 @@ def retrieve_todo_items_from_username(username):
                     ti.priority,
                     ti.status,
                     ti.due_date,
+                    ti.recurrence_rule,
+                    ti.recurrence_parent_id,
                     ti.completed_at,
                     ti.created_at,
                     ti.updated_at
@@ -1772,11 +1868,32 @@ def retrieve_todo_items_from_username(username):
             )
             items = cursor.fetchall()
 
+            # Attach tags per item (single grouped query, no N+1)
+            tags_by_item = {item["id"]: [] for item in items}
+            if items:
+                item_ids = list(tags_by_item.keys())
+                placeholders = ", ".join(["%s"] * len(item_ids))
+                cursor.execute(
+                    f"""
+                    SELECT tit.todo_id, tt.id, tt.name
+                    FROM todo_item_tags tit
+                    JOIN todo_tags tt ON tit.tag_id = tt.id
+                    WHERE tit.todo_id IN ({placeholders})
+                    ORDER BY tt.name
+                    """,
+                    item_ids,
+                )
+                for row in cursor.fetchall():
+                    tags_by_item[row["todo_id"]].append(
+                        {"id": row["id"], "name": row["name"]}
+                    )
+
             # Convert datetime objects to strings
             for item in items:
                 for field in ["due_date", "completed_at", "created_at", "updated_at"]:
                     if item[field] is not None:
                         item[field] = item[field].isoformat()
+                item["tags"] = tags_by_item[item["id"]]
 
         return jsonify({"username": username, "items": items}), 200
 
@@ -1877,6 +1994,79 @@ def create_todo_category():
         return jsonify({"error": "Failed to create TODO category"}), 500
 
 
+@app.route("/todo/tags", methods=["GET"])
+def list_todo_tags():
+    """
+    List all TODO tags.
+
+    Returns:
+        200: List of tags
+        500: Server error
+    """
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM todo_tags ORDER BY name")
+            tags = cursor.fetchall()
+
+        return jsonify({"tags": tags}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to fetch TODO tags"}), 500
+
+
+@app.route("/todo/tag", methods=["POST"])
+@jwt_required()
+def create_todo_tag():
+    """
+    Create a new TODO tag if it does not already exist.
+
+    Expected JSON:
+    {
+        "name": "string"
+    }
+
+    Returns:
+        201: Tag created
+        200: Tag already exists
+        400: Validation error
+        500: Server error
+    """
+    data = request.get_json()
+
+    if not data or "name" not in data:
+        return jsonify({"error": "Tag name is required"}), 400
+
+    name = data["name"].strip()
+
+    if not name or len(name) > 50:
+        return jsonify(
+            {"error": "Tag name must be between 1 and 50 characters"}
+        ), 400
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM todo_tags WHERE name = %s", (name,))
+            existing = cursor.fetchone()
+
+            if existing:
+                return jsonify({"message": "Tag already exists", "tag": existing}), 200
+
+            cursor.execute("INSERT INTO todo_tags (name) VALUES (%s)", (name,))
+            tag_id = cursor.lastrowid
+
+        return jsonify(
+            {
+                "message": "Tag created successfully",
+                "tag": {"id": tag_id, "name": name},
+            }
+        ), 201
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to create TODO tag"}), 500
+
+
 @app.route("/todo/create", methods=["POST"])
 @jwt_required()
 def create_todo_item():
@@ -1889,7 +2079,9 @@ def create_todo_item():
         "category": "string",
         "description": "string" (optional),
         "priority": "low" | "medium" | "high" (optional, default: "medium"),
-        "due_date": "YYYY-MM-DD HH:MM:SS" (optional)
+        "due_date": "YYYY-MM-DD HH:MM:SS" (optional),
+        "recurrence_rule": "none" | "daily" | "weekly" | "monthly" (optional, default: "none"),
+        "tags": ["string", ...] (optional)
     }
 
     Returns:
@@ -1912,6 +2104,8 @@ def create_todo_item():
     description = data.get("description", "").strip()
     priority = data.get("priority", "medium")
     due_date_str = data.get("due_date")
+    recurrence_rule = data.get("recurrence_rule", "none")
+    tag_names = data.get("tags", [])
 
     if not title or len(title) > 255:
         return jsonify(
@@ -1921,6 +2115,15 @@ def create_todo_item():
     valid_priorities = ("low", "medium", "high")
     if priority not in valid_priorities:
         return jsonify({"error": f"Priority must be one of: {', '.join(valid_priorities)}"}), 400
+
+    valid_recurrence_rules = ("none", "daily", "weekly", "monthly")
+    if recurrence_rule not in valid_recurrence_rules:
+        return jsonify(
+            {"error": f"recurrence_rule must be one of: {', '.join(valid_recurrence_rules)}"}
+        ), 400
+
+    if not isinstance(tag_names, list):
+        return jsonify({"error": "tags must be an array of strings"}), 400
 
     due_date = None
     if due_date_str:
@@ -1954,12 +2157,33 @@ def create_todo_item():
 
             cursor.execute(
                 """
-                INSERT INTO todo_items (user_id, category_id, title, description, priority, due_date)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO todo_items
+                    (user_id, category_id, title, description, priority, due_date, recurrence_rule)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user["id"], category["id"], title, description, priority, due_date),
+                (
+                    user["id"],
+                    category["id"],
+                    title,
+                    description,
+                    priority,
+                    due_date,
+                    recurrence_rule,
+                ),
             )
             item_id = cursor.lastrowid
+
+            tag_ids = _resolve_or_create_tag_ids(cursor, tag_names)
+            _set_todo_item_tags(cursor, item_id, tag_ids)
+
+            created_tags = []
+            if tag_ids:
+                placeholders = ", ".join(["%s"] * len(tag_ids))
+                cursor.execute(
+                    f"SELECT id, name FROM todo_tags WHERE id IN ({placeholders}) ORDER BY name",
+                    tag_ids,
+                )
+                created_tags = cursor.fetchall()
 
         return jsonify(
             {
@@ -1971,6 +2195,9 @@ def create_todo_item():
                     "description": description,
                     "priority": priority,
                     "due_date": due_date_str,
+                    "recurrence_rule": recurrence_rule,
+                    "recurrence_parent_id": None,
+                    "tags": created_tags,
                 },
             }
         ), 201
@@ -1993,7 +2220,9 @@ def update_todo_item(item_id):
         "description": "string" (optional),
         "priority": "low" | "medium" | "high" (optional),
         "status": "pending" | "in_progress" | "completed" (optional),
-        "due_date": "YYYY-MM-DD HH:MM:SS" (optional)
+        "due_date": "YYYY-MM-DD HH:MM:SS" (optional),
+        "recurrence_rule": "none" | "daily" | "weekly" | "monthly" (optional),
+        "tags": ["string", ...] (optional)
     }
 
     Returns:
@@ -2015,6 +2244,8 @@ def update_todo_item(item_id):
     priority = data.get("priority")
     status = data.get("status")
     due_date_str = data.get("due_date")
+    recurrence_rule = data.get("recurrence_rule")
+    tag_names = data.get("tags")
 
     valid_priorities = ("low", "medium", "high")
     if priority and priority not in valid_priorities:
@@ -2023,6 +2254,15 @@ def update_todo_item(item_id):
     valid_statuses = ("pending", "in_progress", "completed")
     if status and status not in valid_statuses:
         return jsonify({"error": f"Status must be one of: {', '.join(valid_statuses)}"}), 400
+
+    valid_recurrence_rules = ("none", "daily", "weekly", "monthly")
+    if recurrence_rule and recurrence_rule not in valid_recurrence_rules:
+        return jsonify(
+            {"error": f"recurrence_rule must be one of: {', '.join(valid_recurrence_rules)}"}
+        ), 400
+
+    if tag_names is not None and not isinstance(tag_names, list):
+        return jsonify({"error": "tags must be an array of strings"}), 400
 
     due_date = None
     if due_date_str:
@@ -2038,10 +2278,13 @@ def update_todo_item(item_id):
 
     try:
         with get_cursor() as cursor:
-            # Verify item belongs to this user
+            # Verify item belongs to this user, and fetch current state for
+            # the recurrence-spawn decision below.
             cursor.execute(
                 """
-                SELECT ti.id FROM todo_items ti
+                SELECT ti.id, ti.user_id, ti.category_id, ti.title, ti.description,
+                       ti.priority, ti.status, ti.due_date, ti.recurrence_rule
+                FROM todo_items ti
                 JOIN users u ON ti.user_id = u.id
                 WHERE ti.id = %s AND u.username = %s
                 """,
@@ -2051,6 +2294,8 @@ def update_todo_item(item_id):
 
             if not item:
                 return jsonify({"error": "TODO item not found or access denied"}), 404
+
+            previous_status = item["status"]
 
             # Resolve category if provided
             category_id = None
@@ -2091,14 +2336,42 @@ def update_todo_item(item_id):
             if due_date is not None:
                 updates.append("due_date = %s")
                 values.append(due_date)
+            if recurrence_rule is not None:
+                updates.append("recurrence_rule = %s")
+                values.append(recurrence_rule)
 
-            if not updates:
+            if not updates and tag_names is None:
                 return jsonify({"error": "No fields to update"}), 400
 
-            values.append(item_id)
-            query = f"UPDATE todo_items SET {', '.join(updates)} WHERE id = %s"
+            if updates:
+                values.append(item_id)
+                query = f"UPDATE todo_items SET {', '.join(updates)} WHERE id = %s"
+                cursor.execute(query, values)
 
-            cursor.execute(query, values)
+            if tag_names is not None:
+                tag_ids = _resolve_or_create_tag_ids(cursor, tag_names)
+                _set_todo_item_tags(cursor, item_id, tag_ids)
+
+            # Spawn the next occurrence only on a genuine pending/in_progress
+            # -> completed transition, never on re-completion.
+            if status == "completed" and previous_status != "completed":
+                effective_rule = (
+                    recurrence_rule if recurrence_rule is not None else item["recurrence_rule"]
+                )
+                effective_due_date = due_date if due_date is not None else item["due_date"]
+                _spawn_next_recurrence(
+                    cursor,
+                    {
+                        "id": item_id,
+                        "user_id": item["user_id"],
+                        "category_id": category_id or item["category_id"],
+                        "title": title or item["title"],
+                        "description": description if description is not None else item["description"],
+                        "priority": priority or item["priority"],
+                        "recurrence_rule": effective_rule,
+                        "due_date": effective_due_date,
+                    },
+                )
 
         return jsonify({"message": "TODO item updated successfully", "id": item_id}), 200
 
@@ -2204,7 +2477,9 @@ def bulk_update_todo_items():
                 # Verify item belongs to this user
                 cursor.execute(
                     """
-                    SELECT ti.id FROM todo_items ti
+                    SELECT ti.id, ti.user_id, ti.category_id, ti.title, ti.description,
+                           ti.priority, ti.status, ti.due_date, ti.recurrence_rule
+                    FROM todo_items ti
                     JOIN users u ON ti.user_id = u.id
                     WHERE ti.id = %s AND u.username = %s
                     """,
@@ -2215,6 +2490,7 @@ def bulk_update_todo_items():
                 if not item:
                     raise ValueError("TODO item not found or access denied")
 
+                previous_status = item["status"]
                 completed_at = datetime.now(timezone.utc) if status == "completed" else None
 
                 cursor.execute(
@@ -2225,6 +2501,9 @@ def bulk_update_todo_items():
                     """,
                     (status, completed_at, item_id),
                 )
+
+                if status == "completed" and previous_status != "completed":
+                    _spawn_next_recurrence(cursor, item)
 
             results["success"] += 1
 
@@ -2247,7 +2526,8 @@ def start_pomodoro_session():
 
     Expected JSON:
     {
-        "todo_id": int (optional)
+        "todo_id": int (optional),
+        "session_type": "pomodoro" | "short_break" | "long_break" (optional, default: "pomodoro")
     }
 
     Returns:
@@ -2259,6 +2539,13 @@ def start_pomodoro_session():
     current_user = get_jwt_identity()
     data = request.get_json() or {}
     todo_id = data.get("todo_id")
+    session_type = data.get("session_type", "pomodoro")
+
+    valid_session_types = ("pomodoro", "short_break", "long_break")
+    if session_type not in valid_session_types:
+        return jsonify(
+            {"error": f"session_type must be one of: {', '.join(valid_session_types)}"}
+        ), 400
 
     try:
         with get_cursor() as cursor:
@@ -2285,13 +2572,25 @@ def start_pomodoro_session():
                 if not todo:
                     return jsonify({"error": "TODO item not found or access denied"}), 404
 
+            # Self-heal: no scheduler exists to sweep abandoned sessions, so
+            # any session left dangling in 'in_progress' (refresh, tab close,
+            # crash) is cancelled the next time this user starts a new one.
+            cursor.execute(
+                """
+                UPDATE pomodoro_sessions
+                SET status = 'cancelled'
+                WHERE user_id = %s AND status = 'in_progress'
+                """,
+                (user["id"],),
+            )
+
             # Create session record
             cursor.execute(
                 """
-                INSERT INTO pomodoro_sessions (user_id, todo_id, duration_seconds, completed, session_date)
-                VALUES (%s, %s, 0, FALSE, %s)
+                INSERT INTO pomodoro_sessions (user_id, todo_id, session_type, duration_seconds, status, session_date)
+                VALUES (%s, %s, %s, 0, 'in_progress', %s)
                 """,
-                (user["id"], todo_id, datetime.now(timezone.utc)),
+                (user["id"], todo_id, session_type, datetime.now(timezone.utc)),
             )
             session_id = cursor.lastrowid
 
@@ -2347,12 +2646,13 @@ def complete_pomodoro_session():
 
     try:
         with get_cursor() as cursor:
-            # Verify session belongs to this user
+            # Verify session belongs to this user and is still in progress
+            # (prevents double-completing an already-resolved session)
             cursor.execute(
                 """
                 SELECT ps.id FROM pomodoro_sessions ps
                 JOIN users u ON ps.user_id = u.id
-                WHERE ps.id = %s AND u.username = %s
+                WHERE ps.id = %s AND u.username = %s AND ps.status = 'in_progress'
                 """,
                 (session_id, current_user),
             )
@@ -2364,7 +2664,7 @@ def complete_pomodoro_session():
             cursor.execute(
                 """
                 UPDATE pomodoro_sessions
-                SET duration_seconds = %s, completed = TRUE
+                SET duration_seconds = %s, status = 'completed'
                 WHERE id = %s
                 """,
                 (duration_seconds, session_id),
@@ -2381,7 +2681,7 @@ def complete_pomodoro_session():
 @jwt_required()
 def cancel_pomodoro_session():
     """
-    Cancel a Pomodoro session (delete incomplete session).
+    Cancel a Pomodoro session (soft-cancel, preserving history).
 
     Expected JSON:
     {
@@ -2409,7 +2709,7 @@ def cancel_pomodoro_session():
                 """
                 SELECT ps.id FROM pomodoro_sessions ps
                 JOIN users u ON ps.user_id = u.id
-                WHERE ps.id = %s AND u.username = %s AND ps.completed = FALSE
+                WHERE ps.id = %s AND u.username = %s AND ps.status = 'in_progress'
                 """,
                 (session_id, current_user),
             )
@@ -2418,7 +2718,10 @@ def cancel_pomodoro_session():
             if not session:
                 return jsonify({"error": "Session not found or access denied"}), 404
 
-            cursor.execute("DELETE FROM pomodoro_sessions WHERE id = %s", (session_id,))
+            cursor.execute(
+                "UPDATE pomodoro_sessions SET status = 'cancelled' WHERE id = %s",
+                (session_id,),
+            )
 
         return jsonify({"message": "Pomodoro session cancelled", "id": session_id}), 200
 
@@ -2443,8 +2746,9 @@ def retrieve_pomodoro_sessions_from_username(username):
                     ps.id,
                     ps.todo_id,
                     ti.title AS todo_title,
+                    ps.session_type,
                     ps.duration_seconds,
-                    ps.completed,
+                    ps.status,
                     ps.session_date,
                     ps.created_at
                 FROM pomodoro_sessions ps
@@ -2508,41 +2812,55 @@ def pomodoro_stats():
 
             user_id = user["id"]
 
-            # Total sessions
+            # Total focus (pomodoro) sessions
             cursor.execute(
                 """
                 SELECT COUNT(*) as count, COALESCE(SUM(duration_seconds), 0) as total_seconds
                 FROM pomodoro_sessions
-                WHERE user_id = %s AND completed = TRUE
+                WHERE user_id = %s AND status = 'completed' AND session_type = 'pomodoro'
                 """,
                 (user_id,),
             )
             total_stats = cursor.fetchone()
 
-            # Today's sessions
+            # Today's focus sessions
             today = datetime.now(timezone.utc).date()
             cursor.execute(
                 """
                 SELECT COUNT(*) as count, COALESCE(SUM(duration_seconds), 0) as total_seconds
                 FROM pomodoro_sessions
-                WHERE user_id = %s AND completed = TRUE
+                WHERE user_id = %s AND status = 'completed' AND session_type = 'pomodoro'
                 AND DATE(session_date) = %s
                 """,
                 (user_id, today),
             )
             today_stats = cursor.fetchone()
 
-            # This week's sessions (last 7 days)
+            # This week's focus sessions (last 7 days)
             cursor.execute(
                 """
                 SELECT COUNT(*) as count, COALESCE(SUM(duration_seconds), 0) as total_seconds
                 FROM pomodoro_sessions
-                WHERE user_id = %s AND completed = TRUE
+                WHERE user_id = %s AND status = 'completed' AND session_type = 'pomodoro'
                 AND session_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                 """,
                 (user_id,),
             )
             week_stats = cursor.fetchone()
+
+            # Today's break time (short + long breaks), kept separate so it
+            # doesn't dilute the "focus time" numbers above
+            cursor.execute(
+                """
+                SELECT COUNT(*) as count, COALESCE(SUM(duration_seconds), 0) as total_seconds
+                FROM pomodoro_sessions
+                WHERE user_id = %s AND status = 'completed'
+                AND session_type IN ('short_break', 'long_break')
+                AND DATE(session_date) = %s
+                """,
+                (user_id, today),
+            )
+            break_stats = cursor.fetchone()
 
         return jsonify({
             "username": username,
@@ -2558,6 +2876,10 @@ def pomodoro_stats():
                 "week": {
                     "sessions": week_stats["count"],
                     "total_seconds": int(week_stats["total_seconds"]),
+                },
+                "today_breaks": {
+                    "sessions": break_stats["count"],
+                    "total_seconds": int(break_stats["total_seconds"]),
                 },
             },
         }), 200
