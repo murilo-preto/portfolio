@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { response } = await fetchWithTokenRefresh(`${FLASK_BASE_URL}/todo/category`, {
+  const { response } = await fetchWithTokenRefresh(`${FLASK_BASE_URL}/todo/tag`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -161,6 +161,8 @@ CREATE TABLE IF NOT EXISTS todo_items (
   priority ENUM('low', 'medium', 'high') NOT NULL DEFAULT 'medium',
   status ENUM('pending', 'in_progress', 'completed') NOT NULL DEFAULT 'pending',
   due_date DATETIME DEFAULT NULL,
+  recurrence_rule ENUM('none', 'daily', 'weekly', 'monthly') NOT NULL DEFAULT 'none',
+  recurrence_parent_id INT UNSIGNED DEFAULT NULL,
   completed_at DATETIME DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -171,6 +173,7 @@ CREATE TABLE IF NOT EXISTS todo_items (
   KEY idx_todo_items_category (category_id),
   KEY idx_todo_items_status (status),
   KEY idx_todo_items_priority (priority),
+  KEY idx_todo_items_recurrence_parent (recurrence_parent_id),
 
   CONSTRAINT fk_todo_items_user
     FOREIGN KEY (user_id)
@@ -182,6 +185,43 @@ CREATE TABLE IF NOT EXISTS todo_items (
     FOREIGN KEY (category_id)
     REFERENCES todo_categories (id)
     ON DELETE RESTRICT
+    ON UPDATE CASCADE,
+
+  CONSTRAINT fk_todo_items_recurrence_parent
+    FOREIGN KEY (recurrence_parent_id)
+    REFERENCES todo_items (id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- TODO tags table
+CREATE TABLE IF NOT EXISTS todo_tags (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(50) NOT NULL,
+
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_todo_tags_name (name)
+) ENGINE=InnoDB;
+
+-- TODO item <-> tag join table
+CREATE TABLE IF NOT EXISTS todo_item_tags (
+  todo_id INT UNSIGNED NOT NULL,
+  tag_id INT UNSIGNED NOT NULL,
+
+  PRIMARY KEY (todo_id, tag_id),
+
+  KEY idx_todo_item_tags_tag (tag_id),
+
+  CONSTRAINT fk_todo_item_tags_todo
+    FOREIGN KEY (todo_id)
+    REFERENCES todo_items (id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+  CONSTRAINT fk_todo_item_tags_tag
+    FOREIGN KEY (tag_id)
+    REFERENCES todo_tags (id)
+    ON DELETE CASCADE
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -192,8 +232,9 @@ CREATE TABLE IF NOT EXISTS pomodoro_sessions (
   user_id INT UNSIGNED NOT NULL,
   todo_id INT UNSIGNED DEFAULT NULL,
 
+  session_type ENUM('pomodoro', 'short_break', 'long_break') NOT NULL DEFAULT 'pomodoro',
   duration_seconds INT UNSIGNED NOT NULL,
-  completed BOOLEAN NOT NULL DEFAULT FALSE,
+  status ENUM('in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'in_progress',
   session_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -202,6 +243,8 @@ CREATE TABLE IF NOT EXISTS pomodoro_sessions (
   KEY idx_pomodoro_sessions_user (user_id),
   KEY idx_pomodoro_sessions_todo (todo_id),
   KEY idx_pomodoro_sessions_date (session_date),
+  KEY idx_pomodoro_sessions_status (status),
+  KEY idx_pomodoro_sessions_type (session_type),
 
   CONSTRAINT fk_pomodoro_sessions_user
     FOREIGN KEY (user_id)

@@ -613,10 +613,10 @@ class TestHorizontalPrivilegeEscalation:
 
         with get_cursor() as cursor:
             cursor.execute(
-                "SELECT completed FROM pomodoro_sessions WHERE id = %s", (session_id,)
+                "SELECT status FROM pomodoro_sessions WHERE id = %s", (session_id,)
             )
             row = cursor.fetchone()
-        assert row is not None and not row["completed"], (
+        assert row is not None and row["status"] != "completed", (
             "User B marked User A's Pomodoro session as completed"
         )
 
@@ -624,7 +624,8 @@ class TestHorizontalPrivilegeEscalation:
     def test_user_b_cannot_cancel_user_a_pomodoro_session(self, client, user_a, user_b):
         """
         IDOR: User A starts a Pomodoro session; User B tries to cancel it.
-        Expected: 404, session still exists in the DB.
+        Expected: 404, session still exists in the DB and is still in_progress
+        (cancel is a soft status update, not a delete).
         """
         resp = _start_pomodoro_session(client, user_a["token"])
         if resp.status_code != 201:
@@ -641,10 +642,12 @@ class TestHorizontalPrivilegeEscalation:
 
         with get_cursor() as cursor:
             cursor.execute(
-                "SELECT id FROM pomodoro_sessions WHERE id = %s", (session_id,)
+                "SELECT status FROM pomodoro_sessions WHERE id = %s", (session_id,)
             )
             row = cursor.fetchone()
-        assert row is not None, "User B successfully cancelled User A's Pomodoro session"
+        assert row is not None and row["status"] == "in_progress", (
+            "User B successfully cancelled User A's Pomodoro session"
+        )
 
     @pytest.mark.integration
     def test_user_b_cannot_link_pomodoro_to_user_a_todo(self, client, user_a, user_b):
@@ -1381,6 +1384,225 @@ class TestInputValidation:
             json={"session_id": 999999999, "duration_seconds": 1500},
         )
         assert resp.status_code == 404
+
+    @pytest.mark.integration
+    def test_pomodoro_cannot_complete_already_completed_session(self, client, user_a):
+        """Completing an already-completed session a second time must 404, not double-count."""
+        resp_start = _start_pomodoro_session(client, user_a["token"])
+        if resp_start.status_code != 201:
+            pytest.skip("Could not start pomodoro session")
+        session_id = resp_start.get_json()["session_id"]
+
+        first = client.post(
+            "/pomodoro/complete",
+            headers=auth(user_a["token"]),
+            json={"session_id": session_id, "duration_seconds": 1500},
+        )
+        assert first.status_code == 200
+
+        second = client.post(
+            "/pomodoro/complete",
+            headers=auth(user_a["token"]),
+            json={"session_id": session_id, "duration_seconds": 1500},
+        )
+        assert second.status_code == 404, (
+            "Completing an already-completed Pomodoro session should be rejected"
+        )
+
+    @pytest.mark.integration
+    def test_pomodoro_cannot_cancel_already_completed_session(self, client, user_a):
+        """Cancelling an already-completed session must be rejected, not silently soft-cancel it."""
+        resp_start = _start_pomodoro_session(client, user_a["token"])
+        if resp_start.status_code != 201:
+            pytest.skip("Could not start pomodoro session")
+        session_id = resp_start.get_json()["session_id"]
+
+        client.post(
+            "/pomodoro/complete",
+            headers=auth(user_a["token"]),
+            json={"session_id": session_id, "duration_seconds": 1500},
+        )
+
+        cancel = client.post(
+            "/pomodoro/cancel",
+            headers=auth(user_a["token"]),
+            json={"session_id": session_id},
+        )
+        assert cancel.status_code == 404
+
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT status FROM pomodoro_sessions WHERE id = %s", (session_id,)
+            )
+            row = cursor.fetchone()
+        assert row is not None and row["status"] == "completed"
+
+    @pytest.mark.integration
+    def test_pomodoro_start_self_heals_dangling_session(self, client, user_a):
+        """
+        Starting a new Pomodoro session while a previous one is still
+        'in_progress' (e.g. left dangling by a refresh/crash) should
+        auto-cancel the old one, since there's no scheduler to sweep it.
+        """
+        first = _start_pomodoro_session(client, user_a["token"])
+        if first.status_code != 201:
+            pytest.skip("Could not start first pomodoro session")
+        first_session_id = first.get_json()["session_id"]
+
+        second = _start_pomodoro_session(client, user_a["token"])
+        assert second.status_code == 201
+
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT status FROM pomodoro_sessions WHERE id = %s", (first_session_id,)
+            )
+            row = cursor.fetchone()
+        assert row is not None and row["status"] == "cancelled", (
+            "Starting a new session should self-heal (cancel) a dangling in_progress one"
+        )
+
+    @pytest.mark.integration
+    def test_pomodoro_session_type_short_break_tracked(self, client, user_a):
+        """Break sessions should be creatable and completable like focus sessions."""
+        resp = client.post(
+            "/pomodoro/start",
+            headers=auth(user_a["token"]),
+            json={"session_type": "short_break"},
+        )
+        assert resp.status_code == 201
+        session_id = resp.get_json()["session_id"]
+
+        complete = client.post(
+            "/pomodoro/complete",
+            headers=auth(user_a["token"]),
+            json={"session_id": session_id, "duration_seconds": 300},
+        )
+        assert complete.status_code == 200
+
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT session_type, status FROM pomodoro_sessions WHERE id = %s",
+                (session_id,),
+            )
+            row = cursor.fetchone()
+        assert row["session_type"] == "short_break"
+        assert row["status"] == "completed"
+
+    @pytest.mark.integration
+    def test_pomodoro_invalid_session_type_rejected(self, client, user_a):
+        """An unrecognized session_type must return 400."""
+        resp = client.post(
+            "/pomodoro/start",
+            headers=auth(user_a["token"]),
+            json={"session_type": "not_a_real_type"},
+        )
+        assert resp.status_code == 400
+
+    # ── TODO Tags ─────────────────────────────────────────────────────────
+
+    @pytest.mark.integration
+    def test_todo_tags_attached_and_returned(self, client, user_a):
+        """Creating a todo with tags should get-or-create them and return them on GET /todo."""
+        _ensure_todo_category(client, "Work", user_a["token"])
+        create = client.post(
+            "/todo/create",
+            headers=auth(user_a["token"]),
+            json={
+                "title": "Tagged Todo",
+                "category": "Work",
+                "tags": ["urgent", "deep-work"],
+            },
+        )
+        assert create.status_code == 201
+        tag_names = {t["name"] for t in create.get_json()["item"]["tags"]}
+        assert tag_names == {"urgent", "deep-work"}
+
+        listing = client.get("/todo", headers=auth(user_a["token"]))
+        assert listing.status_code == 200
+        item_id = create.get_json()["item"]["id"]
+        item = next(i for i in listing.get_json()["items"] if i["id"] == item_id)
+        assert {t["name"] for t in item["tags"]} == {"urgent", "deep-work"}
+
+    @pytest.mark.integration
+    def test_user_b_cannot_see_user_a_todo_via_tag_listing(self, client, user_a, user_b):
+        """
+        Tags are a global, shared list (like categories) — User B listing
+        /todo/tags should not expose User A's todo items themselves, only
+        tag names, which are not sensitive.
+        """
+        _ensure_todo_category(client, "Work", user_a["token"])
+        client.post(
+            "/todo/create",
+            headers=auth(user_a["token"]),
+            json={"title": "Private Todo", "category": "Work", "tags": ["secret-project"]},
+        )
+        listing = client.get("/todo/tags")
+        assert listing.status_code == 200
+        # Tag names are visible (shared taxonomy), but this must never leak
+        # any todo item fields (title/description/owner) alongside them.
+        for tag in listing.get_json()["tags"]:
+            assert set(tag.keys()) == {"id", "name"}
+
+    # ── Recurring TODOs ────────────────────────────────────────────────────
+
+    @pytest.mark.integration
+    def test_completing_recurring_todo_spawns_next_occurrence(self, client, user_a):
+        """Completing a weekly recurring todo with a due date should spawn the next occurrence."""
+        _ensure_todo_category(client, "Work", user_a["token"])
+        due = datetime.now(timezone.utc).isoformat()
+        create = client.post(
+            "/todo/create",
+            headers=auth(user_a["token"]),
+            json={
+                "title": "Weekly Review",
+                "category": "Work",
+                "due_date": due,
+                "recurrence_rule": "weekly",
+            },
+        )
+        assert create.status_code == 201
+        item_id = create.get_json()["item"]["id"]
+
+        complete = client.put(
+            f"/todo/{item_id}",
+            headers=auth(user_a["token"]),
+            json={"status": "completed"},
+        )
+        assert complete.status_code == 200
+
+        listing = client.get("/todo", headers=auth(user_a["token"]))
+        items = listing.get_json()["items"]
+        spawned = [
+            i for i in items
+            if i.get("recurrence_parent_id") == item_id and i["status"] == "pending"
+        ]
+        assert len(spawned) == 1, "Completing a recurring todo should spawn exactly one next occurrence"
+
+    @pytest.mark.integration
+    def test_recompleting_recurring_todo_does_not_spawn_twice(self, client, user_a):
+        """Marking a completed recurring todo pending then completed again should not spawn a second occurrence."""
+        _ensure_todo_category(client, "Work", user_a["token"])
+        due = datetime.now(timezone.utc).isoformat()
+        create = client.post(
+            "/todo/create",
+            headers=auth(user_a["token"]),
+            json={
+                "title": "Daily Standup Notes",
+                "category": "Work",
+                "due_date": due,
+                "recurrence_rule": "daily",
+            },
+        )
+        item_id = create.get_json()["item"]["id"]
+
+        client.put(f"/todo/{item_id}", headers=auth(user_a["token"]), json={"status": "completed"})
+        client.put(f"/todo/{item_id}", headers=auth(user_a["token"]), json={"status": "pending"})
+        client.put(f"/todo/{item_id}", headers=auth(user_a["token"]), json={"status": "completed"})
+
+        listing = client.get("/todo", headers=auth(user_a["token"]))
+        items = listing.get_json()["items"]
+        spawned = [i for i in items if i.get("recurrence_parent_id") == item_id]
+        assert len(spawned) == 1, "Re-completing the same recurring todo must not spawn duplicate occurrences"
 
     # ── Category Validation ───────────────────────────────────────────────
 

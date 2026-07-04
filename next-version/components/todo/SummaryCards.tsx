@@ -1,22 +1,19 @@
 "use client";
 
-import type { TodoItem } from "./types";
+import type { TodoItem } from "@/lib/types";
 
 type SummaryCardsProps = {
   items: TodoItem[];
-  pomodoroSessionsToday: number;
 };
 
-export function SummaryCards({ items, pomodoroSessionsToday }: SummaryCardsProps) {
+export function SummaryCards({ items }: SummaryCardsProps) {
   const total = items.length;
   const completed = items.filter((i) => i.status === "completed").length;
   const inProgress = items.filter((i) => i.status === "in_progress").length;
   const pending = items.filter((i) => i.status === "pending").length;
 
-  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Total */}
       <div className="col-span-1 bg-white dark:bg-neutral-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
         <div className="flex items-center gap-3">
@@ -77,20 +74,6 @@ export function SummaryCards({ items, pomodoroSessionsToday }: SummaryCardsProps
         </div>
       </div>
 
-      {/* Pomodoros Today */}
-      <div className="col-span-1 bg-white dark:bg-neutral-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20">
-            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Pomodoros</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{pomodoroSessionsToday}</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
