@@ -1718,6 +1718,842 @@ def batch_import_recurring_expenses():
     return jsonify(results), 200
 
 
+# ─── TODO Routes ──────────────────────────────────────────────────────────────
+
+
+def retrieve_todo_items_from_username(username):
+    """Helper function to fetch TODO items for a user."""
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                """
+                SELECT
+                    ti.id,
+                    fc.name AS category,
+                    ti.title,
+                    ti.description,
+                    ti.priority,
+                    ti.status,
+                    ti.due_date,
+                    ti.completed_at,
+                    ti.created_at,
+                    ti.updated_at
+                FROM todo_items ti
+                JOIN todo_categories fc ON ti.category_id = fc.id
+                WHERE ti.user_id = %s
+                ORDER BY
+                    CASE ti.priority
+                        WHEN 'high' THEN 1
+                        WHEN 'medium' THEN 2
+                        WHEN 'low' THEN 3
+                    END,
+                    ti.due_date ASC,
+                    ti.created_at DESC
+                """,
+                (user["id"],),
+            )
+            items = cursor.fetchall()
+
+            # Convert datetime objects to strings
+            for item in items:
+                for field in ["due_date", "completed_at", "created_at", "updated_at"]:
+                    if item[field] is not None:
+                        item[field] = item[field].isoformat()
+
+        return jsonify({"username": username, "items": items}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to fetch TODO items"}), 500
+
+
+@app.get("/todo")
+@jwt_required()
+def my_todo_items():
+    """
+    Retrieves TODO items from a user from token username
+    """
+    username = get_jwt_identity()
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    return retrieve_todo_items_from_username(username)
+
+
+@app.route("/todo/categories", methods=["GET"])
+def list_todo_categories():
+    """
+    List all TODO categories.
+
+    Returns:
+        200: List of categories
+        500: Server error
+    """
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM todo_categories ORDER BY name")
+            categories = cursor.fetchall()
+
+        return jsonify({"categories": categories}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to fetch TODO categories"}), 500
+
+
+@app.route("/todo/category", methods=["POST"])
+def create_todo_category():
+    """
+    Create a new TODO category if it does not already exist.
+
+    Expected JSON:
+    {
+        "name": "string"
+    }
+
+    Returns:
+        201: Category created
+        200: Category already exists
+        400: Validation error
+        500: Server error
+    """
+    data = request.get_json()
+
+    if not data or "name" not in data:
+        return jsonify({"error": "Category name is required"}), 400
+
+    name = data["name"].strip()
+
+    if not name or len(name) > 100:
+        return jsonify(
+            {"error": "Category name must be between 1 and 100 characters"}
+        ), 400
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id, name FROM todo_categories WHERE name = %s", (name,)
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                return jsonify(
+                    {"message": "Category already exists", "category": existing}
+                ), 200
+
+            cursor.execute(
+                "INSERT INTO todo_categories (name) VALUES (%s)", (name,)
+            )
+            category_id = cursor.lastrowid
+
+        return jsonify(
+            {
+                "message": "Category created successfully",
+                "category": {"id": category_id, "name": name},
+            }
+        ), 201
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to create TODO category"}), 500
+
+
+@app.route("/todo/create", methods=["POST"])
+@jwt_required()
+def create_todo_item():
+    """
+    Create a new TODO item.
+
+    Expected JSON:
+    {
+        "title": "string",
+        "category": "string",
+        "description": "string" (optional),
+        "priority": "low" | "medium" | "high" (optional, default: "medium"),
+        "due_date": "YYYY-MM-DD HH:MM:SS" (optional)
+    }
+
+    Returns:
+        201: TODO item created
+        400: Validation error
+        404: User or category not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    required_fields = ["title", "category"]
+    if not data or not all(field in data for field in required_fields):
+        return jsonify(
+            {"error": "title and category are required"}
+        ), 400
+
+    title = data["title"].strip()
+    category_name = data["category"].strip()
+    description = data.get("description", "").strip()
+    priority = data.get("priority", "medium")
+    due_date_str = data.get("due_date")
+
+    if not title or len(title) > 255:
+        return jsonify(
+            {"error": "Title must be between 1 and 255 characters"}
+        ), 400
+
+    valid_priorities = ("low", "medium", "high")
+    if priority not in valid_priorities:
+        return jsonify({"error": f"Priority must be one of: {', '.join(valid_priorities)}"}), 400
+
+    due_date = None
+    if due_date_str:
+        try:
+            due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
+            if due_date.tzinfo is None:
+                return jsonify(
+                    {"error": "Timezone information required (ISO 8601 with offset)"}
+                )
+            due_date = due_date.astimezone(timezone.utc)
+        except ValueError:
+            return jsonify({"error": "due_date must be ISO 8601 format with timezone"}), 400
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s", (current_user,)
+            )
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id FROM todo_categories WHERE name = %s", (category_name,)
+            )
+            category = cursor.fetchone()
+
+            if not category:
+                return jsonify({"error": "Category not found"}), 404
+
+            cursor.execute(
+                """
+                INSERT INTO todo_items (user_id, category_id, title, description, priority, due_date)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (user["id"], category["id"], title, description, priority, due_date),
+            )
+            item_id = cursor.lastrowid
+
+        return jsonify(
+            {
+                "message": "TODO item created successfully",
+                "item": {
+                    "id": item_id,
+                    "title": title,
+                    "category": category_name,
+                    "description": description,
+                    "priority": priority,
+                    "due_date": due_date_str,
+                },
+            }
+        ), 201
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to create TODO item"}), 500
+
+
+@app.route("/todo/<int:item_id>", methods=["PUT"])
+@jwt_required()
+def update_todo_item(item_id):
+    """
+    Update an existing TODO item.
+
+    Expected JSON:
+    {
+        "title": "string" (optional),
+        "category": "string" (optional),
+        "description": "string" (optional),
+        "priority": "low" | "medium" | "high" (optional),
+        "status": "pending" | "in_progress" | "completed" (optional),
+        "due_date": "YYYY-MM-DD HH:MM:SS" (optional)
+    }
+
+    Returns:
+        200: TODO item updated
+        400: Validation error
+        403: Not owner of item
+        404: TODO item or category not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    title = data.get("title", "").strip()
+    category_name = data.get("category", "").strip()
+    description = data.get("description")
+    priority = data.get("priority")
+    status = data.get("status")
+    due_date_str = data.get("due_date")
+
+    valid_priorities = ("low", "medium", "high")
+    if priority and priority not in valid_priorities:
+        return jsonify({"error": f"Priority must be one of: {', '.join(valid_priorities)}"}), 400
+
+    valid_statuses = ("pending", "in_progress", "completed")
+    if status and status not in valid_statuses:
+        return jsonify({"error": f"Status must be one of: {', '.join(valid_statuses)}"}), 400
+
+    due_date = None
+    if due_date_str:
+        try:
+            due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
+            if due_date.tzinfo is None:
+                return jsonify(
+                    {"error": "Timezone information required (ISO 8601 with offset)"}
+                )
+            due_date = due_date.astimezone(timezone.utc)
+        except ValueError:
+            return jsonify({"error": "due_date must be ISO 8601 format with timezone"}), 400
+
+    try:
+        with get_cursor() as cursor:
+            # Verify item belongs to this user
+            cursor.execute(
+                """
+                SELECT ti.id FROM todo_items ti
+                JOIN users u ON ti.user_id = u.id
+                WHERE ti.id = %s AND u.username = %s
+                """,
+                (item_id, current_user),
+            )
+            item = cursor.fetchone()
+
+            if not item:
+                return jsonify({"error": "TODO item not found or access denied"}), 404
+
+            # Resolve category if provided
+            category_id = None
+            if category_name:
+                cursor.execute(
+                    "SELECT id FROM todo_categories WHERE name = %s", (category_name,)
+                )
+                category = cursor.fetchone()
+
+                if not category:
+                    return jsonify({"error": "Category not found"}), 404
+                category_id = category["id"]
+
+            # Build dynamic update query
+            updates = []
+            values = []
+            if title:
+                updates.append("title = %s")
+                values.append(title)
+            if category_id:
+                updates.append("category_id = %s")
+                values.append(category_id)
+            if description is not None:
+                updates.append("description = %s")
+                values.append(description)
+            if priority:
+                updates.append("priority = %s")
+                values.append(priority)
+            if status:
+                updates.append("status = %s")
+                values.append(status)
+                if status == "completed":
+                    updates.append("completed_at = %s")
+                    values.append(datetime.now(timezone.utc))
+                elif status in ("pending", "in_progress"):
+                    updates.append("completed_at = %s")
+                    values.append(None)
+            if due_date is not None:
+                updates.append("due_date = %s")
+                values.append(due_date)
+
+            if not updates:
+                return jsonify({"error": "No fields to update"}), 400
+
+            values.append(item_id)
+            query = f"UPDATE todo_items SET {', '.join(updates)} WHERE id = %s"
+
+            cursor.execute(query, values)
+
+        return jsonify({"message": "TODO item updated successfully", "id": item_id}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to update TODO item"}), 500
+
+
+@app.route("/todo/delete", methods=["POST"])
+@jwt_required()
+def delete_todo_item():
+    """
+    Delete a TODO item by item_id.
+
+    Expects JSON:
+    {
+        "item_id": int
+    }
+
+    Returns:
+        200: TODO item deleted
+        400: Validation error
+        403: Not owner of item
+        404: TODO item not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "item_id" not in data:
+        return jsonify({"error": "item_id is required"}), 400
+
+    item_id = data["item_id"]
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT ti.id FROM todo_items ti
+                JOIN users u ON ti.user_id = u.id
+                WHERE ti.id = %s AND u.username = %s
+                """,
+                (item_id, current_user),
+            )
+            item = cursor.fetchone()
+
+            if not item:
+                return jsonify({"error": "TODO item not found or access denied"}), 404
+
+            cursor.execute("DELETE FROM todo_items WHERE id = %s", (item_id,))
+
+        return jsonify({"message": "TODO item deleted successfully", "id": item_id}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to delete TODO item"}), 500
+
+
+@app.route("/todo/bulk-update", methods=["POST"])
+@jwt_required()
+def bulk_update_todo_items():
+    """
+    Bulk update TODO item statuses.
+
+    Expected JSON:
+    {
+        "updates": [
+            {"item_id": int, "status": "pending" | "in_progress" | "completed"},
+            ...
+        ]
+    }
+
+    Returns:
+        200: { success: number, failed: number, errors: Array<{index, error}> }
+        400: Validation error
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "updates" not in data:
+        return jsonify({"error": "updates array is required"}), 400
+
+    updates = data["updates"]
+    if not isinstance(updates, list):
+        return jsonify({"error": "updates must be an array"}), 400
+
+    results = {"success": 0, "failed": 0, "errors": []}
+    valid_statuses = ("pending", "in_progress", "completed")
+
+    for i, update in enumerate(updates):
+        try:
+            item_id = update.get("item_id")
+            status = update.get("status")
+
+            if not item_id or not status:
+                raise ValueError("item_id and status are required")
+
+            if status not in valid_statuses:
+                raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
+
+            with get_cursor() as cursor:
+                # Verify item belongs to this user
+                cursor.execute(
+                    """
+                    SELECT ti.id FROM todo_items ti
+                    JOIN users u ON ti.user_id = u.id
+                    WHERE ti.id = %s AND u.username = %s
+                    """,
+                    (item_id, current_user),
+                )
+                item = cursor.fetchone()
+
+                if not item:
+                    raise ValueError("TODO item not found or access denied")
+
+                completed_at = datetime.now(timezone.utc) if status == "completed" else None
+
+                cursor.execute(
+                    """
+                    UPDATE todo_items
+                    SET status = %s, completed_at = %s
+                    WHERE id = %s
+                    """,
+                    (status, completed_at, item_id),
+                )
+
+            results["success"] += 1
+
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({"index": i, "error": str(e)})
+            logger.error(f"Failed to update TODO item {i}: {e}")
+
+    return jsonify(results), 200
+
+
+# ─── Pomodoro Routes ──────────────────────────────────────────────────────────
+
+
+@app.route("/pomodoro/start", methods=["POST"])
+@jwt_required()
+def start_pomodoro_session():
+    """
+    Start a new Pomodoro session.
+
+    Expected JSON:
+    {
+        "todo_id": int (optional)
+    }
+
+    Returns:
+        201: Session started with session_id
+        400: Validation error
+        404: User or TODO item not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json() or {}
+    todo_id = data.get("todo_id")
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s", (current_user,)
+            )
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            # Verify TODO item if provided
+            if todo_id is not None:
+                cursor.execute(
+                    """
+                    SELECT ti.id FROM todo_items ti
+                    JOIN users u ON ti.user_id = u.id
+                    WHERE ti.id = %s AND u.username = %s
+                    """,
+                    (todo_id, current_user),
+                )
+                todo = cursor.fetchone()
+
+                if not todo:
+                    return jsonify({"error": "TODO item not found or access denied"}), 404
+
+            # Create session record
+            cursor.execute(
+                """
+                INSERT INTO pomodoro_sessions (user_id, todo_id, duration_seconds, completed, session_date)
+                VALUES (%s, %s, 0, FALSE, %s)
+                """,
+                (user["id"], todo_id, datetime.now(timezone.utc)),
+            )
+            session_id = cursor.lastrowid
+
+        return jsonify(
+            {
+                "message": "Pomodoro session started",
+                "session_id": session_id,
+            }
+        ), 201
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to start Pomodoro session"}), 500
+
+
+@app.route("/pomodoro/complete", methods=["POST"])
+@jwt_required()
+def complete_pomodoro_session():
+    """
+    Complete a Pomodoro session.
+
+    Expected JSON:
+    {
+        "session_id": int,
+        "duration_seconds": int
+    }
+
+    Returns:
+        200: Session completed
+        400: Validation error
+        403: Not owner of session
+        404: Session not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    session_id = data.get("session_id")
+    duration_seconds = data.get("duration_seconds")
+
+    if not session_id or duration_seconds is None:
+        return jsonify({"error": "session_id and duration_seconds are required"}), 400
+
+    try:
+        duration_seconds = int(duration_seconds)
+        if duration_seconds < 0:
+            return jsonify({"error": "duration_seconds must be non-negative"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "duration_seconds must be an integer"}), 400
+
+    try:
+        with get_cursor() as cursor:
+            # Verify session belongs to this user
+            cursor.execute(
+                """
+                SELECT ps.id FROM pomodoro_sessions ps
+                JOIN users u ON ps.user_id = u.id
+                WHERE ps.id = %s AND u.username = %s
+                """,
+                (session_id, current_user),
+            )
+            session = cursor.fetchone()
+
+            if not session:
+                return jsonify({"error": "Session not found or access denied"}), 404
+
+            cursor.execute(
+                """
+                UPDATE pomodoro_sessions
+                SET duration_seconds = %s, completed = TRUE
+                WHERE id = %s
+                """,
+                (duration_seconds, session_id),
+            )
+
+        return jsonify({"message": "Pomodoro session completed", "id": session_id}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to complete Pomodoro session"}), 500
+
+
+@app.route("/pomodoro/cancel", methods=["POST"])
+@jwt_required()
+def cancel_pomodoro_session():
+    """
+    Cancel a Pomodoro session (delete incomplete session).
+
+    Expected JSON:
+    {
+        "session_id": int
+    }
+
+    Returns:
+        200: Session cancelled
+        400: Validation error
+        403: Not owner of session
+        404: Session not found
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "session_id" not in data:
+        return jsonify({"error": "session_id is required"}), 400
+
+    session_id = data["session_id"]
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT ps.id FROM pomodoro_sessions ps
+                JOIN users u ON ps.user_id = u.id
+                WHERE ps.id = %s AND u.username = %s AND ps.completed = FALSE
+                """,
+                (session_id, current_user),
+            )
+            session = cursor.fetchone()
+
+            if not session:
+                return jsonify({"error": "Session not found or access denied"}), 404
+
+            cursor.execute("DELETE FROM pomodoro_sessions WHERE id = %s", (session_id,))
+
+        return jsonify({"message": "Pomodoro session cancelled", "id": session_id}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to cancel Pomodoro session"}), 500
+
+
+def retrieve_pomodoro_sessions_from_username(username):
+    """Helper function to fetch Pomodoro sessions for a user."""
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                """
+                SELECT
+                    ps.id,
+                    ps.todo_id,
+                    ti.title AS todo_title,
+                    ps.duration_seconds,
+                    ps.completed,
+                    ps.session_date,
+                    ps.created_at
+                FROM pomodoro_sessions ps
+                LEFT JOIN todo_items ti ON ps.todo_id = ti.id
+                WHERE ps.user_id = %s
+                ORDER BY ps.session_date DESC
+                LIMIT 100
+                """,
+                (user["id"],),
+            )
+            sessions = cursor.fetchall()
+
+            # Convert datetime objects to strings
+            for session in sessions:
+                for field in ["session_date", "created_at"]:
+                    if session[field] is not None:
+                        session[field] = session[field].isoformat()
+
+        return jsonify({"username": username, "sessions": sessions}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to fetch Pomodoro sessions"}), 500
+
+
+@app.get("/pomodoro/sessions")
+@jwt_required()
+def my_pomodoro_sessions():
+    """
+    Retrieves Pomodoro sessions from a user from token username
+    """
+    username = get_jwt_identity()
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    return retrieve_pomodoro_sessions_from_username(username)
+
+
+@app.get("/pomodoro/stats")
+@jwt_required()
+def pomodoro_stats():
+    """
+    Get Pomodoro statistics for the current user.
+
+    Returns:
+        200: Statistics including total sessions, total time, today's sessions, etc.
+        400: Username required
+        500: Server error
+    """
+    username = get_jwt_identity()
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            user_id = user["id"]
+
+            # Total sessions
+            cursor.execute(
+                """
+                SELECT COUNT(*) as count, COALESCE(SUM(duration_seconds), 0) as total_seconds
+                FROM pomodoro_sessions
+                WHERE user_id = %s AND completed = TRUE
+                """,
+                (user_id,),
+            )
+            total_stats = cursor.fetchone()
+
+            # Today's sessions
+            today = datetime.now(timezone.utc).date()
+            cursor.execute(
+                """
+                SELECT COUNT(*) as count, COALESCE(SUM(duration_seconds), 0) as total_seconds
+                FROM pomodoro_sessions
+                WHERE user_id = %s AND completed = TRUE
+                AND DATE(session_date) = %s
+                """,
+                (user_id, today),
+            )
+            today_stats = cursor.fetchone()
+
+            # This week's sessions (last 7 days)
+            cursor.execute(
+                """
+                SELECT COUNT(*) as count, COALESCE(SUM(duration_seconds), 0) as total_seconds
+                FROM pomodoro_sessions
+                WHERE user_id = %s AND completed = TRUE
+                AND session_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                """,
+                (user_id,),
+            )
+            week_stats = cursor.fetchone()
+
+        return jsonify({
+            "username": username,
+            "stats": {
+                "total": {
+                    "sessions": total_stats["count"],
+                    "total_seconds": int(total_stats["total_seconds"]),
+                },
+                "today": {
+                    "sessions": today_stats["count"],
+                    "total_seconds": int(today_stats["total_seconds"]),
+                },
+                "week": {
+                    "sessions": week_stats["count"],
+                    "total_seconds": int(week_stats["total_seconds"]),
+                },
+            },
+        }), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to fetch Pomodoro stats"}), 500
+
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
