@@ -361,16 +361,6 @@ export function PomodoroTimer({
 
   return (
     <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          Pomodoro Timer
-        </h2>
-        <span className={`text-xs font-medium ${getModeColor(mode)}`}>
-          {modeLabel(mode)}
-        </span>
-      </div>
-
       {/* Mode Selector */}
       <div className="flex gap-2 mb-6">
         {(["pomodoro", "shortBreak", "longBreak"] as const).map((m) => (

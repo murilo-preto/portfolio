@@ -85,7 +85,7 @@ export function TagInput({ value, onChange }: TagInputProps) {
         onKeyDown={handleKeyDown}
         onBlur={() => addTag(inputValue)}
         placeholder="Add a tag and press Enter"
-        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
       />
       <datalist id="todo-tag-suggestions">
         {suggestions.map((name) => (

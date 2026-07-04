@@ -104,5 +104,6 @@ Next.js API routes are thin proxies: they handle cookie-based JWT token refresh 
 
 - **Before suggesting a commit**, always run the full test suite (`./run_tests.sh`) and confirm all tests pass. Do not consider work done until tests are green. This rebuilds all Docker services and runs every test tier (unit, integration, e2e) inside Docker where all dependencies are available.
 - **Never add Claude as a co-author** in commit messages. The user owns all features and the technical debt they may entail.
+- **Never open a PR (`gh pr create`) without being explicitly told to.** Commit and push the branch as usual, but stop there and wait for the user to say when to stage the PR.
 - Environment variables come from `.env` (copy from `env.example.txt`); `JWT_SECRET_KEY` must be ≥64 chars.
 - See `test/README.md` for detailed test documentation.

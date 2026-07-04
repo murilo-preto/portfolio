@@ -79,7 +79,7 @@ export function CategorySelector({
               }
             }}
             placeholder="New category name"
-            className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+            className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
           />
           <button
             type="button"
@@ -106,7 +106,7 @@ export function CategorySelector({
     <select
       value={value}
       onChange={(e) => handleSelectChange(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
     >
       <option value="">{placeholder}</option>
       {categories.map((cat) => (
