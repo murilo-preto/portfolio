@@ -249,13 +249,7 @@ export default function TimerPage() {
     setSubmitMessage(null);
 
     try {
-      const tokenRes = await fetch("/api/token", { credentials: "include" });
-      if (!tokenRes.ok) throw new Error("Not authenticated. Please log in.");
-      const tokenData = await tokenRes.json();
-      const username: string = tokenData.user;
-
       const body = {
-        username,
         category: selectedCategory.name,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),

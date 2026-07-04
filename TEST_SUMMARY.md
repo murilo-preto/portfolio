@@ -25,7 +25,6 @@ A comprehensive test suite has been created to verify the portfolio application 
 | `pytest.ini` | Pytest configuration |
 | `test-requirements.txt` | Python test dependencies |
 | `run_tests.sh` | Test runner script |
-| `.github/workflows/tests.yml` | GitHub Actions CI/CD pipeline |
 
 ## Test Coverage
 

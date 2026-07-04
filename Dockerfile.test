@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY flask-server/requirements.txt flask_requirements.txt
+COPY test-requirements.txt .
+RUN pip install --no-cache-dir -r flask_requirements.txt -r test-requirements.txt
+COPY . .
+ENV PYTHONPATH=/app/flask-server
+CMD ["pytest", "test/", "-v"]

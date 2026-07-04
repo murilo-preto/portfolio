@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { FLASK_BASE_URL } from "@/lib/constants";
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
   let res: Response;
   try {
@@ -23,7 +28,7 @@ export async function POST(req: Request) {
 
   if (!res.ok || !data.access_token) {
     return NextResponse.json(
-      { error: data.message || "Login failed" },
+      { error: data.error || "Login failed" },
       { status: res.status },
     );
   }
