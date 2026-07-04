@@ -104,7 +104,7 @@ export function TodoForm({
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
-      className="rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-md w-full"
+      className="m-auto max-h-[90vh] overflow-y-auto rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-md w-full"
     >
       <form onSubmit={handleSubmit} className="p-5 space-y-4">
         {/* Header */}

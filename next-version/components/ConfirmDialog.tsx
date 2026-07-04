@@ -43,7 +43,7 @@ export function ConfirmDialog({
       onClick={(e) => {
         if (e.target === dialogRef.current) onCancel();
       }}
-      className="rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-sm w-full"
+      className="m-auto rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-sm w-full"
     >
       <div className="p-5 space-y-4">
         <h2 className="font-semibold text-base text-gray-900 dark:text-gray-100">
