@@ -4,7 +4,36 @@ import { useEffect, useRef, useState } from "react";
 import type { TodoItem, Category, RecurrenceRule } from "@/lib/types";
 import { CategorySelector } from "./CategorySelector";
 import { TagInput } from "./TagInput";
-import { toLocalDatetimeValue } from "./utils";
+import { endOfDayOffsetLocalValue, toLocalDatetimeValue } from "./utils";
+
+const LAST_CATEGORY_KEY = "todoLastCategory";
+const LAST_PRIORITY_KEY = "todoLastPriority";
+
+type Priority = "low" | "medium" | "high";
+
+// Defaults for a *new* item: last-used category (only if it still exists) and
+// priority, falling back to blank / "medium". Guarded so storage being
+// unavailable never breaks the form.
+function readLastCreateDefaults(categories: Category[]): {
+  category: string;
+  priority: Priority;
+} {
+  let category = "";
+  let priority: Priority = "medium";
+  try {
+    const lastCategory = localStorage.getItem(LAST_CATEGORY_KEY);
+    if (lastCategory && categories.some((c) => c.name === lastCategory)) {
+      category = lastCategory;
+    }
+    const lastPriority = localStorage.getItem(LAST_PRIORITY_KEY);
+    if (lastPriority === "low" || lastPriority === "medium" || lastPriority === "high") {
+      priority = lastPriority;
+    }
+  } catch {
+    // ignore unavailable/malformed storage
+  }
+  return { category, priority };
+}
 
 type TodoFormProps = {
   isOpen: boolean;
@@ -33,22 +62,21 @@ export function TodoForm({
 }: TodoFormProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
+  // The resync effect below reads the current categories when the form opens,
+  // but must NOT depend on `categories`: creating a category inside the form
+  // mutates that prop, and re-running the reset would wipe in-progress input.
+  const categoriesRef = useRef(categories);
+  categoriesRef.current = categories;
+
   const [title, setTitle] = useState(editingItem?.title ?? "");
-  const [category, setCategory] = useState(editingItem?.category ?? "");
+  const [category, setCategory] = useState(
+    () => editingItem?.category ?? readLastCreateDefaults(categories).category
+  );
   const [description, setDescription] = useState(editingItem?.description ?? "");
-  const [priority, setPriority] = useState<"low" | "medium" | "high">(
-    editingItem?.priority ?? "medium"
+  const [priority, setPriority] = useState<Priority>(
+    () => editingItem?.priority ?? readLastCreateDefaults(categories).priority
   );
-  // Pre-filling with "now" makes a from-scratch datetime-local field faster
-  // to adjust, but a new item should still have no due date if the user
-  // never touches the field — so we track the auto-filled value and treat
-  // it as "unset" at submit time unless it's changed.
-  const autoFilledDueDateRef = useRef(
-    editingItem?.due_date ? null : toLocalDatetimeValue(new Date().toISOString())
-  );
-  const [dueDate, setDueDate] = useState(
-    toLocalDatetimeValue(editingItem?.due_date ?? null) || autoFilledDueDateRef.current || ""
-  );
+  const [dueDate, setDueDate] = useState(toLocalDatetimeValue(editingItem?.due_date ?? null));
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule>(
     editingItem?.recurrence_rule ?? "none"
   );
@@ -60,8 +88,6 @@ export function TodoForm({
   );
   const [message, setMessage] = useState<string | null>(null);
 
-  const dueDateUntouched = Boolean(dueDate) && dueDate === autoFilledDueDateRef.current;
-
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -71,6 +97,23 @@ export function TodoForm({
       dialog.close();
     }
   }, [isOpen]);
+
+  // TodoForm stays mounted for the lifetime of the page (only `isOpen` toggles
+  // the dialog), so field state must be resynced from `editingItem` every time
+  // the form opens rather than just on first mount.
+  useEffect(() => {
+    if (!isOpen) return;
+    const defaults = editingItem ? null : readLastCreateDefaults(categoriesRef.current);
+    setTitle(editingItem?.title ?? "");
+    setCategory(editingItem?.category ?? defaults?.category ?? "");
+    setDescription(editingItem?.description ?? "");
+    setPriority(editingItem?.priority ?? defaults?.priority ?? "medium");
+    setDueDate(toLocalDatetimeValue(editingItem?.due_date ?? null));
+    setRecurrenceRule(editingItem?.recurrence_rule ?? "none");
+    setTags(editingItem?.tags?.map((t) => t.name) ?? []);
+    setStatus("idle");
+    setMessage(null);
+  }, [isOpen, editingItem]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,10 +129,20 @@ export function TodoForm({
         category,
         description: description.trim(),
         priority,
-        due_date: dueDate && !dueDateUntouched ? new Date(dueDate).toISOString() : null,
-        recurrence_rule: dueDateUntouched ? "none" : recurrenceRule,
+        due_date: dueDate ? new Date(dueDate).toISOString() : null,
+        recurrence_rule: dueDate ? recurrenceRule : "none",
         tags,
       });
+
+      // Remember the choices so the next new item defaults to them.
+      if (!editingItem) {
+        try {
+          localStorage.setItem(LAST_CATEGORY_KEY, category);
+          localStorage.setItem(LAST_PRIORITY_KEY, priority);
+        } catch {
+          // ignore unavailable storage
+        }
+      }
 
       setStatus("success");
       setMessage(editingItem ? "TODO item updated!" : "TODO item created!");
@@ -113,9 +166,17 @@ export function TodoForm({
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
-      className="m-auto max-h-[90vh] overflow-y-auto rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-md w-full"
+      className="m-auto max-h-[90vh] overflow-y-auto rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-lg w-full"
     >
-      <form onSubmit={handleSubmit} className="p-5 space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.currentTarget.requestSubmit();
+          }
+        }}
+        className="p-5 space-y-4"
+      >
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-base text-gray-900 dark:text-gray-100">
@@ -145,18 +206,48 @@ export function TodoForm({
           />
         </div>
 
-        {/* Category */}
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Category *
-          </label>
-          <CategorySelector
-            value={category}
-            onChange={setCategory}
-            categories={categories}
-            onCategoryCreated={onCategoryCreated}
-            placeholder="Select a category"
-          />
+        {/* Category + Priority */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+          {/* Category */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Category *
+            </label>
+            <CategorySelector
+              value={category}
+              onChange={setCategory}
+              categories={categories}
+              onCategoryCreated={onCategoryCreated}
+              placeholder="Select a category"
+            />
+          </div>
+
+          {/* Priority */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Priority
+            </label>
+            <div className="flex gap-2">
+              {(["low", "medium", "high"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPriority(p)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition active:scale-[0.97] ${
+                    priority === p
+                      ? p === "high"
+                        ? "bg-red-500 text-white"
+                        : p === "medium"
+                        ? "bg-amber-500 text-white"
+                        : "bg-blue-500 text-white"
+                      : "bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700"
+                  }`}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Description */}
@@ -173,67 +264,60 @@ export function TodoForm({
           />
         </div>
 
-        {/* Priority */}
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Priority
-          </label>
-          <div className="flex gap-2">
-            {(["low", "medium", "high"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPriority(p)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  priority === p
-                    ? p === "high"
-                      ? "bg-red-500 text-white"
-                      : p === "medium"
-                      ? "bg-amber-500 text-white"
-                      : "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700"
-                }`}
-              >
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </button>
-            ))}
+        {/* Due Date + Repeat */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+          {/* Due Date */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Due Date
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Today", value: () => endOfDayOffsetLocalValue(0) },
+                { label: "Tomorrow", value: () => endOfDayOffsetLocalValue(1) },
+                { label: "Next week", value: () => endOfDayOffsetLocalValue(7) },
+                { label: "No date", value: () => "" },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setDueDate(preset.value())}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700 transition active:scale-95"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+            />
           </div>
-        </div>
 
-        {/* Due Date */}
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Due Date
-          </label>
-          <input
-            type="datetime-local"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
-          />
-        </div>
-
-        {/* Recurrence */}
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Repeat
-          </label>
-          <select
-            value={recurrenceRule}
-            onChange={(e) => setRecurrenceRule(e.target.value as RecurrenceRule)}
-            disabled={!dueDate || dueDateUntouched}
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-50"
-          >
-            <option value="none">Does not repeat</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-          {(!dueDate || dueDateUntouched) && (
-            <p className="text-xs text-gray-400 dark:text-gray-500">
-              Set a due date to enable repeating
-            </p>
-          )}
+          {/* Recurrence */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Repeat
+            </label>
+            <select
+              value={recurrenceRule}
+              onChange={(e) => setRecurrenceRule(e.target.value as RecurrenceRule)}
+              disabled={!dueDate}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-50"
+            >
+              <option value="none">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            {!dueDate && (
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Set a due date to enable repeating
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Tags */}
@@ -248,7 +332,7 @@ export function TodoForm({
         <button
           type="submit"
           disabled={status === "loading" || !title.trim() || !category}
-          className="w-full py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
+          className="w-full py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm disabled:opacity-40 hover:opacity-90 transition active:scale-[0.99] disabled:active:scale-100"
         >
           {status === "loading"
             ? "Saving..."

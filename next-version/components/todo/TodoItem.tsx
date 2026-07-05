@@ -34,7 +34,7 @@ export function TodoItemComponent({
 
   return (
     <div
-      className={`p-4 rounded-xl border transition-all duration-200 ${
+      className={`p-4 rounded-xl border transition-all duration-200 animate-rise ${
         item.status === "completed"
           ? "bg-gray-50 dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 opacity-75 hover:shadow-sm"
           : "bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 hover:shadow-sm"
@@ -64,7 +64,7 @@ export function TodoItemComponent({
         ) : (
           <button
             onClick={() => onToggleComplete(item)}
-            className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+            className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition active:scale-90 ${
               item.status === "completed"
                 ? "bg-green-500 border-green-500 text-white"
                 : "border-gray-300 dark:border-neutral-600 hover:border-green-500"
@@ -141,7 +141,7 @@ export function TodoItemComponent({
           <div className="flex items-center gap-1">
             <a
               href={`/namu/user/pomodoro?todo_id=${item.id}`}
-              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors active:scale-90"
               title="Start Pomodoro"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,7 +155,7 @@ export function TodoItemComponent({
             </a>
             <button
               onClick={() => onEdit(item)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors active:scale-90"
               title="Edit"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,7 +169,7 @@ export function TodoItemComponent({
             </button>
             <button
               onClick={() => onDelete(item)}
-              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors active:scale-90"
               title="Delete"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
