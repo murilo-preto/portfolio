@@ -13,10 +13,27 @@ export function formatDuration(seconds: number): string {
   return `${s}s`;
 }
 
+// The backend serializes some timestamps as naive ISO strings (no "Z" or
+// offset) even though the underlying value is UTC. Only skip the UTC
+// assumption when an explicit offset is already present.
+function parseServerDate(iso: string): Date {
+  const normalized = iso.includes("T") ? iso : iso.replace(" ", "T");
+  const hasOffset = /Z$|[+-]\d{2}:\d{2}$/.test(normalized);
+  return new Date(hasOffset ? normalized : normalized + "Z");
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function toDatetimeLocalValue(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // Format datetime to local string
 export function formatDateTime(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso.includes("T") ? iso : iso.replace(" ", "T") + "Z");
+  const d = parseServerDate(iso);
   if (isNaN(d.getTime())) return "";
   return d.toLocaleString(undefined, {
     month: "short",
@@ -29,7 +46,7 @@ export function formatDateTime(iso: string | null): string {
 // Format date only
 export function formatDate(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso.includes("T") ? iso : iso.replace(" ", "T") + "Z");
+  const d = parseServerDate(iso);
   if (isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, {
     month: "short",
@@ -69,7 +86,7 @@ export function getStatusColor(status: string): string {
 // Check if item is overdue
 export function isOverdue(dueDate: string | null, status: string): boolean {
   if (!dueDate || status === "completed") return false;
-  const due = new Date(dueDate);
+  const due = parseServerDate(dueDate);
   const now = new Date();
   return due < now;
 }
@@ -77,8 +94,21 @@ export function isOverdue(dueDate: string | null, status: string): boolean {
 // Convert to local datetime value for input
 export function toLocalDatetimeValue(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso.includes("T") ? iso : iso.replace(" ", "T") + "Z");
+  const d = parseServerDate(iso);
   if (isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return toDatetimeLocalValue(d);
+}
+
+// A date `daysFromNow` days out at 23:59, formatted for a datetime-local input.
+// A due date most naturally lands at end-of-day, so all presets share this.
+export function endOfDayOffsetLocalValue(daysFromNow: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  d.setHours(23, 59, 0, 0);
+  return toDatetimeLocalValue(d);
+}
+
+// Today's date at 23:59, formatted for a datetime-local input
+export function endOfTodayLocalValue(): string {
+  return endOfDayOffsetLocalValue(0);
 }

@@ -111,6 +111,31 @@ export default function TodoPage() {
     }
   }, []);
 
+  // Press "n" to open a fresh Create form, unless typing in a field or the
+  // form is already open.
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (showForm) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setEditingItem(null);
+      setShowForm(true);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showForm]);
+
   function updateFilters(partial: Partial<PersistedFilters>) {
     setFilters((prev) => {
       const next = { ...prev, ...partial };
@@ -392,7 +417,7 @@ export default function TodoPage() {
             setShowForm(true);
             setEditingItem(null);
           }}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 dark:bg-neutral-100 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors text-white dark:text-neutral-900"
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 dark:bg-neutral-100 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition active:scale-[0.97] text-white dark:text-neutral-900"
         >
           + Add TODO
         </button>

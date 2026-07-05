@@ -64,7 +64,7 @@ export function CategorySelector({
   if (creating) {
     return (
       <div className="space-y-2">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             type="text"
             autoFocus
@@ -79,7 +79,7 @@ export function CategorySelector({
               }
             }}
             placeholder="New category name"
-            className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+            className="flex-1 min-w-[8rem] px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
           />
           <button
             type="button"
