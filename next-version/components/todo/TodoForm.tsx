@@ -39,8 +39,15 @@ export function TodoForm({
   const [priority, setPriority] = useState<"low" | "medium" | "high">(
     editingItem?.priority ?? "medium"
   );
+  // Pre-filling with "now" makes a from-scratch datetime-local field faster
+  // to adjust, but a new item should still have no due date if the user
+  // never touches the field — so we track the auto-filled value and treat
+  // it as "unset" at submit time unless it's changed.
+  const autoFilledDueDateRef = useRef(
+    editingItem?.due_date ? null : toLocalDatetimeValue(new Date().toISOString())
+  );
   const [dueDate, setDueDate] = useState(
-    toLocalDatetimeValue(editingItem?.due_date ?? null)
+    toLocalDatetimeValue(editingItem?.due_date ?? null) || autoFilledDueDateRef.current || ""
   );
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule>(
     editingItem?.recurrence_rule ?? "none"
@@ -52,6 +59,8 @@ export function TodoForm({
     "idle"
   );
   const [message, setMessage] = useState<string | null>(null);
+
+  const dueDateUntouched = Boolean(dueDate) && dueDate === autoFilledDueDateRef.current;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -77,8 +86,8 @@ export function TodoForm({
         category,
         description: description.trim(),
         priority,
-        due_date: dueDate ? new Date(dueDate).toISOString() : null,
-        recurrence_rule: recurrenceRule,
+        due_date: dueDate && !dueDateUntouched ? new Date(dueDate).toISOString() : null,
+        recurrence_rule: dueDateUntouched ? "none" : recurrenceRule,
         tags,
       });
 
@@ -212,7 +221,7 @@ export function TodoForm({
           <select
             value={recurrenceRule}
             onChange={(e) => setRecurrenceRule(e.target.value as RecurrenceRule)}
-            disabled={!dueDate}
+            disabled={!dueDate || dueDateUntouched}
             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-50"
           >
             <option value="none">Does not repeat</option>
@@ -220,7 +229,7 @@ export function TodoForm({
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-          {!dueDate && (
+          {(!dueDate || dueDateUntouched) && (
             <p className="text-xs text-gray-400 dark:text-gray-500">
               Set a due date to enable repeating
             </p>

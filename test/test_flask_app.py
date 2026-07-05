@@ -354,6 +354,23 @@ def _mock_cursor(mock_cursor_context):
     return mock_cursor
 
 
+def _todo_item_row(**overrides):
+    """A DB row shape matching the todo_items lookup joined for update/bulk-update."""
+    row = {
+        "id": 1,
+        "user_id": 1,
+        "category_id": 1,
+        "title": "Task",
+        "description": "",
+        "priority": "medium",
+        "status": "completed",
+        "due_date": None,
+        "recurrence_rule": "none",
+    }
+    row.update(overrides)
+    return row
+
+
 class TestListTodoCategories:
     """Tests for the TODO categories listing endpoint."""
 
@@ -576,7 +593,7 @@ class TestUpdateTodoItem:
     def test_update_todo_item_category_not_found(self, mock_cursor_context, client, sample_jwt_token):
         """Should fail with 404 if the new category does not exist."""
         mock_cursor = _mock_cursor(mock_cursor_context)
-        mock_cursor.fetchone.side_effect = [{"id": 1}, None]
+        mock_cursor.fetchone.side_effect = [_todo_item_row(), None]
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.put(
@@ -588,7 +605,7 @@ class TestUpdateTodoItem:
     def test_update_todo_item_no_fields_to_update(self, mock_cursor_context, client, sample_jwt_token):
         """Should fail if the body contains no recognized updatable fields."""
         mock_cursor = _mock_cursor(mock_cursor_context)
-        mock_cursor.fetchone.return_value = {"id": 1}
+        mock_cursor.fetchone.return_value = _todo_item_row()
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.put(
@@ -600,7 +617,7 @@ class TestUpdateTodoItem:
     def test_update_todo_item_success(self, mock_cursor_context, client, sample_jwt_token):
         """Should update the item's status and set completed_at."""
         mock_cursor = _mock_cursor(mock_cursor_context)
-        mock_cursor.fetchone.return_value = {"id": 1}
+        mock_cursor.fetchone.return_value = _todo_item_row()
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.put(
@@ -667,7 +684,7 @@ class TestBulkUpdateTodoItems:
         """Should report per-item success/failure without aborting the batch."""
         mock_cursor = _mock_cursor(mock_cursor_context)
         # item 1: found -> success; item 2: not found -> failure; item 3: bad status -> failure
-        mock_cursor.fetchone.side_effect = [{"id": 1}, None]
+        mock_cursor.fetchone.side_effect = [_todo_item_row(), None]
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.post(
@@ -707,19 +724,22 @@ class TestMyTodoItems:
         mock_cursor = _mock_cursor(mock_cursor_context)
         now = datetime.now(timezone.utc)
         mock_cursor.fetchone.return_value = {"id": 1}
-        mock_cursor.fetchall.return_value = [
-            {
-                "id": 1,
-                "category": "Work",
-                "title": "Task",
-                "description": "",
-                "priority": "high",
-                "status": "pending",
-                "due_date": now,
-                "completed_at": None,
-                "created_at": now,
-                "updated_at": now,
-            }
+        mock_cursor.fetchall.side_effect = [
+            [
+                {
+                    "id": 1,
+                    "category": "Work",
+                    "title": "Task",
+                    "description": "",
+                    "priority": "high",
+                    "status": "pending",
+                    "due_date": now,
+                    "completed_at": None,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ],
+            [],  # no tags for item 1
         ]
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
@@ -728,6 +748,7 @@ class TestMyTodoItems:
         data = response.get_json()
         assert data["items"][0]["due_date"] == now.isoformat()
         assert data["items"][0]["completed_at"] is None
+        assert data["items"][0]["tags"] == []
 
 
 class TestPomodoroStart:
@@ -939,9 +960,10 @@ class TestPomodoroStats:
         mock_cursor = _mock_cursor(mock_cursor_context)
         mock_cursor.fetchone.side_effect = [
             {"id": 1},  # user lookup
-            {"count": 10, "total_seconds": 15000},  # total
-            {"count": 2, "total_seconds": 3000},  # today
-            {"count": 5, "total_seconds": 7500},  # week
+            {"count": 10, "total_seconds": 15000},  # total (focus)
+            {"count": 2, "total_seconds": 3000},  # today (focus)
+            {"count": 5, "total_seconds": 7500},  # week (focus)
+            {"count": 1, "total_seconds": 300},  # today's breaks
         ]
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
@@ -951,6 +973,7 @@ class TestPomodoroStats:
         assert data["stats"]["total"]["sessions"] == 10
         assert data["stats"]["today"]["total_seconds"] == 3000
         assert data["stats"]["week"]["sessions"] == 5
+        assert data["stats"]["today_breaks"]["total_seconds"] == 300
 
 
 if __name__ == "__main__":
