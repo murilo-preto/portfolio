@@ -65,7 +65,7 @@ export default function TodoPage() {
       const res = await fetch("/api/todo", { credentials: "include" });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.message || "Failed to fetch TODO items");
+        throw new Error(err.message || "Failed to fetch To Do items");
       }
       const data = await res.json();
       setItems(data.items ?? []);
@@ -168,7 +168,7 @@ export default function TodoPage() {
     });
 
     const body = await res.json();
-    if (!res.ok) throw new Error(body.error || "Failed to create TODO");
+    if (!res.ok) throw new Error(body.error || "Failed to create To Do");
 
     const now = new Date().toISOString();
     const newItem: TodoItem = {
@@ -208,7 +208,7 @@ export default function TodoPage() {
 
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || "Failed to update TODO");
+      throw new Error(err.error || "Failed to update To Do");
     }
 
     const resolvedTags = resolveTagObjects(data.tags, target.tags);
@@ -264,7 +264,7 @@ export default function TodoPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to update TODO");
+        throw new Error(err.error || "Failed to update To Do");
       }
 
       if (newStatus === "completed" && previous.recurrence_rule !== "none") {
@@ -295,7 +295,7 @@ export default function TodoPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to delete TODO");
+        throw new Error(err.error || "Failed to delete To Do");
       }
     } catch (err) {
       console.error("Failed to delete TODO:", err);
@@ -406,7 +406,7 @@ export default function TodoPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-            TODO
+            To Do
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Manage your tasks
@@ -419,7 +419,7 @@ export default function TodoPage() {
           }}
           className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 dark:bg-neutral-100 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition active:scale-[0.97] text-white dark:text-neutral-900"
         >
-          + Add TODO
+          + Add To Do
         </button>
       </div>
 
@@ -439,7 +439,7 @@ export default function TodoPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="Delete TODO item"
+        title="Delete To Do item"
         message={`Delete "${deleteTarget?.title}"? This cannot be undone.`}
         confirmLabel="Delete"
         onConfirm={handleConfirmDelete}

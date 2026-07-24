@@ -51,7 +51,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
   const dialog = page.locator("dialog[open]");
 
   await test.step("first Create-form open: leave transient, unsaved state behind", async () => {
-    await page.getByRole("button", { name: "+ Add TODO" }).click();
+    await page.getByRole("button", { name: "+ Add To Do" }).click();
     await expect(dialog).toBeVisible();
 
     await dialog.getByPlaceholder("What needs to be done?").fill("Throwaway");
@@ -72,7 +72,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
   });
 
   await test.step("reopening Create must not leak the previous session's state", async () => {
-    await page.getByRole("button", { name: "+ Add TODO" }).click();
+    await page.getByRole("button", { name: "+ Add To Do" }).click();
     await expect(dialog).toBeVisible();
 
     await expect(dialog.getByPlaceholder("What needs to be done?")).toHaveValue("");
@@ -89,7 +89,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
     await dialog.getByRole("button", { name: "Low", exact: true }).click();
     await dialog.locator('input[type="datetime-local"]').fill("2026-07-07T13:54");
 
-    await dialog.getByRole("button", { name: "Create TODO" }).click();
+    await dialog.getByRole("button", { name: "Create To Do" }).click();
     await expect(dialog).toBeHidden();
   });
 
@@ -100,7 +100,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
   await test.step("Edit pre-populates all fields from the item being edited", async () => {
     await page.locator('button[title="Edit"]').click();
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Edit TODO")).toBeVisible();
+    await expect(dialog.getByText("Edit To Do")).toBeVisible();
 
     await expect(dialog.getByPlaceholder("What needs to be done?")).toHaveValue("Target Item");
     await expect(dialog.locator("select").first()).toHaveValue("TestCat");
@@ -115,7 +115,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
   });
 
   await test.step("Create after an Edit session is still blank, and Today fills end-of-day", async () => {
-    await page.getByRole("button", { name: "+ Add TODO" }).click();
+    await page.getByRole("button", { name: "+ Add To Do" }).click();
     await expect(dialog).toBeVisible();
     await expect(dialog.getByPlaceholder("What needs to be done?")).toHaveValue("");
     await expect(dialog.locator('input[type="datetime-local"]')).toHaveValue("");
@@ -158,6 +158,6 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
   await test.step("pressing 'n' opens a fresh Create form", async () => {
     await page.keyboard.press("n");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("heading", { name: "Create TODO" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Create To Do" })).toBeVisible();
   });
 });

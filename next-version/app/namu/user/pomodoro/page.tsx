@@ -27,7 +27,7 @@ function PomodoroPageContent() {
     async function fetchTodos() {
       try {
         const res = await fetch("/api/todo", { credentials: "include" });
-        if (!res.ok) throw new Error("Failed to load TODO items");
+        if (!res.ok) throw new Error("Failed to load To Do items");
         const data = await res.json();
         const items = (data.items as TodoItem[]).filter(
           (item) => item.status !== "completed"
@@ -39,7 +39,7 @@ function PomodoroPageContent() {
           if (match) setSelectedTodo(match);
         }
       } catch (err: unknown) {
-        setTodosError(err instanceof Error ? err.message : "Failed to load TODO items");
+        setTodosError(err instanceof Error ? err.message : "Failed to load To Do items");
       } finally {
         setTodosLoading(false);
       }
@@ -70,7 +70,7 @@ function PomodoroPageContent() {
                      bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700
                      transition-colors text-gray-700 dark:text-gray-200 font-medium"
         >
-          View TODOs
+          View To Dos
         </a>
       </div>
 

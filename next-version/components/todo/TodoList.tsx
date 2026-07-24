@@ -110,7 +110,7 @@ export function TodoList({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-          TODO Items
+          To Do Items
         </h2>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -247,14 +247,14 @@ export function TodoList({
       {/* List */}
       {loading ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          Loading TODO items...
+          Loading To Do items...
         </div>
       ) : error ? (
         <div className="text-center py-8 text-red-500">{error}</div>
       ) : sortedItems.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           {items.length === 0
-            ? "No TODO items. Create one to get started!"
+            ? "No To Do items. Create one to get started!"
             : "No items match the current filters."}
         </div>
       ) : (

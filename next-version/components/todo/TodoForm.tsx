@@ -145,14 +145,14 @@ export function TodoForm({
       }
 
       setStatus("success");
-      setMessage(editingItem ? "TODO item updated!" : "TODO item created!");
+      setMessage(editingItem ? "To Do item updated!" : "To Do item created!");
 
       setTimeout(() => {
         onClose();
       }, 600);
     } catch (err: any) {
       setStatus("error");
-      setMessage(err.message || "Failed to save TODO item");
+      setMessage(err.message || "Failed to save To Do item");
     }
   }
 
@@ -180,7 +180,7 @@ export function TodoForm({
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-base text-gray-900 dark:text-gray-100">
-            {editingItem ? "Edit TODO" : "Create TODO"}
+            {editingItem ? "Edit To Do" : "Create To Do"}
           </h2>
           <button
             type="button"
@@ -337,8 +337,8 @@ export function TodoForm({
           {status === "loading"
             ? "Saving..."
             : editingItem
-            ? "Update TODO"
-            : "Create TODO"}
+            ? "Update To Do"
+            : "Create To Do"}
         </button>
 
         {/* Message */}

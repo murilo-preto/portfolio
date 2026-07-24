@@ -58,7 +58,7 @@ function Header() {
         <div className="justify-self-center flex gap-2">
           <NavLink href="/namu/user/entries">Entries</NavLink>
           <NavLink href="/namu/user/timer">Stopwatch</NavLink>
-          <NavLink href="/namu/user/todo">TODO</NavLink>
+          <NavLink href="/namu/user/todo">To Do</NavLink>
           <NavLink href="/namu/user/pomodoro">Pomodoro</NavLink>
           <NavLink href="/namu/user/finance">Finance</NavLink>
         </div>
@@ -131,7 +131,7 @@ function Header() {
             Stopwatch
           </NavLink>
           <NavLink href="/namu/user/todo" onClick={close}>
-            TODO
+            To Do
           </NavLink>
           <NavLink href="/namu/user/pomodoro" onClick={close}>
             Pomodoro
