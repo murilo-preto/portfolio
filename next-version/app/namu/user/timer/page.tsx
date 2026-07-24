@@ -1,10 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TimerDisplay } from "@/components/timer/TimerDisplay";
 import { QuickStats } from "@/components/timer/QuickStats";
-import { CategorySelector } from "@/components/timer/CategorySelector";
-import { TimeInputs } from "@/components/timer/TimeInputs";
+import { DailyTarget } from "@/components/timer/DailyTarget";
+import { TodaySessions } from "@/components/timer/TodaySessions";
+import { CategoryPicker } from "@/components/timer/CategoryPicker";
+import { SessionSegments } from "@/components/timer/SessionSegments";
+import {
+  TIMER_STATE_KEY,
+  formatDuration,
+  isSegmentValid,
+  readTargets,
+  splitClock,
+  totalSeconds,
+  writeTargets,
+  type Segment,
+  type TimerState,
+} from "@/components/timer/utils";
+import {
+  ensureNotificationPermission,
+  notifyCompletion,
+  playChime,
+} from "@/lib/notifications";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -13,25 +31,49 @@ type Category = {
   name: string;
 };
 
-type TimerState = "idle" | "running" | "stopped";
+type Entry = {
+  id: number;
+  category: string;
+  duration_seconds: number;
+  start_time: string;
+  end_time?: string;
+};
+
+// Window used to rank categories, so the ones in recent use stay on the row.
+const RECENT_WINDOW_DAYS = 14;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function toLocalDatetimeValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
-}
-
 function saveTimerState(state: unknown) {
   try {
-    localStorage.setItem("timerState", JSON.stringify(state));
+    localStorage.setItem(TIMER_STATE_KEY, JSON.stringify(state));
   } catch {
     // localStorage unavailable (private browsing, disabled storage) — the
     // timer just won't survive a refresh, which is a safe fallback.
   }
+}
+
+/**
+ * Reads the persisted session, upgrading the pre-pause `{startTime, endTime}`
+ * shape into segments so a timer running across a deploy isn't lost.
+ */
+function restoreSegments(parsed: {
+  segments?: unknown;
+  startTime?: string;
+  endTime?: string;
+}): Segment[] {
+  if (Array.isArray(parsed.segments)) {
+    return parsed.segments.filter(
+      (seg): seg is Segment =>
+        !!seg &&
+        typeof seg === "object" &&
+        typeof (seg as Segment).start === "string"
+    );
+  }
+  if (parsed.startTime) {
+    return [{ start: parsed.startTime, end: parsed.endTime ?? null }];
+  }
+  return [];
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -43,16 +85,17 @@ export default function TimerPage() {
   const [catLoading, setCatLoading] = useState(true);
   const [catError, setCatError] = useState<string | null>(null);
 
+  // Saved entries (feed Today's Activity and the daily target panel)
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entriesLoading, setEntriesLoading] = useState(true);
+
+  // Per-category daily targets, remembered in this browser
+  const [targets, setTargets] = useState<Record<string, number>>({});
+
   // Timer
   const [timerState, setTimerState] = useState<TimerState>("idle");
-  const [startTime, setStartTime] = useState<Date | null>(null);
-  const [endTime, setEndTime] = useState<Date | null>(null);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const [elapsed, setElapsed] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Manual datetime edit fields
-  const [startInput, setStartInput] = useState("");
-  const [endInput, setEndInput] = useState("");
 
   // Submission
   const [submitStatus, setSubmitStatus] = useState<
@@ -60,7 +103,7 @@ export default function TimerPage() {
   >("idle");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
 
-  // ── Load categories ──────────────────────────────────────────────────────────
+  // ── Load categories ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     async function fetchCategories() {
@@ -78,212 +121,369 @@ export default function TimerPage() {
     fetchCategories();
   }, []);
 
-  // ── Restore timer from localStorage ─────────────────────────────────────────
+  // ── Load entries ────────────────────────────────────────────────────────────
+
+  const fetchEntries = useCallback(async () => {
+    try {
+      const res = await fetch("/api/entry", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch entries");
+      const json = await res.json();
+      setEntries(json.entries ?? []);
+    } catch (err) {
+      console.error("Failed to fetch entries:", err);
+    } finally {
+      setEntriesLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem("timerState");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.categoryId) {
-          setCategoryId(parsed.categoryId);
-        }
-        if (parsed.state === "running" && parsed.startTime) {
-          setStartTime(new Date(parsed.startTime));
-          setStartInput(toLocalDatetimeValue(new Date(parsed.startTime)));
-          setTimerState("running");
-          setElapsed(
-            Math.floor(
-              (Date.now() - new Date(parsed.startTime).getTime()) / 1000
-            )
-          );
-        } else if (
-          parsed.state === "stopped" &&
-          parsed.startTime &&
-          parsed.endTime
-        ) {
-          const start = new Date(parsed.startTime);
-          const end = new Date(parsed.endTime);
-          setStartTime(start);
-          setEndTime(end);
-          setStartInput(toLocalDatetimeValue(start));
-          setEndInput(toLocalDatetimeValue(end));
-          setTimerState("stopped");
-        }
-      } catch (e) {
-        localStorage.removeItem("timerState");
+    fetchEntries();
+  }, [fetchEntries]);
+
+  // ── Restore targets and timer from localStorage ─────────────────────────────
+
+  useEffect(() => {
+    setTargets(readTargets());
+
+    const saved = localStorage.getItem(TIMER_STATE_KEY);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed.categoryId) setCategoryId(parsed.categoryId);
+
+      const restored = restoreSegments(parsed);
+      if (restored.length === 0) return;
+      setSegments(restored);
+
+      const lastOpen = restored[restored.length - 1].end === null;
+      if (parsed.state === "running" && lastOpen) {
+        setTimerState("running");
+      } else if (parsed.state === "paused" && !lastOpen) {
+        setTimerState("paused");
+      } else if (!lastOpen) {
+        setTimerState("stopped");
+      } else {
+        // An open segment with no running state can't be reconciled; close it
+        // rather than leaving a timer that counts from an unknown moment.
+        setSegments(restored.slice(0, -1));
+        setTimerState(restored.length > 1 ? "stopped" : "idle");
       }
+    } catch {
+      localStorage.removeItem(TIMER_STATE_KEY);
     }
   }, []);
 
   // ── Tick ────────────────────────────────────────────────────────────────────
 
+  // Elapsed is always recomputed from timestamps, so it stays correct across
+  // sleep, throttled background tabs and clock changes. Sub-second polling
+  // keeps the displayed second from visibly stuttering.
   useEffect(() => {
-    if (timerState === "running" && startTime) {
-      intervalRef.current = setInterval(() => {
-        setElapsed(Math.floor((Date.now() - startTime.getTime()) / 1000));
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+    setElapsed(totalSeconds(segments, Date.now()));
+    if (timerState !== "running") return;
+    const id = setInterval(
+      () => setElapsed(totalSeconds(segments, Date.now())),
+      500
+    );
+    return () => clearInterval(id);
+  }, [timerState, segments]);
+
+  // ── Derived values ──────────────────────────────────────────────────────────
+
+  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
+
+  // Every category gets a chip; the picker fills the row and pushes whatever
+  // is left over into its "More" menu, so the order decides what stays visible.
+  const orderedCategories = useMemo(() => {
+    const cutoff = Date.now() - RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const counts: Record<string, number> = {};
+    entries.forEach((e) => {
+      if (new Date(e.start_time).getTime() >= cutoff) {
+        counts[e.category] = (counts[e.category] ?? 0) + 1;
       }
-    }
+    });
+    return [...categories].sort(
+      (a, b) =>
+        (counts[b.name] ?? 0) - (counts[a.name] ?? 0) ||
+        a.name.localeCompare(b.name)
+    );
+  }, [entries, categories]);
+
+  // Time already logged today for the selected category — the daily target
+  // counts these alongside the session currently on screen.
+  const loggedSecondsToday = useMemo(() => {
+    if (!selectedCategory) return 0;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    return entries
+      .filter(
+        (e) =>
+          e.category === selectedCategory.name &&
+          new Date(e.start_time) >= startOfDay
+      )
+      .reduce((acc, e) => acc + (e.duration_seconds ?? 0), 0);
+  }, [entries, selectedCategory]);
+
+  const target = selectedCategory ? targets[selectedCategory.name] : undefined;
+  const doneToday = loggedSecondsToday + elapsed;
+  const progress = target ? Math.min(1, doneToday / target) : 0;
+  const targetMet = target != null && doneToday >= target;
+  const remainingLabel =
+    target == null
+      ? undefined
+      : targetMet
+        ? `${formatDuration(doneToday - target)} over target`
+        : `${formatDuration(target - doneToday)} left today`;
+
+  const allClosed = segments.every((seg) => seg.end !== null);
+  const allValid = segments.every(isSegmentValid);
+  const isValid = !!selectedCategory && segments.length > 0 && allClosed && allValid;
+  const canSubmitNow =
+    (timerState === "stopped" || timerState === "idle") &&
+    segments.length > 0 &&
+    allClosed;
+
+  // ── Persistence ─────────────────────────────────────────────────────────────
+
+  const persist = useCallback(
+    (state: TimerState, segs: Segment[], catId: number | null) => {
+      saveTimerState({ state, segments: segs, categoryId: catId });
+    },
+    []
+  );
+
+  // ── Tab title ───────────────────────────────────────────────────────────────
+
+  const baseTitleRef = useRef<string>("");
+  useEffect(() => {
+    baseTitleRef.current = document.title;
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      document.title = baseTitleRef.current;
     };
-  }, [timerState, startTime]);
+  }, []);
+
+  // The timer page usually sits in a background tab — surface the running
+  // clock in the tab title so it's readable without switching to it.
+  useEffect(() => {
+    const base = baseTitleRef.current || "Timer";
+    if (timerState === "idle" || timerState === "stopped") {
+      document.title = base;
+      return;
+    }
+    const { hm, ss } = splitClock(elapsed);
+    const label = selectedCategory ? ` · ${selectedCategory.name}` : "";
+    const suffix = timerState === "paused" ? " (paused)" : "";
+    document.title = `${hm}:${ss}${label}${suffix}`;
+  }, [timerState, elapsed, selectedCategory]);
+
+  // ── Daily target reached ────────────────────────────────────────────────────
+
+  // Only announce a crossing we actually watched happen, so reloading a day
+  // that is already over target stays quiet.
+  const wasBelowTargetRef = useRef(false);
+  useEffect(() => {
+    if (!target || !selectedCategory) return;
+    if (doneToday < target) {
+      wasBelowTargetRef.current = true;
+      return;
+    }
+    if (timerState !== "running" || !wasBelowTargetRef.current) return;
+    wasBelowTargetRef.current = false;
+    playChime();
+    notifyCompletion(
+      "Daily target reached",
+      `${formatDuration(doneToday)} logged for ${selectedCategory.name} today.`
+    );
+  }, [doneToday, target, timerState, selectedCategory]);
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
+
+  const handleStart = useCallback(() => {
+    if (!categoryId) return;
+    if (
+      timerState === "stopped" &&
+      segments.length > 0 &&
+      !confirm("Discard the current unsubmitted session and start a new one?")
+    ) {
+      return;
+    }
+    const next: Segment[] = [{ start: new Date().toISOString(), end: null }];
+    setSegments(next);
+    setTimerState("running");
+    setSubmitStatus("idle");
+    setSubmitMessage(null);
+    persist("running", next, categoryId);
+    ensureNotificationPermission();
+  }, [categoryId, timerState, segments.length, persist]);
+
+  const handlePause = useCallback(() => {
+    const next = segments.map((seg, i) =>
+      i === segments.length - 1 && seg.end === null
+        ? { ...seg, end: new Date().toISOString() }
+        : seg
+    );
+    setSegments(next);
+    setTimerState("paused");
+    persist("paused", next, categoryId);
+  }, [segments, categoryId, persist]);
+
+  const handleResume = useCallback(() => {
+    const next = [...segments, { start: new Date().toISOString(), end: null }];
+    setSegments(next);
+    setTimerState("running");
+    persist("running", next, categoryId);
+  }, [segments, categoryId, persist]);
+
+  const handleStop = useCallback(() => {
+    const now = new Date().toISOString();
+    const next = segments.map((seg) =>
+      seg.end === null ? { ...seg, end: now } : seg
+    );
+    setSegments(next);
+    setTimerState("stopped");
+    persist("stopped", next, categoryId);
+  }, [segments, categoryId, persist]);
+
+  function handleSegmentsChange(next: Segment[]) {
+    setSegments(next);
+    const state = next.length === 0 ? "idle" : timerState;
+    if (next.length === 0) setTimerState("idle");
+    persist(state, next, categoryId);
+  }
+
+  function handleSelectCategory(id: number | null) {
+    setCategoryId(id);
+    persist(timerState, segments, id);
+  }
+
+  function handleDiscard() {
+    if (!confirm("Discard this session without saving?")) return;
+    setSegments([]);
+    setTimerState("idle");
+    setElapsed(0);
+    setSubmitStatus("idle");
+    setSubmitMessage(null);
+    persist("idle", [], categoryId);
+  }
+
+  function setTarget(seconds: number) {
+    if (!selectedCategory) return;
+    const next = { ...targets, [selectedCategory.name]: seconds };
+    setTargets(next);
+    writeTargets(next);
+  }
+
+  function clearTarget() {
+    if (!selectedCategory) return;
+    const next = { ...targets };
+    delete next[selectedCategory.name];
+    setTargets(next);
+    writeTargets(next);
+  }
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Space to start/stop (when not typing in input)
-      if (e.code === "Space" && e.target === document.body) {
+      // Ignore shortcuts while typing. Anything else — including a button that
+      // still has focus from the last click — should reach the timer.
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        el?.isContentEditable
+      ) {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.code === "Space") {
         e.preventDefault();
-        if (timerState === "running") {
+        if (timerState === "running") handlePause();
+        else if (timerState === "paused") handleResume();
+        else if (categoryId) handleStart();
+      } else if (e.key.toLowerCase() === "s") {
+        if (timerState === "running" || timerState === "paused") {
+          e.preventDefault();
           handleStop();
-        } else if (timerState === "idle" && categoryId) {
-          handleStart();
-        } else if (timerState === "stopped" && categoryId) {
-          handleStart();
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [timerState, categoryId, startTime, endTime]);
+  }, [timerState, categoryId, handleStart, handlePause, handleResume, handleStop]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
-
-  function handleStart() {
-    const now = new Date();
-    setStartTime(now);
-    setEndTime(null);
-    setElapsed(0);
-    setStartInput(toLocalDatetimeValue(now));
-    setEndInput("");
-    setTimerState("running");
-    setSubmitStatus("idle");
-    setSubmitMessage(null);
-
-    if (categoryId) {
-      saveTimerState({
-        state: "running",
-        startTime: now.toISOString(),
-        categoryId,
-      });
-    }
-  }
-
-  function handleStop() {
-    const now = new Date();
-    setEndTime(now);
-    setEndInput(toLocalDatetimeValue(now));
-    setTimerState("stopped");
-
-    saveTimerState({
-      state: "stopped",
-      startTime: startTime?.toISOString(),
-      endTime: now.toISOString(),
-      categoryId,
-    });
-  }
-
-  function handleStartInputChange(value: string) {
-    setStartInput(value);
-    const parsed = new Date(value);
-    if (!isNaN(parsed.getTime())) {
-      setStartTime(parsed);
-      if (timerState === "running") {
-        setElapsed(Math.floor((Date.now() - parsed.getTime()) / 1000));
-      }
-      saveTimerState({
-        state: timerState,
-        startTime: parsed.toISOString(),
-        endTime: endTime?.toISOString(),
-        categoryId,
-      });
-    }
-  }
-
-  function handleEndInputChange(value: string) {
-    setEndInput(value);
-    const parsed = new Date(value);
-    if (!isNaN(parsed.getTime())) {
-      setEndTime(parsed);
-      saveTimerState({
-        state: timerState,
-        startTime: startTime?.toISOString(),
-        endTime: parsed.toISOString(),
-        categoryId,
-      });
-    }
-  }
-
-  // ── Validation ───────────────────────────────────────────────────────────────
-
-  const selectedCategory = categories.find((c) => c.id === categoryId);
-
-  const durationSeconds =
-    startTime && endTime
-      ? Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
-      : null;
-
-  const isValid =
-    !!selectedCategory &&
-    !!startTime &&
-    !!endTime &&
-    durationSeconds !== null &&
-    durationSeconds > 0;
-
-  // ── Submit ───────────────────────────────────────────────────────────────────
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!isValid || !startTime || !endTime || !selectedCategory) return;
+    if (!isValid || !selectedCategory) return;
     setSubmitStatus("loading");
     setSubmitMessage(null);
 
     try {
-      const body = {
-        category: selectedCategory.name,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-      };
-
-      const res = await fetch("/api/entry/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create entry");
+      // A session interrupted by pauses is several real intervals, so it is
+      // submitted as one entry per interval rather than one inflated block.
+      if (segments.length === 1) {
+        const res = await fetch("/api/entry/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            category: selectedCategory.name,
+            start_time: segments[0].start,
+            end_time: segments[0].end,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to create entry");
+      } else {
+        const res = await fetch("/api/entry/batch-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            entries: segments.map((seg) => ({
+              category: selectedCategory.name,
+              start_time: seg.start,
+              end_time: seg.end,
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to create entries");
+        if (data.failed > 0) {
+          throw new Error(
+            `${data.success} of ${segments.length} intervals saved; ` +
+              `${data.failed} failed. Check the times and try again.`
+          );
+        }
+      }
 
       setSubmitStatus("success");
-      setSubmitMessage("Entry submitted successfully!");
+      setSubmitMessage(
+        segments.length === 1
+          ? "Entry submitted successfully!"
+          : `${segments.length} intervals submitted successfully!`
+      );
 
-      // Reset
+      // Reset — the category is kept so the daily target panel keeps tracking it
       setTimerState("idle");
-      setStartTime(null);
-      setEndTime(null);
+      setSegments([]);
       setElapsed(0);
-      setStartInput("");
-      setEndInput("");
-      setCategoryId(null);
-      localStorage.removeItem("timerState");
+      persist("idle", [], categoryId);
+
+      // Pull the entries we just created into today's totals
+      fetchEntries();
     } catch (err: any) {
       setSubmitStatus("error");
       setSubmitMessage(err.message);
     }
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
-
-  const isRunning = timerState === "running";
-  const isStopped = timerState === "stopped";
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-6xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
@@ -299,107 +499,123 @@ export default function TimerPage() {
         </div>
         <a
           href="/namu/user/entries"
-          className="text-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 
-                     bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 
+          className="text-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700
+                     bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700
                      transition-colors text-gray-700 dark:text-gray-200 font-medium"
         >
           View Entries
         </a>
       </div>
 
-      {/* Main Grid Layout */}
+      {/* Main grid. On phones the wrappers collapse (display: contents) so the
+          cards order as one column — the daily target has to come before the
+          stats there, while desktop keeps it under Today's Activity. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Timer and Category */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Timer Display */}
-          <TimerDisplay
-            elapsed={isRunning ? elapsed : isStopped ? Math.max(0, durationSeconds ?? 0) : 0}
-            isRunning={isRunning}
-            isStopped={isStopped}
-            onStart={handleStart}
-            onStop={handleStop}
-            disabled={!categoryId}
-          />
-
-          {/* Category + Time Inputs */}
-          <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 space-y-4">
-            <CategorySelector
-              categories={categories}
+        {/* Left Column - Category, timer and session */}
+        <div className="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-6">
+          {/* Category first: nothing can start without it */}
+          <div className="order-1 lg:order-none bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+            <CategoryPicker
+              categories={orderedCategories}
               selectedId={categoryId}
-              onSelect={setCategoryId}
+              onSelect={handleSelectCategory}
               loading={catLoading}
               error={catError}
-            />
-
-            <TimeInputs
-              startInput={startInput}
-              endInput={endInput}
-              onStartChange={handleStartInputChange}
-              onEndChange={handleEndInputChange}
+              locked={timerState === "running" || timerState === "paused"}
             />
           </div>
-        </div>
 
-        {/* Right Column - Stats and Submit */}
-        <div className="flex flex-col gap-6">
-          {/* Quick Stats - Grows to fill space */}
-          <div className="flex-1">
-            <QuickStats />
+          {/* Absorbs leftover height when the right column is the taller one,
+              so the two columns always close into a rectangle. */}
+          <div className="order-2 lg:order-none lg:flex-1 lg:min-h-0">
+            <TimerDisplay
+              elapsed={elapsed}
+              state={timerState}
+              onStart={handleStart}
+              onPause={handlePause}
+              onResume={handleResume}
+              onStop={handleStop}
+              disabled={!categoryId}
+              disabledReason="Select a category first"
+              progress={progress}
+              hasTarget={target != null}
+              targetMet={targetMet}
+              remainingLabel={remainingLabel}
+            />
           </div>
 
-          {/* Submit Card */}
-          <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-            <button
-              onClick={handleSubmit}
-              disabled={!isValid || submitStatus === "loading"}
-              className="w-full py-4 rounded-xl font-semibold text-white text-lg transition active:scale-95
-                         bg-blue-600 hover:bg-blue-700
-                         disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
-                         flex items-center justify-center gap-2"
-            >
-              {submitStatus === "loading" && (
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              )}
-              {submitStatus === "loading" ? "Submitting..." : "Submit Entry"}
-            </button>
+          {/* Session details + submit */}
+          <div className="order-3 lg:order-none bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 space-y-4">
+            <SessionSegments
+              segments={segments}
+              onChange={handleSegmentsChange}
+              state={timerState}
+            />
 
-            {/* Validation hints */}
-            {!isValid && (
-              <ul className="mt-4 text-xs text-gray-400 dark:text-gray-500 space-y-1">
-                {!selectedCategory && (
-                  <li className="flex items-center gap-1.5">
-                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
-                    Select a category
-                  </li>
+            {canSubmitNow && (
+              <div className="space-y-3 border-t border-gray-200 dark:border-neutral-800 pt-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">
+                    Session total
+                  </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatDuration(elapsed)}
+                  </span>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!isValid || submitStatus === "loading"}
+                    className="flex-1 py-3.5 rounded-xl font-semibold text-white text-lg transition active:scale-95
+                               bg-blue-600 hover:bg-blue-700
+                               disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
+                               flex items-center justify-center gap-2"
+                  >
+                    {submitStatus === "loading" && (
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    {submitStatus === "loading" ? "Submitting..." : "Submit Entry"}
+                  </button>
+                  <button
+                    onClick={handleDiscard}
+                    disabled={submitStatus === "loading"}
+                    className="px-4 py-3.5 rounded-xl text-sm text-gray-600 dark:text-gray-300
+                               border border-gray-300 dark:border-neutral-700
+                               hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors
+                               disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Discard
+                  </button>
+                </div>
+
+                {/* Validation hints */}
+                {!isValid && (
+                  <ul className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
+                    {!selectedCategory && (
+                      <li className="flex items-center gap-1.5">
+                        <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                        Select a category
+                      </li>
+                    )}
+                    {!allValid && (
+                      <li className="flex items-center gap-1.5">
+                        <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                        Every interval needs an end after its start
+                      </li>
+                    )}
+                  </ul>
                 )}
-                {!startTime && (
-                  <li className="flex items-center gap-1.5">
-                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
-                    Start the timer or set a start time
-                  </li>
-                )}
-                {!endTime && (
-                  <li className="flex items-center gap-1.5">
-                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
-                    Stop the timer or set an end time
-                  </li>
-                )}
-                {durationSeconds !== null && durationSeconds <= 0 && (
-                  <li className="flex items-center gap-1.5">
-                    <span className="w-1 h-1 bg-gray-400 rounded-full" />
-                    End time must be after start time
-                  </li>
-                )}
-              </ul>
+              </div>
             )}
 
             {/* Feedback */}
             {submitMessage && (
               <div
-                className={`mt-4 p-3 rounded-lg text-sm ${
+                className={`p-3 rounded-lg text-sm ${
                   submitStatus === "success"
                     ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                     : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
@@ -408,6 +624,38 @@ export default function TimerPage() {
                 {submitMessage}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Right Column - Stats */}
+        <div className="contents lg:flex lg:flex-col lg:gap-6">
+          <div className="order-5 lg:order-none">
+            <QuickStats entries={entries} loading={entriesLoading} />
+          </div>
+
+          {/* Daily target for the selected category */}
+          {selectedCategory && (
+            <div className="order-4 lg:order-none">
+              <DailyTarget
+                categoryName={selectedCategory.name}
+                target={target}
+                onSetTarget={setTarget}
+                onClearTarget={clearTarget}
+                loggedSeconds={loggedSecondsToday}
+                liveSeconds={elapsed}
+                loading={entriesLoading}
+              />
+            </div>
+          )}
+
+          {/* Takes up whatever height the left column leaves over, so the two
+              columns end flush instead of leaving a gap at the bottom right. */}
+          <div className="order-6 lg:order-none lg:flex-1 lg:min-h-0 max-h-80 lg:max-h-none">
+            <TodaySessions
+              entries={entries}
+              activeCategory={selectedCategory?.name ?? null}
+              loading={entriesLoading}
+            />
           </div>
         </div>
       </div>

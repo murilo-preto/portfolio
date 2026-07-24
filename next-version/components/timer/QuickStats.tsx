@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 
 type Entry = {
   id: number;
@@ -9,55 +9,38 @@ type Entry = {
   start_time: string;
 };
 
-export function QuickStats() {
-  const [todaySeconds, setTodaySeconds] = useState(0);
-  const [sessionCount, setSessionCount] = useState(0);
-  const [topCategory, setTopCategory] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+type QuickStatsProps = {
+  entries: Entry[];
+  loading?: boolean;
+};
 
-  useEffect(() => {
-    async function fetchTodayStats() {
-      try {
-        const res = await fetch("/api/entry", { credentials: "include" });
-        if (!res.ok) throw new Error("Failed to fetch entries");
-        const json = await res.json();
-        const entries: Entry[] = json.entries ?? [];
+export function QuickStats({ entries, loading = false }: QuickStatsProps) {
+  const { todaySeconds, sessionCount, topCategory } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEntries = entries.filter(
+      (e) => new Date(e.start_time) >= today
+    );
 
-        // Filter today's entries
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayEntries = entries.filter(
-          (e) => new Date(e.start_time) >= today
-        );
+    const totalSeconds = todayEntries.reduce(
+      (acc, e) => acc + e.duration_seconds,
+      0
+    );
 
-        // Calculate total time today
-        const totalSeconds = todayEntries.reduce(
-          (acc, e) => acc + e.duration_seconds,
-          0
-        );
+    const categoryTime: Record<string, number> = {};
+    todayEntries.forEach((e) => {
+      categoryTime[e.category] =
+        (categoryTime[e.category] || 0) + e.duration_seconds;
+    });
+    const topCat =
+      Object.entries(categoryTime).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
-        // Find top category
-        const categoryTime: Record<string, number> = {};
-        todayEntries.forEach((e) => {
-          categoryTime[e.category] =
-            (categoryTime[e.category] || 0) + e.duration_seconds;
-        });
-        const topCat = Object.entries(categoryTime).sort(
-          (a, b) => b[1] - a[1]
-        )[0]?.[0] || null;
-
-        setTodaySeconds(totalSeconds);
-        setSessionCount(todayEntries.length);
-        setTopCategory(topCat);
-      } catch (err) {
-        console.error("Failed to fetch stats:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchTodayStats();
-  }, []);
+    return {
+      todaySeconds: totalSeconds,
+      sessionCount: todayEntries.length,
+      topCategory: topCat,
+    };
+  }, [entries]);
 
   const formatHours = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -77,7 +60,7 @@ export function QuickStats() {
   }
 
   return (
-    <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 h-full">
+    <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
       <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
         Today's Activity
       </h2>
