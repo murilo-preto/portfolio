@@ -12,10 +12,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Flask guards this route with @jwt_required(), so the access token has to
-    // be forwarded — a plain fetch here always came back 401.
     const { response } = await fetchWithTokenRefresh(
-      `${FLASK_BASE_URL}/finance/category`,
+      `${FLASK_BASE_URL}/finance/bulk-delete`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -25,10 +23,10 @@ export async function POST(req: Request) {
 
     return response;
   } catch (err) {
-    console.error("Failed to reach Flask:", err);
+    console.error("Finance bulk delete error:", err);
     return NextResponse.json(
-      { error: "Could not reach Flask service" },
-      { status: 502 },
+      { error: "Failed to delete finance entries" },
+      { status: 500 }
     );
   }
 }

@@ -9,6 +9,8 @@ import { getMondayOf, addDays, formatPrice } from "@/components/finance/utils";
 import { SummaryCard } from "@/components/finance/SummaryCard";
 import { RecurringSummary } from "@/components/finance/RecurringSummary";
 import { BatchImportModal } from "@/components/BatchImportModal";
+import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
+import { ImportMenu } from "@/components/ImportMenu";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
 import type { RecurringExpense } from "@/components/finance/types";
 
@@ -57,6 +59,7 @@ export default function FinanceDashboard() {
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showItauModal, setShowItauModal] = useState(false);
 
   async function getEntries() {
     try {
@@ -240,12 +243,11 @@ export default function FinanceDashboard() {
           >
             Export CSV
           </button>
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
-          >
-            Import CSV
-          </button>
+          <ImportMenu
+            onSelectCsv={() => setShowImportModal(true)}
+            onSelectItauPdf={() => setShowItauModal(true)}
+            buttonClassName="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
+          />
           <a
             href="/namu/user/finance/recurring"
             className="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
@@ -360,7 +362,11 @@ export default function FinanceDashboard() {
                 {visibleEntries.length} entries
               </span>
             </div>
-            <EntriesTable entries={visibleEntries} showAll={filterMode === "all"} />
+            <EntriesTable
+              entries={visibleEntries}
+              showAll={filterMode === "all"}
+              onEntryUpdated={getEntries}
+            />
           </div>
         </div>
 
@@ -433,6 +439,12 @@ export default function FinanceDashboard() {
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
         importType="finance"
+        onImportSuccess={getEntries}
+      />
+
+      <ItauPdfImportModal
+        isOpen={showItauModal}
+        onClose={() => setShowItauModal(false)}
         onImportSuccess={getEntries}
       />
     </main>

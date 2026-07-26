@@ -14,6 +14,13 @@ import mysql.connector
 from mysql.connector import Error
 from mysql.connector.pooling import MySQLConnectionPool
 
+from categories import normalize_category_name
+from itau_pdf import (
+    ItauPdfError,
+    extract_statement_from_bytes,
+    statement_to_finance_entries,
+)
+
 from contextlib import contextmanager
 import bcrypt
 import os
@@ -40,6 +47,14 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(
 
 if not app.config["JWT_SECRET_KEY"]:
     raise RuntimeError("JWT_SECRET_KEY environment variable is not set")
+
+# Statement PDFs are a few hundred KB; cap them well above that, and cap a
+# whole multi-file upload well above that again. Flask rejects a request body
+# larger than MAX_CONTENT_LENGTH before it reaches a route handler.
+MAX_PDF_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_PDF_UPLOAD_COUNT = 24
+MAX_BULK_DELETE_IDS = 500
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 # Rate limiting — disabled when RATELIMIT_ENABLED=false (e.g. in tests)
 _ratelimit_enabled = os.getenv("RATELIMIT_ENABLED", "true").lower() != "false"
@@ -102,6 +117,47 @@ def get_cursor(dictionary=True):
     finally:
         cursor.close()
         connection.close()
+
+
+def normalize_existing_finance_categories():
+    """Bring already-stored finance category names in line with
+    normalize_category_name, so names created before normalization existed
+    (all of them shouted, having come from statement PDFs) stop shouting.
+
+    Idempotent and safe to run on every boot: a second pass finds nothing to
+    do, and finance_entries reference categories by id, so renaming only
+    changes the displayed name. Runs per gunicorn worker, hence the
+    tolerance for a concurrent worker having renamed a row first.
+    """
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM finance_categories")
+            rows = cursor.fetchall()
+
+            renamed = 0
+            for row in rows:
+                normalized = normalize_category_name(row["name"])
+                if normalized == row["name"]:
+                    continue
+                try:
+                    cursor.execute(
+                        "UPDATE finance_categories SET name = %s WHERE id = %s",
+                        (normalized, row["id"]),
+                    )
+                    renamed += 1
+                except Error as e:
+                    # Only reachable if normalizing collapses two names onto
+                    # one another; leave both alone rather than merging.
+                    logger.warning(
+                        f"Skipped renaming category {row['name']!r}: {e}"
+                    )
+
+        if renamed:
+            logger.info(f"Normalized {renamed} finance category name(s)")
+
+    except Error as e:
+        # Never let a tidy-up keep the API from starting.
+        logger.error(f"Could not normalize finance category names: {e}")
 
 
 def retrieve_entry_from_username(username):
@@ -809,7 +865,7 @@ def create_finance_category():
     if not data or "name" not in data:
         return jsonify({"error": "Category name is required"}), 400
 
-    name = data["name"].strip()
+    name = normalize_category_name(data["name"].strip())
 
     if not name or len(name) > 100:
         return jsonify(
@@ -1106,6 +1162,68 @@ def delete_finance_entry():
         return jsonify({"error": "Failed to delete finance entry"}), 500
 
 
+@app.route("/finance/bulk-delete", methods=["POST"])
+@jwt_required()
+def bulk_delete_finance_entries():
+    """
+    Delete several finance entries in one request.
+
+    Expects JSON:
+    {
+        "entry_ids": [int, ...]
+    }
+
+    Ownership is enforced inside the DELETE itself, so ids belonging to another
+    user are simply not matched. The response reports how many rows actually
+    went, without revealing which of the others exist.
+
+    Returns:
+        200: { deleted: int, requested: int }
+        400: Validation error
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or "entry_ids" not in data:
+        return jsonify({"error": "entry_ids is required"}), 400
+
+    entry_ids = data["entry_ids"]
+
+    if not isinstance(entry_ids, list) or not entry_ids:
+        return jsonify({"error": "entry_ids must be a non-empty array"}), 400
+
+    if len(entry_ids) > MAX_BULK_DELETE_IDS:
+        return jsonify({
+            "error": f"Too many entries (max {MAX_BULK_DELETE_IDS} at a time)"
+        }), 400
+
+    try:
+        ids = [int(entry_id) for entry_id in entry_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "entry_ids must all be integers"}), 400
+
+    placeholders = ", ".join(["%s"] * len(ids))
+
+    try:
+        with get_cursor() as cursor:
+            cursor.execute(
+                f"""
+                DELETE fe FROM finance_entries fe
+                JOIN users u ON fe.user_id = u.id
+                WHERE u.username = %s AND fe.id IN ({placeholders})
+                """,
+                (current_user, *ids),
+            )
+            deleted = cursor.rowcount
+
+        return jsonify({"deleted": deleted, "requested": len(ids)}), 200
+
+    except Error as e:
+        logger.error(f"Database error: {e}")
+        return jsonify({"error": "Failed to delete finance entries"}), 500
+
+
 @app.route("/finance/batch-import", methods=["POST"])
 @jwt_required()
 def batch_import_finance_entries():
@@ -1143,14 +1261,17 @@ def batch_import_finance_entries():
 
     results = {"success": 0, "failed": 0, "errors": []}
 
-    # First, get or create all finance categories
+    # First, get or create all finance categories. The cache is keyed by
+    # casefolded name because finance_categories.name is uniquely indexed with
+    # a case-insensitive collation — looking up case-sensitively would miss an
+    # existing "Food" for an incoming "FOOD" and then fail on a duplicate key.
     category_cache = {}
     try:
         with get_cursor() as cursor:
             cursor.execute("SELECT id, name FROM finance_categories")
             existing_categories = cursor.fetchall()
             for cat in existing_categories:
-                category_cache[cat["name"]] = cat["id"]
+                category_cache[cat["name"].casefold()] = cat["id"]
     except Error as e:
         logger.error(f"Database error fetching categories: {e}")
         return jsonify({"error": "Failed to fetch categories"}), 500
@@ -1196,16 +1317,19 @@ def batch_import_finance_entries():
                 raise ValueError("Timezone information required")
             purchase_date = purchase_date.astimezone(timezone.utc)
 
-            # Get or create category
-            if category_name not in category_cache:
+            # Get or create category. A name that is not on record yet is
+            # normalized first, so an imported "ALIMENTAÇÃO" is stored as
+            # "Alimentação"; one that already exists keeps its stored spelling.
+            category_key = category_name.casefold()
+            if category_key not in category_cache:
                 with get_cursor() as cursor:
                     cursor.execute(
                         "INSERT INTO finance_categories (name) VALUES (%s)",
-                        (category_name,)
+                        (normalize_category_name(category_name),)
                     )
-                    category_cache[category_name] = cursor.lastrowid
+                    category_cache[category_key] = cursor.lastrowid
 
-            category_id = category_cache[category_name]
+            category_id = category_cache[category_key]
 
             # Insert finance entry
             with get_cursor() as cursor:
@@ -1225,6 +1349,113 @@ def batch_import_finance_entries():
             logger.error(f"Failed to import finance entry {i}: {e}")
 
     return jsonify(results), 200
+
+
+@app.route("/finance/parse-itau-pdf", methods=["POST"])
+@jwt_required()
+def parse_itau_pdf():
+    """
+    Parse one or more uploaded Itau credit card statement PDFs into finance
+    entries.
+
+    This endpoint only reads the PDFs — nothing is written to the database. The
+    client previews the result and then posts the entries it wants to
+    /finance/batch-import, which is where the actual insert happens.
+
+    Each file is parsed independently so that one unreadable PDF does not sink
+    the rest of the batch; its failure is reported in `failures` instead.
+
+    Expected: multipart/form-data with one or more "file" fields holding PDFs.
+
+    Returns:
+        200: {
+            statements: [{ file, issued_on, due_on, cards, total, reconciled,
+                           entry_count, skipped_count }],
+            failures: [{ file, error }],
+            entries: [{ category, product_name, price, purchase_date, status,
+                        card, file }],
+            skipped: [{ ..., reason }]
+        }
+        400: No files at all, or too many files
+        500: Server error
+    """
+    uploads = [f for f in request.files.getlist("file") if f and f.filename]
+    if not uploads:
+        return jsonify({"error": "At least one PDF file is required"}), 400
+
+    if len(uploads) > MAX_PDF_UPLOAD_COUNT:
+        return jsonify({
+            "error": f"Too many files (max {MAX_PDF_UPLOAD_COUNT} at a time)"
+        }), 400
+
+    statements = []
+    failures = []
+    all_entries = []
+    all_skipped = []
+    # An Itau statement is uniquely identified by its issue date, so the same
+    # statement downloaded twice under different filenames is caught here
+    # rather than silently importing every transaction on it twice.
+    seen_issue_dates = {}
+
+    for uploaded in uploads:
+        filename = uploaded.filename
+        try:
+            pdf_bytes = uploaded.read()
+            if len(pdf_bytes) > MAX_PDF_UPLOAD_BYTES:
+                raise ItauPdfError("PDF is too large (max 10 MB)")
+
+            statement = extract_statement_from_bytes(pdf_bytes, filename)
+        except ItauPdfError as e:
+            failures.append({"file": filename, "error": str(e)})
+            continue
+        except Exception as e:
+            logger.error(f"Failed to parse Itau PDF {filename}: {e}")
+            failures.append({"file": filename, "error": "Failed to parse the PDF"})
+            continue
+
+        issued_on = statement["emissao"]
+        if issued_on in seen_issue_dates:
+            failures.append({
+                "file": filename,
+                "error": (
+                    f"Same statement as {seen_issue_dates[issued_on]} "
+                    f"(both issued {issued_on}) — skipped to avoid duplicates"
+                ),
+            })
+            continue
+        seen_issue_dates[issued_on] = filename
+
+        entries, skipped = statement_to_finance_entries(statement)
+        for row in entries:
+            row["file"] = filename
+        for row in skipped:
+            row["file"] = filename
+
+        all_entries.extend(entries)
+        all_skipped.extend(skipped)
+        statements.append({
+            "file": filename,
+            "issued_on": issued_on,
+            "due_on": statement["vencimento"],
+            "cards": sorted(statement["titulares"].keys()),
+            "total": statement["resumo"]["total_lancamentos"],
+            # False means the transactions we read do not add up to the totals
+            # printed on the statement, i.e. the parse likely missed something.
+            "reconciled": statement["resumo"]["conferido"],
+            "entry_count": len(entries),
+            "skipped_count": len(skipped),
+        })
+
+    statements.sort(key=lambda s: s["issued_on"])
+    all_entries.sort(key=lambda e: e["purchase_date"])
+    all_skipped.sort(key=lambda e: e["purchase_date"])
+
+    return jsonify({
+        "statements": statements,
+        "failures": failures,
+        "entries": all_entries,
+        "skipped": all_skipped,
+    }), 200
 
 
 @jwt.unauthorized_loader
@@ -1635,14 +1866,17 @@ def batch_import_recurring_expenses():
 
     results = {"success": 0, "failed": 0, "errors": []}
 
-    # First, get or create all finance categories
+    # First, get or create all finance categories. The cache is keyed by
+    # casefolded name because finance_categories.name is uniquely indexed with
+    # a case-insensitive collation — looking up case-sensitively would miss an
+    # existing "Food" for an incoming "FOOD" and then fail on a duplicate key.
     category_cache = {}
     try:
         with get_cursor() as cursor:
             cursor.execute("SELECT id, name FROM finance_categories")
             existing_categories = cursor.fetchall()
             for cat in existing_categories:
-                category_cache[cat["name"]] = cat["id"]
+                category_cache[cat["name"].casefold()] = cat["id"]
     except Error as e:
         logger.error(f"Database error fetching categories: {e}")
         return jsonify({"error": "Failed to fetch categories"}), 500
@@ -1700,16 +1934,19 @@ def batch_import_recurring_expenses():
             if next_payment_date_str:
                 next_payment_date = datetime.strptime(next_payment_date_str, "%Y-%m-%d").date()
 
-            # Get or create category
-            if category_name not in category_cache:
+            # Get or create category. A name that is not on record yet is
+            # normalized first, so an imported "ALIMENTAÇÃO" is stored as
+            # "Alimentação"; one that already exists keeps its stored spelling.
+            category_key = category_name.casefold()
+            if category_key not in category_cache:
                 with get_cursor() as cursor:
                     cursor.execute(
                         "INSERT INTO finance_categories (name) VALUES (%s)",
-                        (category_name,)
+                        (normalize_category_name(category_name),)
                     )
-                    category_cache[category_name] = cursor.lastrowid
+                    category_cache[category_key] = cursor.lastrowid
 
-            category_id = category_cache[category_name]
+            category_id = category_cache[category_key]
 
             # Insert recurring expense
             with get_cursor() as cursor:
@@ -2887,6 +3124,11 @@ def pomodoro_stats():
     except Error as e:
         logger.error(f"Database error: {e}")
         return jsonify({"error": "Failed to fetch Pomodoro stats"}), 500
+
+
+# Runs under gunicorn too, where there is no __main__. Compose only starts this
+# service once MySQL reports healthy, so the pool is ready by now.
+normalize_existing_finance_categories()
 
 
 if __name__ == "__main__":

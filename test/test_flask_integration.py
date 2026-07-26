@@ -308,7 +308,16 @@ class TestFinanceEntryIntegration:
         headers = {"Authorization": f"Bearer {auth_token}"}
         response = client.post("/finance/category", json={"name": category_name}, headers=headers)
 
-        assert response.status_code in [200, 201]
+        try:
+            assert response.status_code in [200, 201]
+        finally:
+            # finance_categories is global and has no delete endpoint, so a
+            # category created here would otherwise pile up in the database and
+            # show in every user's category picker, one more on every run.
+            with get_cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM finance_categories WHERE name = %s", (category_name,)
+                )
 
 
 class TestBatchImportIntegration:

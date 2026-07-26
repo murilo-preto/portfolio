@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { BatchImportModal } from "@/components/BatchImportModal";
+import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
+import { ImportMenu } from "@/components/ImportMenu";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -232,18 +235,56 @@ function EntryList({
   error,
   selectedId,
   onSelect,
+  checkedIds,
+  onToggle,
+  onToggleAll,
+  onDeleteChecked,
+  deleting,
 }: {
   entries: FinanceEntry[];
   loading: boolean;
   error: string | null;
   selectedId: number | null;
   onSelect: (entry: FinanceEntry) => void;
+  checkedIds: Set<number>;
+  onToggle: (id: number) => void;
+  onToggleAll: () => void;
+  onDeleteChecked: () => void;
+  deleting: boolean;
 }) {
+  const allChecked = entries.length > 0 && checkedIds.size === entries.length;
+
   return (
     <div className="space-y-2">
-      <h2 className="text-sm font-medium text-muted uppercase tracking-wide">
-        {loading ? "Loading…" : `${entries.length} Entries`}
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-muted uppercase tracking-wide">
+          {loading ? "Loading…" : `${entries.length} Entries`}
+        </h2>
+        {entries.length > 0 && (
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+              <input
+                type="checkbox"
+                aria-label="Select all entries"
+                checked={allChecked}
+                onChange={onToggleAll}
+                className="cursor-pointer accent-current"
+              />
+              Select all
+            </label>
+            {checkedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={onDeleteChecked}
+                disabled={deleting}
+                className="text-xs px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+              >
+                {deleting ? "Deleting…" : `Delete ${checkedIds.size}`}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {error && (
         <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
@@ -266,10 +307,20 @@ function EntryList({
         {entries.map((entry) => {
           const isSelected = entry.id === selectedId;
           return (
+            // The checkbox sits alongside the button rather than inside it —
+            // nesting one interactive element in another is invalid and would
+            // make selecting a row also open it for editing.
+            <div key={entry.id} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                aria-label={`Select ${entry.product_name}`}
+                checked={checkedIds.has(entry.id)}
+                onChange={() => onToggle(entry.id)}
+                className="cursor-pointer accent-current shrink-0"
+              />
             <button
-              key={entry.id}
               onClick={() => onSelect(entry)}
-              className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+              className={`flex-1 min-w-0 text-left px-4 py-3 rounded-xl border transition-all ${
                 isSelected
                   ? "border-neutral-800 dark:border-neutral-300 bg-invert text-invert-fg"
                   : "border-default bg-surface hover:border-gray-400 dark:hover:border-neutral-500"
@@ -310,6 +361,7 @@ function EntryList({
                 </span>
               </div>
             </button>
+            </div>
           );
         })}
       </div>
@@ -664,6 +716,63 @@ export default function FinanceManagePage() {
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showCatForm, setShowCatForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showItauModal, setShowItauModal] = useState(false);
+
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function toggleChecked(id: number) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllChecked() {
+    setCheckedIds((prev) =>
+      prev.size === entries.length
+        ? new Set()
+        : new Set(entries.map((e) => e.id))
+    );
+  }
+
+  async function deleteChecked() {
+    const ids = Array.from(checkedIds);
+    if (ids.length === 0) return;
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/finance/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ entry_ids: ids }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to delete entries");
+
+      // The entry open in the edit panel may have just been deleted.
+      if (selectedId !== null && checkedIds.has(selectedId)) {
+        setSelectedId(null);
+      }
+      setCheckedIds(new Set());
+      await fetchAll();
+    } catch (err: any) {
+      setError(err.message ?? "Failed to delete entries");
+    } finally {
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
+  }
 
   async function fetchAll() {
     setLoading(true);
@@ -715,12 +824,11 @@ export default function FinanceManagePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
-          >
-            Import CSV
-          </button>
+          <ImportMenu
+            onSelectCsv={() => setShowImportModal(true)}
+            onSelectItauPdf={() => setShowItauModal(true)}
+            buttonClassName="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
+          />
           <a
             href="/namu/user/finance"
             className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
@@ -761,6 +869,11 @@ export default function FinanceManagePage() {
             setSelectedId(entry.id);
             setShowEntryForm(false);
           }}
+          checkedIds={checkedIds}
+          onToggle={toggleChecked}
+          onToggleAll={toggleAllChecked}
+          onDeleteChecked={() => setConfirmingDelete(true)}
+          deleting={deleting}
         />
 
         <div>
@@ -795,6 +908,23 @@ export default function FinanceManagePage() {
         onClose={() => setShowImportModal(false)}
         importType="finance"
         onImportSuccess={fetchAll}
+      />
+
+      <ItauPdfImportModal
+        isOpen={showItauModal}
+        onClose={() => setShowItauModal(false)}
+        onImportSuccess={fetchAll}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmingDelete}
+        title="Delete entries"
+        message={`Delete ${checkedIds.size} ${
+          checkedIds.size === 1 ? "entry" : "entries"
+        }? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={deleteChecked}
+        onCancel={() => setConfirmingDelete(false)}
       />
     </main>
   );
