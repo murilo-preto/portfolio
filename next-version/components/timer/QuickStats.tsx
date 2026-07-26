@@ -53,37 +53,37 @@ export function QuickStats({ entries, loading = false }: QuickStatsProps) {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-        <p className="text-sm text-gray-400">Loading stats...</p>
+      <div className="bg-surface p-5 rounded-xl shadow-sm border border-subtle">
+        <p className="text-sm text-muted">Loading stats...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+    <div className="bg-surface p-5 rounded-xl shadow-sm border border-subtle">
+      <h2 className="text-sm font-semibold text-primary mb-4">
         Today's Activity
       </h2>
       <div className="space-y-4">
         {/* Total Time */}
-        <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Total Time</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <div className="p-3 rounded-lg bg-gradient-to-br from-tint-blue-a to-tint-blue-b border border-tint-blue-line">
+          <p className="text-xs text-muted">Total Time</p>
+          <p className="text-2xl font-bold text-primary">
             {formatHours(todaySeconds)}
           </p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Sessions</p>
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="p-3 rounded-lg bg-surface-inset">
+            <p className="text-xs text-muted">Sessions</p>
+            <p className="text-lg font-semibold text-primary">
               {sessionCount}
             </p>
           </div>
-          <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Top Category</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+          <div className="p-3 rounded-lg bg-surface-inset">
+            <p className="text-xs text-muted">Top Category</p>
+            <p className="text-sm font-semibold text-primary truncate">
               {topCategory || "—"}
             </p>
           </div>

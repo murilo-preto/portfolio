@@ -56,28 +56,28 @@ export function QuickStats({ entries, compact = false, showCategoriesOnly = fals
           {topCategories.map((cat, index) => (
             <div
               key={cat.category}
-              className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-neutral-800"
+              className="flex items-center justify-between p-2 rounded-lg bg-surface-inset"
             >
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 dark:bg-neutral-700">
+                <span className="text-xs font-semibold text-dim w-5 h-5 flex items-center justify-center rounded-full bg-surface-hover">
                   {index + 1}
                 </span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-secondary">
                   {cat.category}
                 </span>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-bold text-primary">
                   {(cat.duration / 3600).toFixed(1)}h
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted">
                   {cat.count} sessions
                 </p>
               </div>
             </div>
           ))}
           {topCategories.length === 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+            <p className="text-sm text-muted text-center py-4">
               No entries to display
             </p>
           )}
@@ -88,40 +88,40 @@ export function QuickStats({ entries, compact = false, showCategoriesOnly = fals
       {compact && !showCategoriesOnly && (
         <div className="grid grid-cols-2 gap-3">
           {mostFrequentCategory && (
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Most Frequent</p>
-              <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+            <div className="p-3 rounded-lg bg-surface-inset">
+              <p className="text-xs text-muted">Most Frequent</p>
+              <p className="text-sm font-bold text-primary truncate">
                 {mostFrequentCategory[0]}
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-dim">
                 {mostFrequentCategory[1]} sessions
               </p>
             </div>
           )}
           {topCategoryByTime && (
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Top Category</p>
-              <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
+            <div className="p-3 rounded-lg bg-surface-inset">
+              <p className="text-xs text-muted">Top Category</p>
+              <p className="text-sm font-bold text-primary truncate">
                 {(topCategoryByTime[1] / 3600).toFixed(1)}h
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+              <p className="text-xs text-dim truncate">
                 {topCategoryByTime[0]}
               </p>
             </div>
           )}
-          <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Avg. Session</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+          <div className="p-3 rounded-lg bg-surface-inset">
+            <p className="text-xs text-muted">Avg. Session</p>
+            <p className="text-sm font-bold text-primary">
               {formatDuration(Math.round(avgDuration))}
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">per entry</p>
+            <p className="text-xs text-dim">per entry</p>
           </div>
-          <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Active Days</p>
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+          <div className="p-3 rounded-lg bg-surface-inset">
+            <p className="text-xs text-muted">Active Days</p>
+            <p className="text-sm font-bold text-primary">
               {uniqueDays}
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">unique days</p>
+            <p className="text-xs text-dim">unique days</p>
           </div>
         </div>
       )}
@@ -131,14 +131,14 @@ export function QuickStats({ entries, compact = false, showCategoriesOnly = fals
         <>
           {/* Most Frequent Category */}
           {mostFrequentCategory && (
-          <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
+          <div className="flex items-center justify-between p-2 rounded-lg bg-surface-inset">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Most Frequent</p>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[120px]">
+              <p className="text-xs text-muted">Most Frequent</p>
+              <p className="text-sm font-medium text-primary truncate max-w-[120px]">
                 {mostFrequentCategory[0]}
               </p>
             </div>
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+            <p className="text-sm font-bold text-primary">
               {mostFrequentCategory[1]} sessions
             </p>
           </div>
@@ -146,16 +146,16 @@ export function QuickStats({ entries, compact = false, showCategoriesOnly = fals
 
         {/* Top Category by Time */}
         {topCategoryByTime && (
-          <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
+          <div className="flex items-center justify-between p-2 rounded-lg bg-surface-inset">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Top Category</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">by time spent</p>
+              <p className="text-xs text-muted">Top Category</p>
+              <p className="text-xs text-dim">by time spent</p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate max-w-[100px]">
+              <p className="text-sm font-bold text-primary truncate max-w-[100px]">
                 {topCategoryByTime[0]}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-muted">
                 {(topCategoryByTime[1] / 3600).toFixed(1)}h
               </p>
             </div>
@@ -163,31 +163,31 @@ export function QuickStats({ entries, compact = false, showCategoriesOnly = fals
         )}
 
         {/* Average Session */}
-        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
+        <div className="flex items-center justify-between p-2 rounded-lg bg-surface-inset">
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Avg. Session</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">per entry</p>
+            <p className="text-xs text-muted">Avg. Session</p>
+            <p className="text-xs text-dim">per entry</p>
           </div>
-          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+          <p className="text-sm font-bold text-primary">
             {formatDuration(Math.round(avgDuration))}
           </p>
         </div>
 
         {/* Active Days */}
-        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
+        <div className="flex items-center justify-between p-2 rounded-lg bg-surface-inset">
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Active Days</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">unique days</p>
+            <p className="text-xs text-muted">Active Days</p>
+            <p className="text-xs text-dim">unique days</p>
           </div>
-          <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+          <p className="text-lg font-bold text-primary">
             {uniqueDays}
           </p>
         </div>
 
         {/* Top Categories List */}
         {topCategories.length > 0 && (
-          <div className="pt-2 border-t border-gray-200 dark:border-neutral-700">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+          <div className="pt-2 border-t border-default">
+            <p className="text-xs font-medium text-muted uppercase tracking-wide mb-2">
               Top Categories
             </p>
             <div className="space-y-2">
@@ -197,14 +197,14 @@ export function QuickStats({ entries, compact = false, showCategoriesOnly = fals
                   className="flex items-center justify-between"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 w-4">
+                    <span className="text-xs font-semibold text-dim w-4">
                       #{index + 1}
                     </span>
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="text-sm text-secondary">
                       {cat.category}
                     </span>
                   </div>
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <span className="text-xs font-medium text-muted">
                     {(cat.duration / 3600).toFixed(1)}h
                   </span>
                 </div>

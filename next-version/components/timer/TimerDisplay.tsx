@@ -50,15 +50,15 @@ export function TimerDisplay({
   const isStopped = state === "stopped";
 
   const timeColor = isRunning
-    ? "text-green-500"
+    ? "text-tint-green-ink"
     : isPaused
-      ? "text-amber-500"
+      ? "text-tint-amber-ink"
       : isStopped
-        ? "text-gray-700 dark:text-gray-300"
+        ? "text-secondary"
         : "text-gray-400 dark:text-gray-600";
 
   return (
-    <div className="h-full flex flex-col justify-center bg-white dark:bg-neutral-900 p-5 md:p-8 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+    <div className="h-full flex flex-col justify-center bg-surface p-5 md:p-8 rounded-xl shadow-sm border border-subtle">
       {/* Ring + elapsed time */}
       <div className="flex justify-center">
         <div className="relative w-full max-w-[210px] sm:max-w-[260px] aspect-square">
@@ -69,7 +69,7 @@ export function TimerDisplay({
               r={RADIUS}
               fill="none"
               strokeWidth="8"
-              className="stroke-gray-100 dark:stroke-neutral-800"
+              className="stroke-subtle"
             />
             {hasTarget && (
               <circle
@@ -105,7 +105,7 @@ export function TimerDisplay({
 
             <p
               aria-live="polite"
-              className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-2"
+              className="text-[11px] text-muted uppercase tracking-widest mt-2"
             >
               {isRunning ? (
                 <span className="inline-flex items-center gap-1.5">
@@ -121,8 +121,8 @@ export function TimerDisplay({
               <p
                 className={`text-xs mt-1.5 tabular-nums font-medium ${
                   targetMet
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-gray-500 dark:text-gray-400"
+                    ? "text-tint-green-ink dark:text-green-400"
+                    : "text-muted"
                 }`}
               >
                 {remainingLabel}
@@ -140,8 +140,8 @@ export function TimerDisplay({
             disabled={disabled}
             title={disabled ? disabledReason : undefined}
             className="col-span-2 py-4 rounded-xl bg-green-500 hover:bg-green-600
-                       disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-neutral-800
-                       dark:disabled:text-gray-500 disabled:cursor-not-allowed
+                       disabled:bg-surface-muted disabled:text-dim
+                       disabled:cursor-not-allowed
                        text-white font-semibold text-lg transition active:scale-95
                        disabled:active:scale-100 flex items-center justify-center gap-2"
           >
@@ -158,9 +158,9 @@ export function TimerDisplay({
           <>
             <button
               onClick={onPause}
-              className="py-4 rounded-xl border border-gray-300 dark:border-neutral-700
+              className="py-4 rounded-xl border border-default
                          text-gray-700 dark:text-gray-200 font-semibold text-lg
-                         hover:bg-gray-50 dark:hover:bg-neutral-800 transition active:scale-95
+                         hover:bg-surface-inset transition active:scale-95
                          flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -213,9 +213,9 @@ export function TimerDisplay({
           <button
             onClick={onStart}
             disabled={disabled}
-            className="col-span-2 py-3 rounded-xl border border-gray-300 dark:border-neutral-700
+            className="col-span-2 py-3 rounded-xl border border-default
                        text-gray-700 dark:text-gray-200 font-medium
-                       hover:bg-gray-50 dark:hover:bg-neutral-800 transition active:scale-95
+                       hover:bg-surface-inset transition active:scale-95
                        disabled:opacity-40 disabled:cursor-not-allowed
                        flex items-center justify-center gap-2"
           >
@@ -234,14 +234,14 @@ export function TimerDisplay({
           disabled && state === "idle" ? "invisible" : ""
         }`}
       >
-        <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-neutral-800 font-mono">
+        <kbd className="px-1.5 py-0.5 rounded bg-surface-muted font-mono">
           Space
         </kbd>{" "}
         {isRunning ? "pause" : isPaused ? "resume" : "start"}
         {(isRunning || isPaused) && (
           <>
             {" · "}
-            <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-neutral-800 font-mono">
+            <kbd className="px-1.5 py-0.5 rounded bg-surface-muted font-mono">
               S
             </kbd>{" "}
             finish

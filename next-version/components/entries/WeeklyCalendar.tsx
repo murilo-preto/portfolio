@@ -141,7 +141,7 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
   return (
     <div
-      className="bg-bone dark:bg-neutral-900 p-3 md:p-4 rounded-xl shadow text-black dark:text-white overflow-hidden"
+      className="bg-surface p-3 md:p-4 rounded-xl shadow text-black dark:text-white overflow-hidden"
       style={
         maxHeight
           ? { maxHeight: `${maxHeight}px`, overflowY: "auto" }
@@ -187,14 +187,14 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
               {hours.map((h) => (
                 <div
                   key={h}
-                  className="h-8 border-t border-neutral-300 dark:border-neutral-800 text-[10px] pr-1 text-right"
+                  className="h-8 border-t border-subtle text-[10px] pr-1 text-right"
                 >
                   <div className="-translate-y-2 opacity-70">
                     {h.toString().padStart(2, "0")}:00
                   </div>
                 </div>
               ))}
-              <div className="border-t border-neutral-300 dark:border-neutral-800" />
+              <div className="border-t border-subtle" />
             </div>
 
             {/* 7 day columns */}
@@ -205,10 +205,10 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
                   {hours.map((h) => (
                     <div
                       key={h}
-                      className="h-8 border-t border-neutral-300 dark:border-neutral-800"
+                      className="h-8 border-t border-subtle"
                     />
                   ))}
-                  <div className="border-t border-neutral-300 dark:border-neutral-800" />
+                  <div className="border-t border-subtle" />
 
                   <div className="absolute inset-0">
                     {packed

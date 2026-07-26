@@ -16,9 +16,7 @@ export default function CVPage() {
       className="
         flex-1 p-6 space-y-12 max-w-5xl mx-auto
         bg-transparent
-        text-gray-900
-        dark:text-gray-100
-      "
+        text-primary"
     >
       <h1
         className="

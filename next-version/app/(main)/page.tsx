@@ -27,10 +27,10 @@ export default function Home() {
   return (
     <main className="flex-1 px-4 py-12 md:px-8 md:py-20 max-w-4xl mx-auto">
       <section className="text-center mb-16">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 text-primary">
           Welcome
         </h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400 max-w-lg mx-auto">
+        <p className="text-lg text-muted max-w-lg mx-auto">
           Explore my portfolio showcasing my work and projects.
         </p>
       </section>
@@ -40,15 +40,15 @@ export default function Home() {
           <Link
             key={project.href}
             href={project.href}
-            className="block p-8 rounded-2xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-gray-400 dark:hover:border-neutral-500 transition-all hover:shadow-lg group"
+            className="block p-8 rounded-2xl border border-default bg-surface hover:border-gray-400 dark:hover:border-neutral-500 transition-all hover:shadow-lg group"
           >
-            <div className="text-gray-500 dark:text-gray-400 mb-4 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
+            <div className="text-muted mb-4 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
               {project.icon}
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h2 className="text-2xl font-bold text-primary mb-2">
               {project.title}
             </h2>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-muted">
               {project.description}
             </p>
           </Link>
@@ -56,7 +56,7 @@ export default function Home() {
       </section>
 
       <section className="mt-16 text-center">
-        <p className="text-gray-500 dark:text-gray-400">
+        <p className="text-muted">
           More projects coming soon...
         </p>
       </section>

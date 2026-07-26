@@ -11,17 +11,17 @@ type SummaryCardProps = {
 };
 
 const accentStyles = {
-  blue: "from-blue-500/10 to-blue-600/5 border-blue-500/20",
-  green: "from-green-500/10 to-green-600/5 border-green-500/20",
-  amber: "from-amber-500/10 to-amber-600/5 border-amber-500/20",
-  purple: "from-purple-500/10 to-purple-600/5 border-purple-500/20",
+  blue: "from-tint-blue-a to-tint-blue-b border-tint-blue-line",
+  green: "from-tint-green-a to-tint-green-b border-tint-green-line",
+  amber: "from-tint-amber-a to-tint-amber-b border-tint-amber-line",
+  purple: "from-tint-purple-a to-tint-purple-b border-tint-purple-line",
 };
 
 const iconBgStyles = {
-  blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  green: "bg-green-500/10 text-green-600 dark:text-green-400",
-  amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  purple: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  blue: "bg-tint-blue-a text-tint-blue-ink dark:text-blue-400",
+  green: "bg-tint-green-a text-tint-green-ink dark:text-green-400",
+  amber: "bg-tint-amber-a text-tint-amber-ink dark:text-amber-400",
+  purple: "bg-tint-purple-a text-tint-purple-ink dark:text-purple-400",
 };
 
 export function SummaryCard({
@@ -37,14 +37,14 @@ export function SummaryCard({
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <h3 className="text-xs font-medium text-muted uppercase tracking-wide">
             {title}
           </h3>
-          <p className="text-2xl md:text-3xl font-bold mt-2 text-gray-900 dark:text-gray-100 truncate">
+          <p className="text-2xl md:text-3xl font-bold mt-2 text-primary truncate">
             {value}
           </p>
           {subtitle && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">
+            <p className="text-xs text-dim mt-1 truncate">
               {subtitle}
             </p>
           )}

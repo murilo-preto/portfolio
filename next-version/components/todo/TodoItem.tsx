@@ -36,8 +36,8 @@ export function TodoItemComponent({
     <div
       className={`p-4 rounded-xl border transition-all duration-200 animate-rise ${
         item.status === "completed"
-          ? "bg-gray-50 dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 opacity-75 hover:shadow-sm"
-          : "bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 hover:shadow-sm"
+          ? "bg-gray-50 dark:bg-neutral-900 border-subtle opacity-75 hover:shadow-sm"
+          : "bg-surface border-default hover:border-neutral-400 dark:hover:border-neutral-500 hover:shadow-sm"
       } ${overdue ? "border-red-300 dark:border-red-700" : ""}`}
     >
       <div className="flex items-start gap-3">
@@ -47,7 +47,7 @@ export function TodoItemComponent({
             className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition-colors ${
               isSelected
                 ? "bg-blue-500 border-blue-500 text-white"
-                : "border-gray-300 dark:border-neutral-600 hover:border-blue-500"
+                : "border-strong hover:border-blue-500"
             }`}
             aria-label="Select item"
           >
@@ -67,7 +67,7 @@ export function TodoItemComponent({
             className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition active:scale-90 ${
               item.status === "completed"
                 ? "bg-green-500 border-green-500 text-white"
-                : "border-gray-300 dark:border-neutral-600 hover:border-green-500"
+                : "border-strong hover:border-green-500"
             }`}
             aria-label="Toggle complete"
           >
@@ -98,7 +98,7 @@ export function TodoItemComponent({
             {item.recurrence_rule !== "none" && (
               <span
                 title={RECURRENCE_LABELS[item.recurrence_rule]}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-50 dark:bg-purple-900/20 text-tint-purple-ink dark:text-purple-400 border border-purple-200 dark:border-purple-800"
               >
                 ↻ {RECURRENCE_LABELS[item.recurrence_rule]}
               </span>
@@ -106,7 +106,7 @@ export function TodoItemComponent({
           </div>
 
           {item.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+            <p className="text-sm text-muted mt-1 line-clamp-2">
               {item.description}
             </p>
           )}
@@ -116,7 +116,7 @@ export function TodoItemComponent({
               {item.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="px-2 py-0.5 rounded-full text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700"
+                  className="px-2 py-0.5 rounded-full text-xs bg-surface-muted text-neutral-600 dark:text-neutral-400 border border-default"
                 >
                   {tag.name}
                 </span>
@@ -124,8 +124,8 @@ export function TodoItemComponent({
             </div>
           )}
 
-          <div className="flex items-center gap-4 mt-2 text-xs text-gray-400 dark:text-gray-500">
-            <span className="font-medium text-gray-600 dark:text-gray-300">
+          <div className="flex items-center gap-4 mt-2 text-xs text-dim">
+            <span className="font-medium text-secondary">
               {item.category}
             </span>
             {item.due_date && (
@@ -141,7 +141,7 @@ export function TodoItemComponent({
           <div className="flex items-center gap-1">
             <a
               href={`/namu/user/pomodoro?todo_id=${item.id}`}
-              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors active:scale-90"
+              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-muted hover:text-red-500 transition-colors active:scale-90"
               title="Start Pomodoro"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,7 +155,7 @@ export function TodoItemComponent({
             </a>
             <button
               onClick={() => onEdit(item)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors active:scale-90"
+              className="p-1.5 rounded-lg hover:bg-surface-inset text-muted hover:text-gray-600 dark:hover:text-gray-300 transition-colors active:scale-90"
               title="Edit"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,7 +169,7 @@ export function TodoItemComponent({
             </button>
             <button
               onClick={() => onDelete(item)}
-              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors active:scale-90"
+              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-muted hover:text-red-500 transition-colors active:scale-90"
               title="Delete"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

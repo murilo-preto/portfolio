@@ -8,7 +8,7 @@ type EntriesTableProps = {
 
 export function EntriesTable({ entries, showAll }: EntriesTableProps) {
   return (
-    <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
+    <div className="bg-surface p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Detailed Entries</h2>
         <span className="text-xs opacity-70">
@@ -24,11 +24,11 @@ export function EntriesTable({ entries, showAll }: EntriesTableProps) {
           >
             <div className="flex justify-between items-center">
               <span className="font-medium">{entry.category}</span>
-              <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+              <span className="text-sm font-semibold text-secondary">
                 {formatDuration(entry.duration_seconds)}
               </span>
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+            <div className="text-xs text-muted space-y-0.5">
               <p>
                 Start:{" "}
                 {new Date(entry.start_time).toLocaleString(undefined, {

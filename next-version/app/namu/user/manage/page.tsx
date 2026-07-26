@@ -94,7 +94,7 @@ function calcDuration(start: string, end: string): number | null {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+    <label className="block text-xs font-medium text-muted uppercase tracking-wide">
       {children}
     </label>
   );
@@ -110,7 +110,7 @@ function StatusMessage({
   if (!message) return null;
   return (
     <p
-      className={`text-sm text-center ${status === "success" ? "text-green-600 dark:text-green-400" : "text-red-500"}`}
+      className={`text-sm text-center ${status === "success" ? "text-tint-green-ink dark:text-green-400" : "text-red-500"}`}
     >
       {message}
     </p>
@@ -125,21 +125,21 @@ function DurationPreview({ start, end }: { start: string; end: string }) {
       <p className="text-xs text-red-500">End time must be after start time.</p>
     );
   return (
-    <p className="text-xs text-gray-500 dark:text-gray-400">
+    <p className="text-xs text-muted">
       Duration: {formatDuration(dur)}
     </p>
   );
 }
 
 function inputClass() {
-  return "w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400";
+  return "w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400";
 }
 
 function PanelCloseButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+      className="text-muted hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
     >
       ✕
     </button>
@@ -243,9 +243,9 @@ function CategoryPanel({
   }
 
   return (
-    <div className="bg-bone dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-xl p-4 space-y-3">
+    <div className="bg-surface border border-default rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-sm text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+        <h2 className="font-semibold text-sm text-secondary uppercase tracking-wide">
           Create Category
         </h2>
         <PanelCloseButton onClick={onClose} />
@@ -258,12 +258,12 @@ function CategoryPanel({
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           placeholder="Category name…"
-          className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="flex-1 px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
         />
         <button
           onClick={handleCreate}
           disabled={status === "loading" || !name.trim()}
-          className="px-4 py-2 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+          className="px-4 py-2 rounded-lg bg-invert text-invert-fg text-sm font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
         >
           {status === "loading" ? "…" : "Create"}
         </button>
@@ -276,7 +276,7 @@ function CategoryPanel({
           {categories.map((c) => (
             <span
               key={c.id}
-              className="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-gray-300"
+              className="px-2 py-0.5 rounded-full text-xs bg-surface-hover text-secondary"
             >
               {c.name}
             </span>
@@ -304,7 +304,7 @@ function EntryList({
 }) {
   return (
     <div className="space-y-2">
-      <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+      <h2 className="text-sm font-medium text-muted uppercase tracking-wide">
         {loading ? "Loading…" : `${entries.length} Entries`}
       </h2>
 
@@ -315,7 +315,7 @@ function EntryList({
       )}
 
       {!loading && !error && entries.length === 0 && (
-        <p className="text-sm text-gray-400 py-4 text-center">
+        <p className="text-sm text-muted py-4 text-center">
           No entries found.
         </p>
       )}
@@ -334,8 +334,8 @@ function EntryList({
               onClick={() => onSelect(entry)}
               className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
                 isSelected
-                  ? "border-neutral-800 dark:border-neutral-300 bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900"
-                  : "border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-gray-400 dark:hover:border-neutral-500"
+                  ? "border-neutral-800 dark:border-neutral-300 bg-invert text-invert-fg"
+                  : "border-default bg-surface hover:border-gray-400 dark:hover:border-neutral-500"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -343,13 +343,13 @@ function EntryList({
                   {entry.category}
                 </span>
                 <span
-                  className={`text-xs font-mono shrink-0 ${isSelected ? "text-gray-300 dark:text-neutral-600" : "text-gray-400 dark:text-gray-500"}`}
+                  className={`text-xs font-mono shrink-0 ${isSelected ? "text-gray-300 dark:text-neutral-600" : "text-dim"}`}
                 >
                   {formatDuration(entry.duration_seconds)}
                 </span>
               </div>
               <div
-                className={`text-xs mt-0.5 ${isSelected ? "text-gray-300 dark:text-neutral-500" : "text-gray-400 dark:text-gray-500"}`}
+                className={`text-xs mt-0.5 ${isSelected ? "text-gray-300 dark:text-neutral-500" : "text-dim"}`}
               >
                 {formatDate(entry.start_time)} → {formatDate(entry.end_time)}
               </div>
@@ -432,7 +432,7 @@ function CreateEntryPanel({
   const canSubmit = !!category && !!start && !!end && (dur === null || dur > 0);
 
   return (
-    <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-xl p-5 space-y-4">
+    <div className="bg-surface border border-default rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-base">Create New Entry</h2>
         <PanelCloseButton onClick={onClose} />
@@ -450,7 +450,7 @@ function CreateEntryPanel({
       <button
         onClick={handleCreate}
         disabled={status === "loading" || !canSubmit}
-        className="w-full py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
+        className="w-full py-2.5 rounded-lg bg-invert text-invert-fg font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
       >
         {status === "loading" ? "Creating…" : "Create Entry"}
       </button>
@@ -564,7 +564,7 @@ function EditEntryPanel({
   const canSave = !!category && !!start && !!end && (dur === null || dur > 0);
 
   return (
-    <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-xl p-5 space-y-4">
+    <div className="bg-surface border border-default rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-base">Edit Entry #{entry.id}</h2>
         <PanelCloseButton onClick={onClose} />
@@ -583,7 +583,7 @@ function EditEntryPanel({
         <button
           onClick={handleUpdate}
           disabled={saveStatus === "loading" || !canSave}
-          className="col-span-3 py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
+          className="col-span-3 py-2.5 rounded-lg bg-invert text-invert-fg font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
         >
           {saveStatus === "loading" ? "Saving…" : "Save Changes"}
         </button>
@@ -602,14 +602,14 @@ function EditEntryPanel({
           <p className="text-sm text-center text-red-700 dark:text-red-300">
             Delete entry?
           </p>
-          <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-center text-muted">
             {entry.category} — {formatDate(entry.start_time)} —{" "}
             {formatDuration(entry.duration_seconds)}
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => setConfirmDelete(false)}
-              className="flex-1 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+              className="flex-1 py-2 rounded-lg border border-strong bg-surface-raised text-secondary text-sm font-medium hover:bg-surface-hover transition-colors"
             >
               No
             </button>
@@ -683,12 +683,12 @@ export default function ManagePage() {
   }
 
   return (
-    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-5xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
+    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-5xl mx-auto space-y-6 text-primary">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Manage Entries</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             {showEntryForm
               ? "Fill in the details to create a new entry."
               : "Select an entry to edit its details."}
@@ -697,25 +697,25 @@ export default function ManagePage() {
         <div className="flex gap-2">
           <button
             onClick={() => exportToCSV(entries)}
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             Export CSV
           </button>
           <button
             onClick={() => setShowImportModal(true)}
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             Import CSV
           </button>
           <button
             onClick={() => (showEntryForm ? closeEntryForm() : openEntryForm())}
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             {showEntryForm ? "✕ Close" : "+ New Entry"}
           </button>
           <button
             onClick={() => setShowCatForm((v) => !v)}
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             {showCatForm ? "✕ Close" : "+ New Category"}
           </button>
@@ -763,7 +763,7 @@ export default function ManagePage() {
               }}
             />
           ) : (
-            <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700 text-sm text-gray-400 dark:text-gray-500">
+            <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed border-default text-sm text-dim">
               Select an entry to edit
             </div>
           )}

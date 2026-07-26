@@ -79,20 +79,20 @@ export function CategorySelector({
               }
             }}
             placeholder="New category name"
-            className="flex-1 min-w-[8rem] px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+            className="flex-1 min-w-[8rem] px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
           />
           <button
             type="button"
             onClick={handleCreateCategory}
             disabled={submitting || !newName.trim()}
-            className="px-3 py-2 rounded-lg text-sm font-medium bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 disabled:opacity-40"
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-invert text-invert-fg disabled:opacity-40"
           >
             Add
           </button>
           <button
             type="button"
             onClick={() => setCreating(false)}
-            className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300"
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-surface-muted text-secondary"
           >
             Cancel
           </button>
@@ -106,7 +106,7 @@ export function CategorySelector({
     <select
       value={value}
       onChange={(e) => handleSelectChange(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+      className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
     >
       <option value="">{placeholder}</option>
       {categories.map((cat) => (

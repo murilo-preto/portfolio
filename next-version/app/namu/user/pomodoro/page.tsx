@@ -27,7 +27,7 @@ function PomodoroPageContent() {
     async function fetchTodos() {
       try {
         const res = await fetch("/api/todo", { credentials: "include" });
-        if (!res.ok) throw new Error("Failed to load TODO items");
+        if (!res.ok) throw new Error("Failed to load To Do items");
         const data = await res.json();
         const items = (data.items as TodoItem[]).filter(
           (item) => item.status !== "completed"
@@ -39,7 +39,7 @@ function PomodoroPageContent() {
           if (match) setSelectedTodo(match);
         }
       } catch (err: unknown) {
-        setTodosError(err instanceof Error ? err.message : "Failed to load TODO items");
+        setTodosError(err instanceof Error ? err.message : "Failed to load To Do items");
       } finally {
         setTodosLoading(false);
       }
@@ -54,23 +54,23 @@ function PomodoroPageContent() {
   }
 
   return (
-    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-6xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
+    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-6xl mx-auto space-y-6 text-primary">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">
             Pomodoro
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             Focus in timed sessions, with short and long breaks
           </p>
         </div>
         <a
           href="/namu/user/todo"
-          className="text-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700
-                     bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700
+          className="text-sm px-4 py-2 rounded-lg border border-default
+                     bg-surface-raised hover:bg-surface-hover
                      transition-colors text-gray-700 dark:text-gray-200 font-medium"
         >
-          View TODOs
+          View To Dos
         </a>
       </div>
 

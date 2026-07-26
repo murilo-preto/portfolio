@@ -17,13 +17,13 @@ export function PomodoroSettings({ settings, onChange }: PomodoroSettingsProps) 
   }
 
   return (
-    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+    <div className="bg-surface rounded-xl shadow-sm border border-subtle">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between p-4 text-sm font-semibold text-gray-900 dark:text-gray-100"
+        className="w-full flex items-center justify-between p-4 text-sm font-semibold text-primary"
       >
         Settings
-        <span className="text-gray-400 text-xs">{open ? "Hide" : "Show"}</span>
+        <span className="text-muted text-xs">{open ? "Hide" : "Show"}</span>
       </button>
 
       {open && (
@@ -48,7 +48,7 @@ export function PomodoroSettings({ settings, onChange }: PomodoroSettingsProps) 
             value={settings.sessionsBeforeLongBreak}
             onChange={(v) => updateField("sessionsBeforeLongBreak", v)}
           />
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-dim">
             Changes apply the next time you start or switch modes — a running
             timer keeps its current countdown.
           </p>
@@ -69,13 +69,13 @@ function SettingField({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <label className="text-xs text-gray-500 dark:text-gray-400">{label}</label>
+      <label className="text-xs text-muted">{label}</label>
       <input
         type="number"
         min={1}
         value={value}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
-        className="w-20 px-2 py-1.5 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm text-right focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        className="w-20 px-2 py-1.5 rounded-lg border border-strong bg-surface-raised text-sm text-right focus:outline-none focus:ring-2 focus:ring-neutral-400"
       />
     </div>
   );

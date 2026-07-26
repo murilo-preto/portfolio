@@ -34,8 +34,8 @@ export function PomodoroStats() {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-        <p className="text-sm text-gray-400">Loading stats...</p>
+      <div className="bg-surface p-5 rounded-xl shadow-sm border border-subtle">
+        <p className="text-sm text-muted">Loading stats...</p>
       </div>
     );
   }
@@ -45,17 +45,17 @@ export function PomodoroStats() {
   }
 
   return (
-    <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+    <div className="bg-surface p-5 rounded-xl shadow-sm border border-subtle">
+      <h2 className="text-sm font-semibold text-primary mb-4">
         Pomodoro Stats
       </h2>
       <div className="space-y-3">
         {/* Today */}
-        <div className="p-3 rounded-lg bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20">
+        <div className="p-3 rounded-lg bg-gradient-to-br from-tint-red-a to-tint-red-b border border-tint-red-line">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Today (focus)</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+              <p className="text-xs text-muted">Today (focus)</p>
+              <p className="text-lg font-bold text-primary">
                 {stats.stats.today.sessions} sessions
               </p>
             </div>
@@ -66,45 +66,45 @@ export function PomodoroStats() {
         </div>
 
         {/* Today's breaks */}
-        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-500/10">
+        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/10 border border-tint-green-a">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Today (breaks)</p>
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-xs text-muted">Today (breaks)</p>
+              <p className="text-lg font-semibold text-primary">
                 {stats.stats.today_breaks.sessions} sessions
               </p>
             </div>
-            <p className="text-sm font-medium text-green-600 dark:text-green-400">
+            <p className="text-sm font-medium text-tint-green-ink dark:text-green-400">
               {formatDuration(stats.stats.today_breaks.total_seconds)}
             </p>
           </div>
         </div>
 
         {/* This Week */}
-        <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
+        <div className="p-3 rounded-lg bg-surface-inset">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">This Week</p>
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-xs text-muted">This Week</p>
+              <p className="text-lg font-semibold text-primary">
                 {stats.stats.week.sessions} sessions
               </p>
             </div>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <p className="text-sm font-medium text-muted">
               {formatDuration(stats.stats.week.total_seconds)}
             </p>
           </div>
         </div>
 
         {/* Total */}
-        <div className="p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
+        <div className="p-3 rounded-lg bg-surface-inset">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-xs text-muted">Total</p>
+              <p className="text-lg font-semibold text-primary">
                 {stats.stats.total.sessions} sessions
               </p>
             </div>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <p className="text-sm font-medium text-muted">
               {formatDuration(stats.stats.total.total_seconds)}
             </p>
           </div>

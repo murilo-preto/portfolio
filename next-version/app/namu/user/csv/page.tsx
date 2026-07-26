@@ -143,31 +143,31 @@ export default function CSVPage() {
   }
 
   return (
-    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-5xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
+    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-5xl mx-auto space-y-6 text-primary">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Import CSV</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-muted mt-1">
           Upload a CSV file with columns: start_date,start_time,end_date,end_time,duration,category
         </p>
       </div>
 
-      <div className="bg-bone dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow">
+      <div className="bg-surface p-4 md:p-6 rounded-xl shadow">
         <div className="mb-4">
-          <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <h2 className="text-sm font-medium text-secondary mb-2">
             Expected CSV Format
           </h2>
-          <div className="bg-gray-100 dark:bg-neutral-800 rounded-lg p-3 text-xs font-mono overflow-x-auto">
-            <p className="text-gray-600 dark:text-gray-400 mb-2">
+          <div className="bg-surface-muted rounded-lg p-3 text-xs font-mono overflow-x-auto">
+            <p className="text-muted mb-2">
               Columns (in order): start_date, start_time, end_date, end_time, [duration, ]category
             </p>
-            <p className="text-gray-500 dark:text-gray-500 mb-2">
+            <p className="text-dim mb-2">
               Duration is optional. Date format: MM/DD/YYYY &nbsp;|&nbsp; Time format: HH:MM (24-hour)
             </p>
-            <p className="text-gray-600 dark:text-gray-400 mb-2">Example (with duration):</p>
-            <pre className="text-gray-800 dark:text-gray-300 whitespace-pre">{`01/15/2024,09:00,01/15/2024,10:30,90,Work
+            <p className="text-muted mb-2">Example (with duration):</p>
+            <pre className="text-secondary whitespace-pre">{`01/15/2024,09:00,01/15/2024,10:30,90,Work
 01/16/2024,14:00,01/16/2024,15:30,90,Study`}</pre>
-            <p className="text-gray-600 dark:text-gray-400 mb-2 mt-3">Example (without duration):</p>
-            <pre className="text-gray-800 dark:text-gray-300 whitespace-pre">{`01/15/2024,09:00,01/15/2024,10:30,Work
+            <p className="text-muted mb-2 mt-3">Example (without duration):</p>
+            <pre className="text-secondary whitespace-pre">{`01/15/2024,09:00,01/15/2024,10:30,Work
 01/16/2024,14:00,01/16/2024,15:30,Study`}</pre>
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function CSVPage() {
             type="file"
             accept=".csv"
             onChange={handleFile}
-            className="block w-full text-sm text-gray-500 dark:text-gray-400
+            className="block w-full text-sm text-muted
               file:mr-4 file:py-2 file:px-4
               file:rounded-lg file:border-0
               file:text-sm file:font-medium
@@ -189,13 +189,13 @@ export default function CSVPage() {
         </div>
 
         {entries.length > 0 && (
-          <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+          <div className="mb-4 text-sm text-muted">
             {entries.length} entries parsed
           </div>
         )}
 
         {status === "success" && (
-          <p className="mb-4 text-sm text-green-600 dark:text-green-400 text-center">
+          <p className="mb-4 text-sm text-tint-green-ink dark:text-green-400 text-center">
             {msg}
           </p>
         )}
@@ -240,11 +240,11 @@ export default function CSVPage() {
                 >
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{entry.category}</span>
-                    <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                    <span className="text-sm font-semibold text-secondary">
                       {formatDuration(entry.duration_seconds)}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                  <div className="text-xs text-muted space-y-0.5">
                     <p>Start: {formatDisplayDateTime(entry.start_time)}</p>
                     <p>End: {formatDisplayDateTime(entry.end_time)}</p>
                   </div>
@@ -255,7 +255,7 @@ export default function CSVPage() {
             <button
               onClick={handleSubmit}
               disabled={status === "loading"}
-              className="mt-4 w-full py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
+              className="mt-4 w-full py-2.5 rounded-lg bg-invert text-invert-fg font-medium text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
             >
               {status === "loading" ? "Submitting..." : "Submit"}
             </button>
@@ -263,7 +263,7 @@ export default function CSVPage() {
         )}
 
         {entries.length === 0 && status !== "success" && (
-          <div className="flex items-center justify-center h-32 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700 text-sm text-gray-400 dark:text-gray-500">
+          <div className="flex items-center justify-center h-32 rounded-xl border-2 border-dashed border-default text-sm text-dim">
             No entries loaded
           </div>
         )}

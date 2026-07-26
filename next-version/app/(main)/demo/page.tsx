@@ -100,7 +100,7 @@ export default function EntriesDemo() {
       {filterMode === "all" ? (
         <div className="grid grid-cols-2 gap-6">
           <div className="col-span-1">
-            <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+            <div className="bg-surface p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Hours by Category</h2>
                 <span className="text-xs opacity-70">
@@ -111,7 +111,7 @@ export default function EntriesDemo() {
             </div>
           </div>
           <div className="col-span-1">
-            <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+            <div className="bg-surface p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Relative time</h2>
                 <span className="text-xs opacity-70">
@@ -127,7 +127,7 @@ export default function EntriesDemo() {
           <div className="lg:col-span-1 grid grid-rows-2 content-between gap-6 h-full">
             {/* --- First row of First column ---*/}
             <div className="row-span-1">
-              <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+              <div className="bg-surface p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Hours per category</h2>
                   <span className="text-xs opacity-70">
@@ -140,7 +140,7 @@ export default function EntriesDemo() {
 
             {/* --- Second row of First column ---*/}
             <div className="row-span-1">
-              <div className="bg-offwhite dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
+              <div className="bg-surface p-4 md:p-6 rounded-xl shadow text-black dark:text-white h-full">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">
                     Relative time per category

@@ -104,7 +104,7 @@ export default function Entries() {
   if (loading) {
     return (
       <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">Loading dashboard...</div>
+        <div className="text-muted">Loading dashboard...</div>
       </main>
     );
   }
@@ -124,17 +124,17 @@ export default function Entries() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">
             {data.username}'s Dashboard
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             Track your time and productivity
           </p>
         </div>
         <div className="flex gap-2">
           <a
             href="/namu/user/manage"
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 dark:bg-neutral-100 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors text-white dark:text-neutral-900"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-invert hover:bg-invert-hover transition-colors text-invert-fg"
           >
             Add Entry
           </a>
@@ -202,19 +202,19 @@ export default function Entries() {
       {/* Main Content - Previous Layout */}
       {filterMode === "all" ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+          <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Hours by Category</h2>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <h2 className="text-lg font-semibold text-primary">Hours by Category</h2>
+              <span className="text-xs text-muted">
                 Scope: All entries
               </span>
             </div>
             <CategoryChart entries={visibleEntries} isDark={isDark} />
           </div>
-          <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+          <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Time Distribution</h2>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <h2 className="text-lg font-semibold text-primary">Time Distribution</h2>
+              <span className="text-xs text-muted">
                 Scope: All entries
               </span>
             </div>
@@ -225,21 +225,21 @@ export default function Entries() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 grid grid-rows-2 content-between gap-6 h-full">
             <div className="row-span-1">
-              <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 h-full">
+              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Hours per Category</h2>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Scope: Today</span>
+                  <h2 className="text-lg font-semibold text-primary">Hours per Category</h2>
+                  <span className="text-xs text-muted">Scope: Today</span>
                 </div>
                 <CategoryChart entries={visibleEntries} isDark={isDark} />
               </div>
             </div>
             <div className="row-span-1">
-              <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 h-full">
+              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h2 className="text-lg font-semibold text-primary">
                     Relative Time per Category
                   </h2>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Scope: Today</span>
+                  <span className="text-xs text-muted">Scope: Today</span>
                 </div>
                 <CategoryPieChart entries={visibleEntries} isDark={isDark} />
               </div>
@@ -257,10 +257,10 @@ export default function Entries() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 grid grid-rows-2 content-between gap-6 h-full">
             <div className="row-span-1">
-              <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 h-full">
+              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Hours per Category</h2>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <h2 className="text-lg font-semibold text-primary">Hours per Category</h2>
+                  <span className="text-xs text-muted">
                     Scope: Selected week
                   </span>
                 </div>
@@ -269,12 +269,12 @@ export default function Entries() {
             </div>
 
             <div className="row-span-1">
-              <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 h-full">
+              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h2 className="text-lg font-semibold text-primary">
                     Relative Time per Category
                   </h2>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-xs text-muted">
                     Scope: Selected week
                   </span>
                 </div>
@@ -295,14 +295,14 @@ export default function Entries() {
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-neutral-900 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
+          <h2 className="text-base font-semibold text-primary mb-4">
             Overview Stats
           </h2>
           <QuickStats entries={visibleEntries} compact />
         </div>
-        <div className="bg-white dark:bg-neutral-900 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
+          <h2 className="text-base font-semibold text-primary mb-4">
             Category Breakdown
           </h2>
           <QuickStats entries={visibleEntries} showCategoriesOnly />

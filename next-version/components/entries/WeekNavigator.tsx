@@ -24,13 +24,13 @@ export function WeekNavigator({
     date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-neutral-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface p-4 rounded-xl shadow-sm border border-subtle">
       {/* Date Navigation */}
       <div className="flex items-center gap-3">
         <button
           onClick={onPrev}
           disabled={showAll || showToday}
-          className="p-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Previous period"
           title={
             showAll || showToday
@@ -43,8 +43,8 @@ export function WeekNavigator({
           </svg>
         </button>
 
-        <div className="px-4 py-2 rounded-lg bg-gray-50 dark:bg-neutral-800 min-w-[180px] text-center">
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <div className="px-4 py-2 rounded-lg bg-surface-inset min-w-[180px] text-center">
+          <p className="text-sm font-semibold text-primary">
             {showToday
               ? "Today"
               : showAll
@@ -52,7 +52,7 @@ export function WeekNavigator({
                 : `${formatDate(weekStart)} – ${formatDate(weekEnd)}`}
           </p>
           {!showToday && !showAll && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            <p className="text-xs text-muted mt-0.5">
               {weekStart.getFullYear()}
             </p>
           )}
@@ -61,7 +61,7 @@ export function WeekNavigator({
         <button
           onClick={onNext}
           disabled={showAll || showToday}
-          className="p-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Next period"
           title={
             showAll || showToday
@@ -76,7 +76,7 @@ export function WeekNavigator({
       </div>
 
       {/* Filter Mode Tabs */}
-      <div className="flex gap-1 p-1 rounded-lg bg-gray-100 dark:bg-neutral-800">
+      <div className="flex gap-1 p-1 rounded-lg bg-surface-muted">
         {(["today", "week", "all"] as FilterMode[]).map((mode) => {
           const isActive = filterMode === mode;
           const label = mode === "all" ? "All time" : mode.charAt(0).toUpperCase() + mode.slice(1);
@@ -87,8 +87,8 @@ export function WeekNavigator({
               onClick={() => onFilterModeChange(mode)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-white dark:bg-neutral-700 text-gray-900 dark:text-gray-100 shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  ? "bg-white dark:bg-neutral-700 text-primary shadow-sm"
+                  : "text-muted hover:text-gray-900 dark:hover:text-gray-200"
               }`}
             >
               {label}

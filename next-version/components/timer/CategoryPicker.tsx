@@ -24,11 +24,11 @@ const GAP = 8;
 const CHIP_BASE =
   "text-sm px-4 py-2.5 rounded-full border whitespace-nowrap transition-colors";
 const CHIP_IDLE =
-  "bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 " +
-  "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-neutral-700";
+  "bg-surface-raised border-default " +
+  "text-gray-700 dark:text-gray-200 hover:bg-surface-hover";
 const CHIP_ON = "bg-green-500 border-green-500 text-white";
 const CHIP_MORE =
-  "border-dashed border-gray-300 dark:border-neutral-700 text-gray-500 dark:text-gray-400";
+  "border-dashed border-default text-muted";
 
 export function CategoryPicker({
   categories,
@@ -98,7 +98,7 @@ export function CategoryPicker({
   }, [categories.length]);
 
   if (loading) {
-    return <p className="text-sm text-gray-400 py-2">Loading categories...</p>;
+    return <p className="text-sm text-muted py-2">Loading categories...</p>;
   }
 
   if (error) {
@@ -127,11 +127,11 @@ export function CategoryPicker({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="text-sm font-medium text-secondary">
           Category
         </label>
         {locked && (
-          <span className="text-[11px] text-gray-400 dark:text-gray-500">
+          <span className="text-[11px] text-dim">
             Finish or discard the session to change
           </span>
         )}
@@ -159,7 +159,7 @@ export function CategoryPicker({
           <span
             className={`${CHIP_BASE} ${CHIP_MORE} relative inline-flex items-center gap-1
                         focus-within:ring-2 focus-within:ring-green-500
-                        ${locked ? "opacity-50" : "hover:bg-gray-50 dark:hover:bg-neutral-800"}`}
+                        ${locked ? "opacity-50" : "hover:bg-surface-inset"}`}
           >
             More
             <svg

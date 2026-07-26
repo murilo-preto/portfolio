@@ -18,13 +18,13 @@ export function TaskPicker({
   onSelectTodo,
 }: TaskPickerProps) {
   return (
-    <div className="bg-white dark:bg-neutral-900 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+    <div className="bg-surface p-4 rounded-xl shadow-sm border border-subtle">
+      <h2 className="text-sm font-semibold text-primary mb-3">
         Working on
       </h2>
 
       {loading ? (
-        <p className="text-xs text-gray-400">Loading tasks...</p>
+        <p className="text-xs text-muted">Loading tasks...</p>
       ) : error ? (
         <p className="text-xs text-red-500">{error}</p>
       ) : (
@@ -34,7 +34,7 @@ export function TaskPicker({
             const id = e.target.value ? Number(e.target.value) : null;
             onSelectTodo(todos.find((t) => t.id === id) ?? null);
           }}
-          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
         >
           <option value="">No task selected</option>
           {todos.map((todo) => (
