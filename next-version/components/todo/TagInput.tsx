@@ -63,7 +63,7 @@ export function TagInput({ value, onChange }: TagInputProps) {
         {value.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-surface-muted text-neutral-700 dark:text-neutral-300 border border-default"
           >
             {tag}
             <button
@@ -85,7 +85,7 @@ export function TagInput({ value, onChange }: TagInputProps) {
         onKeyDown={handleKeyDown}
         onBlur={() => addTag(inputValue)}
         placeholder="Add a tag and press Enter"
-        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
       />
       <datalist id="todo-tag-suggestions">
         {suggestions.map((name) => (

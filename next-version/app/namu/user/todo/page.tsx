@@ -405,10 +405,10 @@ export default function TodoPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">
             To Do
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             Manage your tasks
           </p>
         </div>
@@ -417,7 +417,7 @@ export default function TodoPage() {
             setShowForm(true);
             setEditingItem(null);
           }}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 dark:bg-neutral-100 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition active:scale-[0.97] text-white dark:text-neutral-900"
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-invert hover:bg-invert-hover transition active:scale-[0.97] text-invert-fg"
         >
           + Add To Do
         </button>

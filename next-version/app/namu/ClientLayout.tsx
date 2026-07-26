@@ -26,7 +26,7 @@ function NavLink({
   onClick?: () => void;
 }) {
   return (
-    <div className="bg-gray-50 p-1 rounded-md dark:bg-neutral-950 hover:cursor-pointer">
+    <div className="bg-surface-deep p-1 rounded-md hover:cursor-pointer">
       <Link href={href} onClick={onClick}>
         {children}
       </Link>
@@ -46,7 +46,7 @@ function Header() {
   }, []);
 
   return (
-    <header className="m-1 p-1 rounded-md bg-gray-100 dark:bg-neutral-900">
+    <header className="m-1 p-1 rounded-md bg-surface">
       {/* ── Desktop nav (md+) ── */}
       <nav className="hidden md:grid grid-cols-3 items-center p-1">
         {/* Left */}
@@ -83,7 +83,7 @@ function Header() {
         {/* Hamburger button */}
         <button
           onClick={() => setMenuOpen((prev) => !prev)}
-          className="bg-gray-50 dark:bg-neutral-950 p-2 rounded-md focus:outline-none"
+          className="bg-surface-deep p-2 rounded-md focus:outline-none"
           aria-label="Toggle menu"
         >
           {menuOpen ? (
@@ -120,8 +120,8 @@ function Header() {
 
       {/* ── Mobile dropdown (account links) ── */}
       {menuOpen && (
-        <div className="md:hidden flex flex-col gap-2 p-2 mt-1 border-t border-gray-200 dark:border-neutral-700">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-1">
+        <div className="md:hidden flex flex-col gap-2 p-2 mt-1 border-t border-default">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1">
             Pages
           </p>
           <NavLink href="/namu/user/entries" onClick={close}>
@@ -140,7 +140,7 @@ function Header() {
             Finance
           </NavLink>
 
-          <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-1 mt-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1 mt-2">
             Account
           </p>
           {isLoggedIn ? (

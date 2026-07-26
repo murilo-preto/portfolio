@@ -43,18 +43,18 @@ export function ConfirmDialog({
       onClick={(e) => {
         if (e.target === dialogRef.current) onCancel();
       }}
-      className="m-auto rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-sm w-full"
+      className="m-auto rounded-xl shadow-lg border border-subtle bg-surface p-0 backdrop:bg-black/50 max-w-sm w-full"
     >
       <div className="p-5 space-y-4">
-        <h2 className="font-semibold text-base text-gray-900 dark:text-gray-100">
+        <h2 className="font-semibold text-base text-primary">
           {title}
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">{message}</p>
+        <p className="text-sm text-muted">{message}</p>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-surface-muted text-secondary hover:bg-surface-hover transition-colors"
           >
             {cancelLabel}
           </button>

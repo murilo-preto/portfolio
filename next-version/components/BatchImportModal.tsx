@@ -144,15 +144,15 @@ export function BatchImportModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-neutral-700 p-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <div className="sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-primary">
             Batch Import {config.title}
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg"
+            className="text-muted hover:text-gray-600 dark:hover:text-gray-200 text-lg"
           >
             ✕
           </button>
@@ -161,11 +161,11 @@ export function BatchImportModal({
         {/* Content */}
         <div className="p-4 md:p-6 space-y-4">
           {/* Instructions */}
-          <div className="bg-gray-50 dark:bg-neutral-800 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="bg-surface-inset rounded-lg p-4">
+            <h3 className="text-sm font-medium text-secondary mb-2">
               How to import
             </h3>
-            <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+            <ol className="text-sm text-muted space-y-1 list-decimal list-inside">
               <li>Download the CSV template below</li>
               <li>Fill in your data following the format</li>
               <li>Upload the CSV file</li>
@@ -177,7 +177,7 @@ export function BatchImportModal({
           <div className="flex gap-2">
             <button
               onClick={handleDownloadTemplate}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-strong bg-surface-raised hover:bg-surface-hover transition-colors"
             >
               📥 Download Template
             </button>
@@ -186,7 +186,7 @@ export function BatchImportModal({
               type="file"
               accept=".csv"
               onChange={handleFileChange}
-              className="block flex-1 text-sm text-gray-500 dark:text-gray-400
+              className="block flex-1 text-sm text-muted
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-lg file:border-0
                 file:text-sm file:font-medium
@@ -201,10 +201,10 @@ export function BatchImportModal({
             <p
               className={`text-sm text-center ${
                 status === "success"
-                  ? "text-green-600 dark:text-green-400"
+                  ? "text-tint-green-ink dark:text-green-400"
                   : status === "error"
                   ? "text-red-500"
-                  : "text-gray-600 dark:text-gray-400"
+                  : "text-muted"
               }`}
             >
               {message}
@@ -213,20 +213,20 @@ export function BatchImportModal({
 
           {/* Preview Table */}
           {preview.length > 0 && status !== "importing" && (
-            <div className="border border-gray-200 dark:border-neutral-700 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 dark:bg-neutral-800 px-4 py-2 border-b border-gray-200 dark:border-neutral-700">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="border border-default rounded-lg overflow-hidden">
+              <div className="bg-surface-inset px-4 py-2 border-b border-default">
+                <h3 className="text-sm font-medium text-secondary">
                   Preview ({preview.length} entries)
                 </h3>
               </div>
               <div className="overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-neutral-800 sticky top-0">
+                  <thead className="bg-surface-inset sticky top-0">
                     <tr>
                       {config.columns.map((col) => (
                         <th
                           key={col}
-                          className="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-neutral-700"
+                          className="px-4 py-2 text-left font-medium text-muted border-b border-default"
                         >
                           {col}
                         </th>
@@ -237,12 +237,12 @@ export function BatchImportModal({
                     {preview.slice(0, 10).map((row, idx) => (
                       <tr
                         key={idx}
-                        className="border-b border-gray-100 dark:border-neutral-800"
+                        className="border-b border-subtle"
                       >
                         {config.columns.map((col) => (
                           <td
                             key={col}
-                            className="px-4 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap"
+                            className="px-4 py-2 text-secondary whitespace-nowrap"
                           >
                             {String(row[col.toLowerCase()] || "-")}
                           </td>
@@ -252,7 +252,7 @@ export function BatchImportModal({
                   </tbody>
                 </table>
                 {preview.length > 10 && (
-                  <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-neutral-800">
+                  <div className="px-4 py-2 text-sm text-muted bg-surface-inset">
                     ... and {preview.length - 10} more entries
                   </div>
                 )}
@@ -286,13 +286,13 @@ export function BatchImportModal({
             <div className="flex gap-2 pt-2">
               <button
                 onClick={handleClose}
-                className="flex-1 py-2.5 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+                className="flex-1 py-2.5 rounded-lg border border-strong bg-surface-raised text-secondary font-medium text-sm hover:bg-surface-hover transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
-                className="flex-1 py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm hover:opacity-90 transition-opacity"
+                className="flex-1 py-2.5 rounded-lg bg-invert text-invert-fg font-medium text-sm hover:opacity-90 transition-opacity"
               >
                 Import {preview.length} Entries
               </button>
@@ -303,7 +303,7 @@ export function BatchImportModal({
           {(status === "success" || (status === "error" && result)) && (
             <button
               onClick={handleClose}
-              className="w-full py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm hover:opacity-90 transition-opacity"
+              className="w-full py-2.5 rounded-lg bg-invert text-invert-fg font-medium text-sm hover:opacity-90 transition-opacity"
             >
               {status === "success" ? "Done" : "Close"}
             </button>
@@ -311,7 +311,7 @@ export function BatchImportModal({
 
           {/* Empty State */}
           {status === "idle" && preview.length === 0 && (
-            <div className="flex items-center justify-center h-32 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700 text-sm text-gray-400 dark:text-gray-500">
+            <div className="flex items-center justify-center h-32 rounded-xl border-2 border-dashed border-default text-sm text-dim">
               Upload a CSV file to preview entries
             </div>
           )}

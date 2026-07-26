@@ -19,8 +19,8 @@ type SessionSegmentsProps = {
 // `color-scheme` themes the native calendar/spinner widgets — without it the
 // picker renders light-on-dark and is unreadable in dark mode.
 const INPUT_CLASS =
-  "w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-neutral-600 " +
-  "bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm " +
+  "w-full px-3 py-2.5 rounded-lg border border-strong " +
+  "bg-surface-raised text-primary text-sm " +
   "dark:[color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-green-500";
 
 export function SessionSegments({
@@ -69,11 +69,11 @@ export function SessionSegments({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className="w-full flex items-center justify-between gap-2 text-sm
-                   text-gray-600 dark:text-gray-300 hover:text-gray-900
+                   text-secondary hover:text-gray-900
                    dark:hover:text-gray-100 transition-colors"
       >
         <span className="font-medium">Adjust times</span>
-        <span className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+        <span className="flex items-center gap-2 text-xs text-dim">
           {summary}
           <svg
             className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
@@ -90,7 +90,7 @@ export function SessionSegments({
       {open && (
         <div className="mt-4 space-y-4">
           {segments.length === 0 && (
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-dim">
               Start the timer, or add an interval by hand if you forgot to.
             </p>
           )}
@@ -102,9 +102,9 @@ export function SessionSegments({
               <div key={index} className="space-y-1.5">
                 {multi && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    <span className="text-xs font-medium text-muted">
                       Interval {index + 1}
-                      <span className="ml-2 font-normal text-gray-400 dark:text-gray-500 tabular-nums">
+                      <span className="ml-2 font-normal text-dim tabular-nums">
                         {openEnded
                           ? "running"
                           : formatDuration(segmentSeconds(segment, Date.now()))}
@@ -125,7 +125,7 @@ export function SessionSegments({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <label className="block text-xs font-medium text-muted">
                       Start
                     </label>
                     <input
@@ -146,7 +146,7 @@ export function SessionSegments({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                    <label className="block text-xs font-medium text-muted">
                       End
                     </label>
                     <input
@@ -181,7 +181,7 @@ export function SessionSegments({
             <button
               type="button"
               onClick={addSegment}
-              className="text-xs text-blue-600 dark:text-blue-400 px-2.5 py-2 -ml-2.5
+              className="text-xs text-tint-blue-ink dark:text-blue-400 px-2.5 py-2 -ml-2.5
                          rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
             >
               + Add interval

@@ -41,11 +41,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="dark:bg-neutral-950 bg-neutral-50">
+    <main className="bg-surface-deep">
       <div className="flex min-h-2 p-8 items-top justify-center">
         <form
           onSubmit={handleSubmit}
-          className="w-full max-w-sm space-y-6 rounded-2xl bg-white p-8 shadow-lg dark:bg-neutral-800"
+          className="w-full max-w-sm space-y-6 rounded-2xl bg-surface-raised p-8 shadow-lg"
         >
           <h1 className="text-3xl font-bold text-center text-neutral-900 dark:text-neutral-100">
             Login
@@ -66,7 +66,7 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full rounded-lg border border-neutral-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-700 dark:text-white"
+              className="w-full rounded-lg border border-strong px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
             />
           </div>
 
@@ -79,7 +79,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-lg border border-neutral-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-700 dark:text-white"
+              className="w-full rounded-lg border border-strong px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
             />
           </div>
 
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-neutral-600 dark:text-neutral-400">
             Do not have an account?{" "}
-            <a href="/register" className="text-blue-600 hover:underline dark:text-blue-400">
+            <a href="/register" className="text-tint-blue-ink hover:underline dark:text-blue-400">
               Register
             </a>
           </p>

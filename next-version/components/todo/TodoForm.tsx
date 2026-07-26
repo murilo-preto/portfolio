@@ -166,7 +166,7 @@ export function TodoForm({
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
-      className="m-auto max-h-[90vh] overflow-y-auto rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-0 backdrop:bg-black/50 max-w-lg w-full"
+      className="m-auto max-h-[90vh] overflow-y-auto rounded-xl shadow-lg border border-subtle bg-surface p-0 backdrop:bg-black/50 max-w-lg w-full"
     >
       <form
         onSubmit={handleSubmit}
@@ -179,13 +179,13 @@ export function TodoForm({
       >
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-base text-gray-900 dark:text-gray-100">
+          <h2 className="font-semibold text-base text-primary">
             {editingItem ? "Edit To Do" : "Create To Do"}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+            className="text-muted hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
           >
             ✕
           </button>
@@ -193,7 +193,7 @@ export function TodoForm({
 
         {/* Title */}
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <label className="block text-xs font-medium text-muted uppercase tracking-wide">
             Title *
           </label>
           <input
@@ -201,7 +201,7 @@ export function TodoForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="What needs to be done?"
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+            className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
             required
           />
         </div>
@@ -210,7 +210,7 @@ export function TodoForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
           {/* Category */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            <label className="block text-xs font-medium text-muted uppercase tracking-wide">
               Category *
             </label>
             <CategorySelector
@@ -224,7 +224,7 @@ export function TodoForm({
 
           {/* Priority */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            <label className="block text-xs font-medium text-muted uppercase tracking-wide">
               Priority
             </label>
             <div className="flex gap-2">
@@ -240,7 +240,7 @@ export function TodoForm({
                         : p === "medium"
                         ? "bg-amber-500 text-white"
                         : "bg-blue-500 text-white"
-                      : "bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700"
+                      : "bg-surface-muted text-muted hover:bg-gray-200 dark:hover:bg-neutral-700"
                   }`}
                 >
                   {p.charAt(0).toUpperCase() + p.slice(1)}
@@ -252,7 +252,7 @@ export function TodoForm({
 
         {/* Description */}
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <label className="block text-xs font-medium text-muted uppercase tracking-wide">
             Description
           </label>
           <textarea
@@ -260,7 +260,7 @@ export function TodoForm({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Add details..."
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 resize-none"
+            className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 resize-none"
           />
         </div>
 
@@ -268,7 +268,7 @@ export function TodoForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
           {/* Due Date */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            <label className="block text-xs font-medium text-muted uppercase tracking-wide">
               Due Date
             </label>
             <div className="flex flex-wrap gap-2">
@@ -282,7 +282,7 @@ export function TodoForm({
                   key={preset.label}
                   type="button"
                   onClick={() => setDueDate(preset.value())}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700 transition active:scale-95"
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-muted text-muted hover:bg-surface-hover transition active:scale-95"
                 >
                   {preset.label}
                 </button>
@@ -292,20 +292,20 @@ export function TodoForm({
               type="datetime-local"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+              className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
             />
           </div>
 
           {/* Recurrence */}
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            <label className="block text-xs font-medium text-muted uppercase tracking-wide">
               Repeat
             </label>
             <select
               value={recurrenceRule}
               onChange={(e) => setRecurrenceRule(e.target.value as RecurrenceRule)}
               disabled={!dueDate}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-50"
+              className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-50"
             >
               <option value="none">Does not repeat</option>
               <option value="daily">Daily</option>
@@ -313,7 +313,7 @@ export function TodoForm({
               <option value="monthly">Monthly</option>
             </select>
             {!dueDate && (
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-dim">
                 Set a due date to enable repeating
               </p>
             )}
@@ -322,7 +322,7 @@ export function TodoForm({
 
         {/* Tags */}
         <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <label className="block text-xs font-medium text-muted uppercase tracking-wide">
             Tags
           </label>
           <TagInput value={tags} onChange={setTags} />
@@ -332,7 +332,7 @@ export function TodoForm({
         <button
           type="submit"
           disabled={status === "loading" || !title.trim() || !category}
-          className="w-full py-2.5 rounded-lg bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium text-sm disabled:opacity-40 hover:opacity-90 transition active:scale-[0.99] disabled:active:scale-100"
+          className="w-full py-2.5 rounded-lg bg-invert text-invert-fg font-medium text-sm disabled:opacity-40 hover:opacity-90 transition active:scale-[0.99] disabled:active:scale-100"
         >
           {status === "loading"
             ? "Saving..."

@@ -58,7 +58,7 @@ function getEstimatedMonthly(amount: number, frequency: string): number {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+    <label className="block text-xs font-medium text-muted uppercase tracking-wide">
       {children}
     </label>
   );
@@ -74,7 +74,7 @@ function StatusMessage({
   if (!message) return null;
   return (
     <p
-      className={`text-sm text-center ${status === "success" ? "text-green-600 dark:text-green-400" : "text-red-500"}`}
+      className={`text-sm text-center ${status === "success" ? "text-tint-green-ink dark:text-green-400" : "text-red-500"}`}
     >
       {message}
     </p>
@@ -82,14 +82,14 @@ function StatusMessage({
 }
 
 function inputClass() {
-  return "w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400";
+  return "w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400";
 }
 
 function PanelCloseButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
+      className="text-muted hover:text-gray-600 dark:hover:text-gray-200 text-lg leading-none"
     >
       ✕
     </button>
@@ -171,9 +171,9 @@ function CategoryPanel({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 mb-4">
+    <div className="rounded-xl border border-default bg-surface-raised p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="font-semibold text-primary">
           Create Finance Category
         </h2>
         <PanelCloseButton onClick={onClose} />
@@ -193,7 +193,7 @@ function CategoryPanel({
         <button
           type="submit"
           disabled={status === "loading"}
-          className="w-full py-2 px-4 rounded-lg bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+          className="w-full py-2 px-4 rounded-lg bg-invert text-invert-fg font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           {status === "loading" ? "Creating..." : "Create Category"}
         </button>
@@ -264,9 +264,9 @@ function CreateExpensePanel({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+    <div className="rounded-xl border border-default bg-surface-raised p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="font-semibold text-primary">
           Create Recurring Expense
         </h2>
         <PanelCloseButton onClick={onClose} />
@@ -350,7 +350,7 @@ function CreateExpensePanel({
         <button
           type="submit"
           disabled={status === "loading"}
-          className="w-full py-2 px-4 rounded-lg bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+          className="w-full py-2 px-4 rounded-lg bg-invert text-invert-fg font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           {status === "loading" ? "Creating..." : "Create Expense"}
         </button>
@@ -457,9 +457,9 @@ function EditExpensePanel({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+    <div className="rounded-xl border border-default bg-surface-raised p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="font-semibold text-primary">
           Edit Recurring Expense
         </h2>
         <PanelCloseButton onClick={onClose} />
@@ -543,9 +543,9 @@ function EditExpensePanel({
             id="is_active"
             checked={formData.is_active}
             onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-            className="rounded border-gray-300 dark:border-neutral-600"
+            className="rounded border-strong"
           />
-          <label htmlFor="is_active" className="text-sm text-gray-700 dark:text-gray-300">
+          <label htmlFor="is_active" className="text-sm text-secondary">
             Active
           </label>
         </div>
@@ -554,7 +554,7 @@ function EditExpensePanel({
           <button
             type="submit"
             disabled={status === "loading"}
-            className="flex-1 py-2 px-4 rounded-lg bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="flex-1 py-2 px-4 rounded-lg bg-invert text-invert-fg font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {status === "loading" ? "Saving..." : "Save Changes"}
           </button>
@@ -587,8 +587,8 @@ function ExpenseList({
 }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700">
-        <p className="text-sm text-gray-400 dark:text-gray-500">Loading...</p>
+      <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed border-default">
+        <p className="text-sm text-dim">Loading...</p>
       </div>
     );
   }
@@ -603,7 +603,7 @@ function ExpenseList({
 
   if (expenses.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700 text-sm text-gray-400 dark:text-gray-500">
+      <div className="flex flex-col items-center justify-center h-48 rounded-xl border-2 border-dashed border-default text-sm text-dim">
         <p>No recurring expenses found.</p>
         <p className="mt-1 text-xs">Click &quot;+ New Expense&quot; to add one.</p>
       </div>
@@ -615,16 +615,16 @@ function ExpenseList({
     .reduce((sum, e) => sum + getEstimatedMonthly(e.amount, e.frequency), 0);
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 overflow-hidden">
-      <div className="p-4 border-b border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+    <div className="rounded-xl border border-default bg-surface-raised overflow-hidden">
+      <div className="p-4 border-b border-default bg-surface">
+        <h3 className="font-semibold text-primary">
           Recurring Expenses
         </h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-xs text-muted mt-1">
           Estimated Monthly: <span className="font-medium">{formatPrice(monthlyTotal)}</span>
         </p>
       </div>
-      <ul className="divide-y divide-gray-200 dark:divide-neutral-700 max-h-96 overflow-y-auto">
+      <ul className="divide-y divide-default max-h-96 overflow-y-auto">
         {expenses.map((expense) => (
           <li key={expense.id}>
             <button
@@ -636,30 +636,30 @@ function ExpenseList({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                    <p className="font-medium text-primary truncate">
                       {expense.name}
                     </p>
                     {!expense.is_active && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-neutral-600 text-gray-600 dark:text-gray-400">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-neutral-600 text-muted">
                         Inactive
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted">
                     {expense.category}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                  <p className="font-semibold text-primary">
                     {formatPrice(expense.amount)}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-muted">
                     {getFrequencyLabel(expense.frequency)}
                   </p>
                 </div>
               </div>
               {expense.next_payment_date && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                <p className="text-xs text-muted mt-2">
                   Next payment: {formatDate(expense.next_payment_date)}
                 </p>
               )}
@@ -722,43 +722,43 @@ export default function RecurringExpensesPage() {
   }
 
   return (
-    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-5xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
+    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-5xl mx-auto space-y-6 text-primary">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Recurring Expenses</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             Manage your recurring subscriptions and bills.
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowImportModal(true)}
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             Import CSV
           </button>
           <a
             href="/namu/user/finance"
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             Dashboard
           </a>
           <a
             href="/namu/user/finance/manage"
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             Finance Entries
           </a>
           <button
             onClick={() => (showExpenseForm ? closeExpenseForm() : openExpenseForm())}
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             {showExpenseForm ? "✕ Close" : "+ New Expense"}
           </button>
           <button
             onClick={() => setShowCatForm((v) => !v)}
-            className="text-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           >
             {showCatForm ? "✕ Close" : "+ New Category"}
           </button>
@@ -806,7 +806,7 @@ export default function RecurringExpensesPage() {
               }}
             />
           ) : (
-            <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed border-gray-200 dark:border-neutral-700 text-sm text-gray-400 dark:text-gray-500">
+            <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed border-default text-sm text-dim">
               Select an expense to edit
             </div>
           )}

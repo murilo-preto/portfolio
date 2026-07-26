@@ -1,11 +1,145 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Semantic theme tokens
+   ─────────────────────────────────────────────────────────────────────────
+   Every themed color in the app resolves through one of the tokens below,
+   so a theme is defined here and nowhere else. Components use the generated
+   utilities (`bg-surface`, `text-muted`, `border-subtle`, …) instead of
+   raw palette classes with a `dark:` twin.
+
+   LIGHT is a warm paper/bone theme.
+
+   DARK values are pinned to the exact Tailwind palette colors the app
+   already rendered before this refactor, quoted as literal oklch() so they
+   cannot drift — the Tailwind color each one came from is named in the
+   comment beside it. Editing a light value cannot reach dark mode, and
+   dark is byte-identical to what it was.
+   ───────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f3ece3;
+  --foreground: #2b2621;
   --bone: #e5d7c4;
   --offwhite: #f3ece3;
   color-scheme: light;
+
+  /* Surfaces — page sits lowest, `raised` highest. Dark inverts the order
+     (neutral-900 card, neutral-800 raised) which light previously flattened
+     into a single white; the warm ramp restores the hierarchy. */
+  --surface: #fbf7f2;
+  --surface-raised: #ffffff;
+  --surface-inset: #efe7db;
+  --surface-muted: #e9dfd0;
+  --surface-deep: #ece4d9;
+  --surface-hover: #ebe2d5;
+
+  /* Borders */
+  --border-subtle: #e7dccb;
+  --border-default: #dbc9b1;
+  --border-strong: #c9b496;
+
+  /* Text */
+  --text-primary: #2b2621;
+  --text-secondary: #574e44;
+  --text-muted: #7a6f63;
+  --text-dim: #9a8d7d;
+
+  /* Inverted surface — primary buttons, file pickers. Warm near-black in
+     light; near-white in dark. */
+  --invert-bg: #3d352c;
+  --invert-bg-hover: #514639;
+  --invert-fg: #faf6f0;
+
+  /* Accent tints — the stat/summary cards and icon tiles. Each hue has a
+     wash (`a`), a gradient tail (`b`), a hairline (`line`) and a glyph
+     colour (`ink`). Light keeps each hue's identity but pulls it toward
+     earth: dusty indigo, sage, ochre, plum, terracotta. They stay
+     translucent so the paper shows through. */
+  --tint-blue-a: oklch(50% 0.055 245 / 0.15);
+  --tint-blue-b: oklch(45% 0.05 248 / 0.07);
+  --tint-blue-line: oklch(50% 0.055 245 / 0.26);
+  --tint-blue-ink: oklch(45% 0.08 245);
+
+  --tint-green-a: oklch(51% 0.055 145 / 0.15);
+  --tint-green-b: oklch(45% 0.05 145 / 0.07);
+  --tint-green-line: oklch(51% 0.055 145 / 0.26);
+  --tint-green-ink: oklch(45% 0.075 145);
+
+  --tint-amber-a: oklch(62% 0.1 72 / 0.2);
+  --tint-amber-b: oklch(56% 0.09 62 / 0.1);
+  --tint-amber-line: oklch(62% 0.1 72 / 0.32);
+  --tint-amber-ink: oklch(52% 0.12 66);
+
+  --tint-purple-a: oklch(50% 0.09 305 / 0.15);
+  --tint-purple-b: oklch(45% 0.08 303 / 0.08);
+  --tint-purple-line: oklch(50% 0.09 305 / 0.26);
+  --tint-purple-ink: oklch(44% 0.11 305);
+
+  --tint-red-a: oklch(53% 0.11 32 / 0.15);
+  --tint-red-b: oklch(48% 0.1 30 / 0.08);
+  --tint-red-line: oklch(53% 0.11 32 / 0.28);
+
+  --tint-gray-a: oklch(45% 0.02 75 / 0.1);
+  --tint-gray-line: oklch(45% 0.02 75 / 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    color-scheme: dark;
+
+    --surface: oklch(20.5% 0 0); /* neutral-900 */
+    --surface-raised: oklch(26.9% 0 0); /* neutral-800 */
+    --surface-inset: oklch(26.9% 0 0); /* neutral-800 */
+    --surface-muted: oklch(26.9% 0 0); /* neutral-800 */
+    --surface-deep: oklch(14.5% 0 0); /* neutral-950 */
+    --surface-hover: oklch(37.1% 0 0); /* neutral-700 */
+
+    --border-subtle: oklch(26.9% 0 0); /* neutral-800 */
+    --border-default: oklch(37.1% 0 0); /* neutral-700 */
+    --border-strong: oklch(43.9% 0 0); /* neutral-600 */
+
+    --text-primary: oklch(96.7% 0.003 264.542); /* gray-100 */
+    --text-secondary: oklch(87.2% 0.01 258.338); /* gray-300 */
+    --text-muted: oklch(70.7% 0.022 261.325); /* gray-400 */
+    --text-dim: oklch(55.1% 0.027 264.364); /* gray-500 */
+
+    --invert-bg: oklch(97% 0 0); /* neutral-100 */
+    --invert-bg-hover: oklch(92.2% 0 0); /* neutral-200 */
+    --invert-fg: oklch(20.5% 0 0); /* neutral-900 */
+
+    /* Pinned to exactly what Tailwind emitted for the classes these
+       replaced, alpha included — e.g. `from-blue-500/10` is blue-500 at
+       0.1. Dark renders bit-for-bit what it did before. */
+    --tint-blue-a: oklch(62.3% 0.214 259.815 / 0.1); /* blue-500/10 */
+    --tint-blue-b: oklch(54.6% 0.245 262.881 / 0.05); /* blue-600/5 */
+    --tint-blue-line: oklch(62.3% 0.214 259.815 / 0.2); /* blue-500/20 */
+    --tint-blue-ink: oklch(62.3% 0.214 259.815); /* blue-500 */
+
+    --tint-green-a: oklch(72.3% 0.219 149.579 / 0.1); /* green-500/10 */
+    --tint-green-b: oklch(62.7% 0.194 149.214 / 0.05); /* green-600/5 */
+    --tint-green-line: oklch(72.3% 0.219 149.579 / 0.2); /* green-500/20 */
+    --tint-green-ink: oklch(72.3% 0.219 149.579); /* green-500 */
+
+    --tint-amber-a: oklch(76.9% 0.188 70.08 / 0.1); /* amber-500/10 */
+    --tint-amber-b: oklch(66.6% 0.179 58.318 / 0.05); /* amber-600/5 */
+    --tint-amber-line: oklch(76.9% 0.188 70.08 / 0.2); /* amber-500/20 */
+    --tint-amber-ink: oklch(76.9% 0.188 70.08); /* amber-500 */
+
+    --tint-purple-a: oklch(62.7% 0.265 303.9 / 0.1); /* purple-500/10 */
+    --tint-purple-b: oklch(55.8% 0.288 302.321 / 0.05); /* purple-600/5 */
+    --tint-purple-line: oklch(62.7% 0.265 303.9 / 0.2); /* purple-500/20 */
+    --tint-purple-ink: oklch(62.7% 0.265 303.9); /* purple-500 */
+
+    --tint-red-a: oklch(63.7% 0.237 25.331 / 0.1); /* red-500/10 */
+    --tint-red-b: oklch(57.7% 0.245 27.325 / 0.05); /* red-600/5 */
+    --tint-red-line: oklch(63.7% 0.237 25.331 / 0.2); /* red-500/20 */
+
+    --tint-gray-a: oklch(55.1% 0.027 264.364 / 0.1); /* gray-500/10 */
+    --tint-gray-line: oklch(55.1% 0.027 264.364 / 0.2); /* gray-500/20 */
+  }
 }
 
 @theme inline {
@@ -15,16 +149,55 @@
   --color-bone: var(--bone);
   --color-offwhite: var(--offwhite);
 
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inset: var(--surface-inset);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-deep: var(--surface-deep);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-subtle: var(--border-subtle);
+  --color-default: var(--border-default);
+  --color-strong: var(--border-strong);
+
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-dim: var(--text-dim);
+
+  --color-invert: var(--invert-bg);
+  --color-invert-hover: var(--invert-bg-hover);
+  --color-invert-fg: var(--invert-fg);
+
+  --color-tint-blue-a: var(--tint-blue-a);
+  --color-tint-blue-b: var(--tint-blue-b);
+  --color-tint-blue-line: var(--tint-blue-line);
+  --color-tint-blue-ink: var(--tint-blue-ink);
+
+  --color-tint-green-a: var(--tint-green-a);
+  --color-tint-green-b: var(--tint-green-b);
+  --color-tint-green-line: var(--tint-green-line);
+  --color-tint-green-ink: var(--tint-green-ink);
+
+  --color-tint-amber-a: var(--tint-amber-a);
+  --color-tint-amber-b: var(--tint-amber-b);
+  --color-tint-amber-line: var(--tint-amber-line);
+  --color-tint-amber-ink: var(--tint-amber-ink);
+
+  --color-tint-purple-a: var(--tint-purple-a);
+  --color-tint-purple-b: var(--tint-purple-b);
+  --color-tint-purple-line: var(--tint-purple-line);
+  --color-tint-purple-ink: var(--tint-purple-ink);
+
+  --color-tint-red-a: var(--tint-red-a);
+  --color-tint-red-b: var(--tint-red-b);
+  --color-tint-red-line: var(--tint-red-line);
+
+  --color-tint-gray-a: var(--tint-gray-a);
+  --color-tint-gray-line: var(--tint-gray-line);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    color-scheme: dark;
-  }
 }
 
 body {

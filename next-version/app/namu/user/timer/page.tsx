@@ -486,21 +486,21 @@ export default function TimerPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-6xl mx-auto space-y-6 text-gray-900 dark:text-gray-100">
+    <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-6xl mx-auto space-y-6 text-primary">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">
             Timer
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             Track your time by category
           </p>
         </div>
         <a
           href="/namu/user/entries"
-          className="text-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700
-                     bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700
+          className="text-sm px-4 py-2 rounded-lg border border-default
+                     bg-surface-raised hover:bg-surface-hover
                      transition-colors text-gray-700 dark:text-gray-200 font-medium"
         >
           View Entries
@@ -514,7 +514,7 @@ export default function TimerPage() {
         {/* Left Column - Category, timer and session */}
         <div className="contents lg:col-span-2 lg:flex lg:flex-col lg:gap-6">
           {/* Category first: nothing can start without it */}
-          <div className="order-1 lg:order-none bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+          <div className="order-1 lg:order-none bg-surface p-5 rounded-xl shadow-sm border border-subtle">
             <CategoryPicker
               categories={orderedCategories}
               selectedId={categoryId}
@@ -545,7 +545,7 @@ export default function TimerPage() {
           </div>
 
           {/* Session details + submit */}
-          <div className="order-3 lg:order-none bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 space-y-4">
+          <div className="order-3 lg:order-none bg-surface p-5 rounded-xl shadow-sm border border-subtle space-y-4">
             <SessionSegments
               segments={segments}
               onChange={handleSegmentsChange}
@@ -553,9 +553,9 @@ export default function TimerPage() {
             />
 
             {canSubmitNow && (
-              <div className="space-y-3 border-t border-gray-200 dark:border-neutral-800 pt-4">
+              <div className="space-y-3 border-t border-subtle pt-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">
+                  <span className="text-muted">
                     Session total
                   </span>
                   <span className="font-semibold tabular-nums">
@@ -583,9 +583,9 @@ export default function TimerPage() {
                   <button
                     onClick={handleDiscard}
                     disabled={submitStatus === "loading"}
-                    className="px-4 py-3.5 rounded-xl text-sm text-gray-600 dark:text-gray-300
-                               border border-gray-300 dark:border-neutral-700
-                               hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors
+                    className="px-4 py-3.5 rounded-xl text-sm text-secondary
+                               border border-default
+                               hover:bg-surface-inset transition-colors
                                disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Discard
@@ -594,7 +594,7 @@ export default function TimerPage() {
 
                 {/* Validation hints */}
                 {!isValid && (
-                  <ul className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
+                  <ul className="text-xs text-dim space-y-1">
                     {!selectedCategory && (
                       <li className="flex items-center gap-1.5">
                         <span className="w-1 h-1 bg-gray-400 rounded-full" />

@@ -60,25 +60,25 @@ export function DailyTarget({
   const showEditor = editing || target == null;
 
   return (
-    <div className="bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+    <div className="bg-surface p-5 rounded-xl shadow-sm border border-subtle">
       <div className="flex items-center justify-between gap-2 mb-4">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="text-sm font-semibold text-primary">
           Remaining
         </h2>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 truncate max-w-[60%]">
+        <span className="text-xs px-2 py-0.5 rounded-full bg-surface-muted text-secondary truncate max-w-[60%]">
           {categoryName}
         </span>
       </div>
 
       {showEditor ? (
         <div className="space-y-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-muted">
             Daily target for {categoryName}
           </p>
 
           <div className="flex items-end gap-2">
             <label className="flex-1">
-              <span className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+              <span className="block text-[11px] text-muted mb-1">
                 Hours
               </span>
               <input
@@ -88,13 +88,13 @@ export function DailyTarget({
                 value={draftH}
                 onChange={(e) => setDraftH(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && saveDraft()}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600
-                           bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm
+                className="w-full px-3 py-2 rounded-lg border border-strong
+                           bg-surface-raised text-primary text-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </label>
             <label className="flex-1">
-              <span className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+              <span className="block text-[11px] text-muted mb-1">
                 Minutes
               </span>
               <input
@@ -105,8 +105,8 @@ export function DailyTarget({
                 value={draftM}
                 onChange={(e) => setDraftM(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && saveDraft()}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600
-                           bg-white dark:bg-neutral-800 text-gray-900 dark:text-gray-100 text-sm
+                className="w-full px-3 py-2 rounded-lg border border-strong
+                           bg-surface-raised text-primary text-sm
                            focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </label>
@@ -121,8 +121,8 @@ export function DailyTarget({
                   onSetTarget(preset);
                   setEditing(false);
                 }}
-                className="text-xs px-3.5 py-2 rounded-full border border-gray-300 dark:border-neutral-700
-                           text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-800
+                className="text-xs px-3.5 py-2 rounded-full border border-default
+                           text-secondary hover:bg-surface-inset
                            transition-colors"
               >
                 {formatDuration(preset)}
@@ -143,9 +143,9 @@ export function DailyTarget({
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-300
-                           border border-gray-300 dark:border-neutral-700
-                           hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+                className="px-3 py-2 rounded-lg text-sm text-secondary
+                           border border-default
+                           hover:bg-surface-inset transition-colors"
               >
                 Cancel
               </button>
@@ -157,38 +157,38 @@ export function DailyTarget({
           <div
             className={`p-3 rounded-lg border ${
               metTarget
-                ? "bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20"
-                : "bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20"
+                ? "bg-gradient-to-br from-tint-green-a to-tint-green-b border-tint-green-line"
+                : "bg-gradient-to-br from-tint-blue-a to-tint-blue-b border-tint-blue-line"
             }`}
           >
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted">
               {metTarget ? "Target met — overtime" : "Left to work"}
             </p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+            <p className="text-2xl font-bold text-primary tabular-nums">
               {loading ? "—" : formatDuration(Math.abs(remaining))}
             </p>
           </div>
 
           <dl className="space-y-1.5 text-xs tabular-nums">
             <div className="flex justify-between">
-              <dt className="text-gray-500 dark:text-gray-400">Logged today</dt>
-              <dd className="text-gray-900 dark:text-gray-100">
+              <dt className="text-muted">Logged today</dt>
+              <dd className="text-primary">
                 {loading ? "—" : formatDuration(loggedSeconds)}
               </dd>
             </div>
             {liveSeconds > 0 && (
               <div className="flex justify-between">
-                <dt className="text-gray-500 dark:text-gray-400">
+                <dt className="text-muted">
                   This session
                 </dt>
-                <dd className="text-green-600 dark:text-green-400">
+                <dd className="text-tint-green-ink dark:text-green-400">
                   +{formatDuration(liveSeconds)}
                 </dd>
               </div>
             )}
-            <div className="flex justify-between border-t border-gray-100 dark:border-neutral-800 pt-1.5">
-              <dt className="text-gray-500 dark:text-gray-400">Target</dt>
-              <dd className="text-gray-900 dark:text-gray-100">
+            <div className="flex justify-between border-t border-subtle pt-1.5">
+              <dt className="text-muted">Target</dt>
+              <dd className="text-primary">
                 {formatDuration(target)}
               </dd>
             </div>
@@ -198,7 +198,7 @@ export function DailyTarget({
             <button
               type="button"
               onClick={startEditing}
-              className="px-2.5 py-2 -ml-2.5 rounded-lg text-blue-600 dark:text-blue-400
+              className="px-2.5 py-2 -ml-2.5 rounded-lg text-tint-blue-ink dark:text-blue-400
                          hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
             >
               Edit target
@@ -206,8 +206,8 @@ export function DailyTarget({
             <button
               type="button"
               onClick={onClearTarget}
-              className="px-2.5 py-2 rounded-lg text-gray-400 dark:text-gray-500
-                         hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+              className="px-2.5 py-2 rounded-lg text-dim
+                         hover:bg-surface-inset transition-colors"
             >
               Clear
             </button>

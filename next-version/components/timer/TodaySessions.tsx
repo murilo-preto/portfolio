@@ -43,26 +43,26 @@ export function TodaySessions({
   return (
     // min-h-0 lets the list shrink inside the stretched column instead of
     // pushing the card past the bottom of the grid row.
-    <div className="h-full min-h-0 flex flex-col bg-white dark:bg-neutral-900 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+    <div className="h-full min-h-0 flex flex-col bg-surface p-5 rounded-xl shadow-sm border border-subtle">
       <div className="flex items-baseline justify-between gap-2 mb-3 flex-none">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="text-sm font-semibold text-primary">
           Today's Sessions
         </h2>
         {today.length > 0 && (
-          <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+          <span className="text-xs text-dim tabular-nums">
             {today.length}
           </span>
         )}
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-400">Loading…</p>
+        <p className="text-sm text-muted">Loading…</p>
       ) : today.length === 0 ? (
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-dim">
           Nothing logged yet today. Finish a session and it will show up here.
         </p>
       ) : (
-        <ul className="flex-1 min-h-0 overflow-y-auto -mr-2 pr-2 divide-y divide-gray-100 dark:divide-neutral-800">
+        <ul className="flex-1 min-h-0 overflow-y-auto -mr-2 pr-2 divide-y divide-subtle">
           {today.map((entry) => {
             const active = entry.category === activeCategory;
             return (
@@ -74,13 +74,13 @@ export function TodaySessions({
                   <p
                     className={`truncate font-medium ${
                       active
-                        ? "text-gray-900 dark:text-gray-100"
-                        : "text-gray-500 dark:text-gray-400"
+                        ? "text-primary"
+                        : "text-muted"
                     }`}
                   >
                     {entry.category}
                   </p>
-                  <p className="text-gray-400 dark:text-gray-500 tabular-nums">
+                  <p className="text-dim tabular-nums">
                     {clockTime(entry.start_time)}
                     {entry.end_time ? ` – ${clockTime(entry.end_time)}` : ""}
                   </p>
@@ -88,8 +88,8 @@ export function TodaySessions({
                 <span
                   className={`tabular-nums flex-none ${
                     active
-                      ? "text-green-600 dark:text-green-400 font-semibold"
-                      : "text-gray-600 dark:text-gray-300"
+                      ? "text-tint-green-ink dark:text-green-400 font-semibold"
+                      : "text-secondary"
                   }`}
                 >
                   {formatDuration(entry.duration_seconds)}

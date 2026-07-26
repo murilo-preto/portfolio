@@ -206,7 +206,7 @@ export default function FinanceDashboard() {
   if (loading) {
     return (
       <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">Loading finance dashboard...</div>
+        <div className="text-muted">Loading finance dashboard...</div>
       </main>
     );
   }
@@ -226,35 +226,35 @@ export default function FinanceDashboard() {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary">
             {data.username}'s Finance Dashboard
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted mt-1">
             Track your spending and manage your budget
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => exportToCSV(data?.entries ?? [])}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors text-gray-700 dark:text-gray-200"
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
           >
             Export CSV
           </button>
           <button
             onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors text-gray-700 dark:text-gray-200"
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
           >
             Import CSV
           </button>
           <a
             href="/namu/user/finance/recurring"
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors text-gray-700 dark:text-gray-200"
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
           >
             Recurring
           </a>
           <a
             href="/namu/user/finance/manage"
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-neutral-800 dark:bg-neutral-100 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors text-white dark:text-neutral-900"
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-invert hover:bg-invert-hover transition-colors text-invert-fg"
           >
             Manage Entries
           </a>
@@ -338,12 +338,12 @@ export default function FinanceDashboard() {
         {/* Left Column - Charts and Table */}
         <div className="lg:col-span-2 space-y-6">
           {/* Bar Chart */}
-          <div className="bg-white dark:bg-neutral-900 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+          <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-base font-semibold text-primary">
                 Spending by Category
               </h2>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-muted">
                 {filterMode === "all" ? "All entries" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
@@ -351,12 +351,12 @@ export default function FinanceDashboard() {
           </div>
 
           {/* Transactions Table */}
-          <div className="bg-white dark:bg-neutral-900 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+          <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-base font-semibold text-primary">
                 Transactions
               </h2>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-muted">
                 {visibleEntries.length} entries
               </span>
             </div>
@@ -370,12 +370,12 @@ export default function FinanceDashboard() {
           <RecurringSummary recurringExpenses={recurringExpenses} />
 
           {/* Pie Chart */}
-          <div className="bg-white dark:bg-neutral-900 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+          <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-base font-semibold text-primary">
                 Category Distribution
               </h2>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-muted">
                 {filterMode === "all" ? "All time" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
@@ -383,45 +383,45 @@ export default function FinanceDashboard() {
           </div>
 
           {/* Quick Stats */}
-          <div className="bg-white dark:bg-neutral-900 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
+            <h2 className="text-base font-semibold text-primary mb-4">
               Quick Stats
             </h2>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-surface-inset">
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Highest Transaction</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[120px]">
+                  <p className="text-xs text-muted">Highest Transaction</p>
+                  <p className="text-sm font-medium text-primary truncate max-w-[120px]">
                     {highestTransaction.product_name}
                   </p>
                 </div>
-                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-bold text-primary">
                   {formatPrice(highestTransaction.price)}
                 </p>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-surface-inset">
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Completion Rate</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">of budget spent</p>
+                  <p className="text-xs text-muted">Completion Rate</p>
+                  <p className="text-xs text-dim">of budget spent</p>
                 </div>
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-lg font-bold text-primary">
                   {completionRate}%
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Planned</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <div className="p-2 rounded-lg bg-surface-inset">
+                  <p className="text-xs text-muted">Planned</p>
+                  <p className="text-lg font-semibold text-primary">
                     {plannedCount}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">pending</p>
+                  <p className="text-xs text-dim">pending</p>
                 </div>
-                <div className="p-2 rounded-lg bg-gray-50 dark:bg-neutral-800">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Completed</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <div className="p-2 rounded-lg bg-surface-inset">
+                  <p className="text-xs text-muted">Completed</p>
+                  <p className="text-lg font-semibold text-primary">
                     {completedCount}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">paid</p>
+                  <p className="text-xs text-dim">paid</p>
                 </div>
               </div>
             </div>

@@ -62,10 +62,10 @@ export default function NamuHome() {
   return (
     <main className="flex-1 px-4 py-8 md:px-8 md:py-12 max-w-4xl mx-auto">
       <section className="text-center py-12 md:py-20">
-        <h1 className="text-4xl md:text-6xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+        <h1 className="text-4xl md:text-6xl font-bold mb-4 text-primary">
           Namu
         </h1>
-        <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-lg mx-auto">
+        <p className="text-lg md:text-xl text-muted max-w-lg mx-auto">
           A simple and powerful time tracking app to help you understand how you spend your time.
         </p>
 
@@ -73,13 +73,13 @@ export default function NamuHome() {
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/login"
-              className="px-6 py-3 bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg font-medium hover:opacity-90 transition-opacity"
+              className="px-6 py-3 bg-invert text-invert-fg rounded-lg font-medium hover:opacity-90 transition-opacity"
             >
               Login
             </Link>
             <Link
               href="/register"
-              className="px-6 py-3 border border-gray-300 dark:border-neutral-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+              className="px-6 py-3 border border-strong rounded-lg font-medium hover:bg-surface-inset transition-colors"
             >
               Register
             </Link>
@@ -90,7 +90,7 @@ export default function NamuHome() {
           <div className="mt-8">
             <Link
               href="/namu/user/entries"
-              className="px-6 py-3 bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg font-medium hover:opacity-90 transition-opacity"
+              className="px-6 py-3 bg-invert text-invert-fg rounded-lg font-medium hover:opacity-90 transition-opacity"
             >
               Go to Dashboard
             </Link>
@@ -103,15 +103,15 @@ export default function NamuHome() {
           <Link
             key={feature.href}
             href={feature.href}
-            className="block p-6 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-gray-400 dark:hover:border-neutral-500 transition-colors group"
+            className="block p-6 rounded-xl border border-default bg-surface hover:border-gray-400 dark:hover:border-neutral-500 transition-colors group"
           >
-            <div className="text-gray-600 dark:text-gray-400 mb-3 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors">
+            <div className="text-muted mb-3 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors">
               {feature.icon}
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+            <h2 className="text-lg font-semibold text-primary mb-1">
               {feature.title}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted">
               {feature.description}
             </p>
           </Link>

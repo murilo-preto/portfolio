@@ -106,19 +106,19 @@ export function TodoList({
   });
 
   return (
-    <div className="bg-white dark:bg-neutral-900 p-4 md:p-5 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+    <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="text-base font-semibold text-primary">
           To Do Items
         </h2>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs text-muted">
             {filteredItems.length} of {items.length} items
           </span>
           <button
             onClick={onToggleSelectMode}
-            className="text-xs px-2 py-1 rounded-lg border border-gray-300 dark:border-neutral-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-800"
+            className="text-xs px-2 py-1 rounded-lg border border-strong text-secondary hover:bg-surface-inset"
           >
             {selectMode ? "Done" : "Select"}
           </button>
@@ -133,19 +133,19 @@ export function TodoList({
           </span>
           <button
             onClick={() => onBulkStatusChange("pending")}
-            className="text-xs px-2 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600"
+            className="text-xs px-2 py-1 rounded-lg bg-surface-raised border border-strong"
           >
             Mark Pending
           </button>
           <button
             onClick={() => onBulkStatusChange("in_progress")}
-            className="text-xs px-2 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600"
+            className="text-xs px-2 py-1 rounded-lg bg-surface-raised border border-strong"
           >
             Mark In Progress
           </button>
           <button
             onClick={() => onBulkStatusChange("completed")}
-            className="text-xs px-2 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600"
+            className="text-xs px-2 py-1 rounded-lg bg-surface-raised border border-strong"
           >
             Mark Completed
           </button>
@@ -164,7 +164,7 @@ export function TodoList({
         value={searchQuery}
         onChange={(e) => onSearchQueryChange(e.target.value)}
         placeholder="Search title or description..."
-        className="w-full px-3 py-2 mb-3 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        className="w-full px-3 py-2 mb-3 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
       />
 
       {/* Filters */}
@@ -172,7 +172,7 @@ export function TodoList({
         <select
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value as StatusFilter)}
-          className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="px-2 py-1.5 rounded-lg border border-strong bg-surface-raised text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
         >
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
@@ -183,7 +183,7 @@ export function TodoList({
         <select
           value={priorityFilter}
           onChange={(e) => onPriorityFilterChange(e.target.value as PriorityFilter)}
-          className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="px-2 py-1.5 rounded-lg border border-strong bg-surface-raised text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
         >
           <option value="all">All Priority</option>
           <option value="high">High</option>
@@ -194,7 +194,7 @@ export function TodoList({
         <select
           value={categoryFilter}
           onChange={(e) => onCategoryFilterChange(e.target.value)}
-          className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="px-2 py-1.5 rounded-lg border border-strong bg-surface-raised text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
         >
           <option value="">All Categories</option>
           {categories.map((cat) => (
@@ -207,7 +207,7 @@ export function TodoList({
         <select
           value={sortOption}
           onChange={(e) => onSortOptionChange(e.target.value as SortOption)}
-          className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="px-2 py-1.5 rounded-lg border border-strong bg-surface-raised text-xs focus:outline-none focus:ring-2 focus:ring-neutral-400"
         >
           <option value="priority">Sort: Priority</option>
           <option value="due_date">Sort: Due Date</option>
@@ -233,8 +233,8 @@ export function TodoList({
                 }
                 className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${
                   active
-                    ? "bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-800 dark:border-neutral-100"
-                    : "bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"
+                    ? "bg-invert text-invert-fg border-neutral-800 dark:border-neutral-100"
+                    : "bg-surface-raised text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"
                 }`}
               >
                 {tag.name}
@@ -246,13 +246,13 @@ export function TodoList({
 
       {/* List */}
       {loading ? (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-8 text-muted">
           Loading To Do items...
         </div>
       ) : error ? (
         <div className="text-center py-8 text-red-500">{error}</div>
       ) : sortedItems.length === 0 ? (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-8 text-muted">
           {items.length === 0
             ? "No To Do items. Create one to get started!"
             : "No items match the current filters."}

@@ -350,9 +350,9 @@ export function PomodoroTimer({
       case "pomodoro":
         return "text-red-500";
       case "shortBreak":
-        return "text-green-500";
+        return "text-tint-green-ink";
       case "longBreak":
-        return "text-blue-500";
+        return "text-tint-blue-ink";
     }
   }
 
@@ -360,7 +360,7 @@ export function PomodoroTimer({
   const progress = ((totalDuration - displaySeconds) / totalDuration) * 100;
 
   return (
-    <div className="bg-white dark:bg-neutral-900 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800">
+    <div className="bg-surface p-6 rounded-xl shadow-sm border border-subtle">
       {/* Mode Selector */}
       <div className="flex gap-2 mb-6">
         {(["pomodoro", "shortBreak", "longBreak"] as const).map((m) => (
@@ -374,7 +374,7 @@ export function PomodoroTimer({
                   : m === "shortBreak"
                   ? "bg-green-500 text-white"
                   : "bg-blue-500 text-white"
-                : "bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-neutral-700"
+                : "bg-surface-muted text-muted hover:bg-gray-200 dark:hover:bg-neutral-700"
             }`}
           >
             {modeLabel(m)}
@@ -386,13 +386,13 @@ export function PomodoroTimer({
       <div className="text-center mb-6">
         <div
           className={`font-mono text-6xl font-bold tracking-widest transition-colors ${
-            runState === "running" ? getModeColor(mode) : "text-gray-700 dark:text-gray-300"
+            runState === "running" ? getModeColor(mode) : "text-secondary"
           }`}
         >
           {formatTime(displaySeconds)}
         </div>
 
-        <div className="w-full h-2 bg-gray-200 dark:bg-neutral-700 rounded-full mt-4 overflow-hidden">
+        <div className="w-full h-2 bg-surface-hover rounded-full mt-4 overflow-hidden">
           <div
             className={`h-full transition-all duration-1000 ${
               mode === "pomodoro"
@@ -412,9 +412,9 @@ export function PomodoroTimer({
         )}
 
         {selectedTodo && mode === "pomodoro" && (
-          <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-neutral-800">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Working on</p>
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+          <div className="mt-4 p-3 rounded-lg bg-surface-inset">
+            <p className="text-xs text-muted mb-1">Working on</p>
+            <p className="text-sm font-medium text-primary truncate">
               {selectedTodo.title}
             </p>
             <button
@@ -427,7 +427,7 @@ export function PomodoroTimer({
         )}
 
         {sessionsCompleted > 0 && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+          <p className="text-xs text-muted mt-3">
             {sessionsCompleted} pomodoro{sessionsCompleted !== 1 ? "s" : ""} completed
           </p>
         )}

@@ -42,12 +42,12 @@ export function WeekNavigator({
           type="button"
           onClick={onPrev}
           disabled={isDisabled}
-          className="p-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Previous period"
         >
           ←
         </button>
-        <div className="px-4 py-2 rounded-lg bg-offwhite dark:bg-neutral-900 text-sm font-medium">
+        <div className="px-4 py-2 rounded-lg bg-surface text-sm font-medium">
           {filterMode === "today"
             ? today.toLocaleDateString(undefined, {
                 weekday: "long",
@@ -64,7 +64,7 @@ export function WeekNavigator({
           type="button"
           onClick={onNext}
           disabled={isDisabled}
-          className="p-2 rounded-lg border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Next period"
         >
           →
@@ -79,8 +79,8 @@ export function WeekNavigator({
             onClick={() => onFilterModeChange(mode)}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               filterMode === mode
-                ? "bg-neutral-800 dark:bg-neutral-100 text-white dark:text-neutral-900"
-                : "border border-gray-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700"
+                ? "bg-invert text-invert-fg"
+                : "border border-default bg-surface-raised hover:bg-surface-hover"
             }`}
           >
             {mode.charAt(0).toUpperCase() + mode.slice(1)}
