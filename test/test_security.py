@@ -127,19 +127,6 @@ def _create_finance_entry_for(client, token, category="Bills"):
     return resp
 
 
-def _create_recurring_expense_for(client, token, category="Bills"):
-    """Create a recurring expense as the authenticated user."""
-    _ensure_finance_category(client, category, token)
-    resp = client.post("/recurring-expenses/create", headers=auth(token), json={
-        "name": "Test Subscription",
-        "category": category,
-        "amount": 9.99,
-        "frequency": "monthly",
-        "start_date": "2024-01-01",
-    })
-    return resp
-
-
 def _create_todo_item_for(client, token, category="Work"):
     """Create a todo item as the authenticated user."""
     _ensure_todo_category(client, category, token)
@@ -176,10 +163,7 @@ class TestAuthenticationBypass:
         ("PUT",    "/finance/999999",             {"product_name": "x", "category": "c", "price": 1, "purchase_date": "2024-01-01T00:00:00+00:00"}),
         ("POST",   "/finance/delete",             {"entry_id": 999999}),
         ("POST",   "/finance/batch-import",       {"entries": []}),
-        ("GET",    "/recurring-expenses",         None),
-        ("POST",   "/recurring-expenses/create",  {"name": "x", "category": "c", "amount": 1, "frequency": "monthly", "start_date": "2024-01-01"}),
-        ("PUT",    "/recurring-expenses/999999",  {"name": "x", "category": "c", "amount": 1, "frequency": "monthly", "start_date": "2024-01-01"}),
-        ("POST",   "/recurring-expenses/delete",  {"expense_id": 999999}),
+        ("POST",   "/finance/batch-generate",     {"entries": []}),
         ("GET",    "/todo",                       None),
         ("POST",   "/todo/create",                {"title": "x", "category": "c"}),
         ("PUT",    "/todo/999999",                {"title": "x"}),
@@ -441,64 +425,6 @@ class TestHorizontalPrivilegeEscalation:
             )
             row = cursor.fetchone()
         assert row is not None, "User B successfully deleted User A's finance entry"
-
-    @pytest.mark.integration
-    def test_user_b_cannot_update_user_a_recurring_expense(self, client, user_a, user_b):
-        """
-        IDOR: User B sends PUT /recurring-expenses/<id> targeting User A's recurring expense.
-        """
-        resp = _create_recurring_expense_for(client, user_a["token"])
-        if resp.status_code != 201:
-            pytest.skip("Could not create recurring expense for user_a")
-
-        expense_id = resp.get_json()["expense"]["id"]
-
-        attack = client.put(
-            f"/recurring-expenses/{expense_id}",
-            headers=auth(user_b["token"]),
-            json={
-                "name": "HIJACKED",
-                "category": "Bills",
-                "amount": 999.99,
-                "frequency": "monthly",
-                "start_date": "2024-01-01",
-            },
-        )
-        assert attack.status_code in (403, 404)
-
-        with get_cursor() as cursor:
-            cursor.execute(
-                "SELECT name FROM recurring_expenses WHERE id = %s", (expense_id,)
-            )
-            row = cursor.fetchone()
-        assert row is not None and row["name"] != "HIJACKED", (
-            "User B modified User A's recurring expense"
-        )
-
-    @pytest.mark.integration
-    def test_user_b_cannot_delete_user_a_recurring_expense(self, client, user_a, user_b):
-        """
-        IDOR: User B sends POST /recurring-expenses/delete targeting User A's expense.
-        """
-        resp = _create_recurring_expense_for(client, user_a["token"])
-        if resp.status_code != 201:
-            pytest.skip("Could not create recurring expense for user_a")
-
-        expense_id = resp.get_json()["expense"]["id"]
-
-        attack = client.post(
-            "/recurring-expenses/delete",
-            headers=auth(user_b["token"]),
-            json={"expense_id": expense_id},
-        )
-        assert attack.status_code in (403, 404)
-
-        with get_cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM recurring_expenses WHERE id = %s", (expense_id,)
-            )
-            row = cursor.fetchone()
-        assert row is not None, "User B deleted User A's recurring expense"
 
     @pytest.mark.integration
     def test_user_b_cannot_update_user_a_todo_item(self, client, user_a, user_b):
@@ -976,24 +902,6 @@ class TestSQLInjection:
         )
         assert resp.status_code != 500
 
-    @pytest.mark.integration
-    @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-    def test_sqli_in_recurring_expense_name(self, client, user_a, payload):
-        """Attack: SQL injection in 'name' of POST /recurring-expenses/create."""
-        _ensure_finance_category(client, "Bills", user_a["token"])
-        resp = client.post(
-            "/recurring-expenses/create",
-            headers=auth(user_a["token"]),
-            json={
-                "name": payload,
-                "category": "Bills",
-                "amount": 10.00,
-                "frequency": "monthly",
-                "start_date": "2024-01-01",
-            },
-        )
-        assert resp.status_code != 500
-
 
 # ─── Input Validation / Mass Assignment ──────────────────────────────────────
 
@@ -1203,74 +1111,97 @@ class TestInputValidation:
         )
         assert resp.status_code == 400
 
-    # ── Recurring Expenses ────────────────────────────────────────────────
+    # ── Batch Generate ────────────────────────────────────────────────────
+
+    def _valid_generate_payload(self, **overrides):
+        payload = {
+            "frequency": "monthly",
+            "day": 1,
+            "start_date": "2024-01-01",
+            "end_date": "2024-06-01",
+            "status": "planned",
+            "entries": [
+                {"product_name": "Rent", "category": "Bills", "price": 1000.00},
+                {"product_name": "Internet", "category": "Bills", "price": 99.90},
+            ],
+        }
+        payload.update(overrides)
+        return payload
 
     @pytest.mark.integration
-    def test_recurring_expense_invalid_frequency_rejected(self, client, user_a):
-        """Frequency outside the allowed set must return 400."""
-        _ensure_finance_category(client, "Bills", user_a["token"])
+    def test_batch_generate_invalid_frequency_rejected(self, client, user_a):
+        """frequency outside monthly/quarterly/yearly must return 400."""
         resp = client.post(
-            "/recurring-expenses/create",
+            "/finance/batch-generate",
             headers=auth(user_a["token"]),
-            json={
-                "name": "Test",
-                "category": "Bills",
-                "amount": 10.00,
-                "frequency": "daily",  # not in the allowed set
-                "start_date": "2024-01-01",
-            },
+            json=self._valid_generate_payload(frequency="weekly"),
         )
         assert resp.status_code == 400
 
     @pytest.mark.integration
-    def test_recurring_expense_end_before_start_rejected(self, client, user_a):
-        """end_date before start_date must return 400."""
-        _ensure_finance_category(client, "Bills", user_a["token"])
+    def test_batch_generate_invalid_day_rejected(self, client, user_a):
+        """day 0 or day 32 must return 400."""
+        for bad_day in (0, 32):
+            resp = client.post(
+                "/finance/batch-generate",
+                headers=auth(user_a["token"]),
+                json=self._valid_generate_payload(day=bad_day),
+            )
+            assert resp.status_code == 400, f"day={bad_day} not rejected"
+
+    @pytest.mark.integration
+    def test_batch_generate_last_day_sentinel_accepted(self, client, user_a):
+        """day=-1 (last day of month) is valid and must return 200."""
         resp = client.post(
-            "/recurring-expenses/create",
+            "/finance/batch-generate",
             headers=auth(user_a["token"]),
-            json={
-                "name": "Test",
-                "category": "Bills",
-                "amount": 10.00,
-                "frequency": "monthly",
-                "start_date": "2024-06-01",
-                "end_date": "2024-01-01",
-            },
+            json=self._valid_generate_payload(day=-1),
+        )
+        assert resp.status_code == 200
+
+    @pytest.mark.integration
+    def test_batch_generate_end_before_start_rejected(self, client, user_a):
+        """end_date earlier than start_date must return 400."""
+        resp = client.post(
+            "/finance/batch-generate",
+            headers=auth(user_a["token"]),
+            json=self._valid_generate_payload(
+                start_date="2024-06-01", end_date="2024-01-01"
+            ),
         )
         assert resp.status_code == 400
 
     @pytest.mark.integration
-    def test_recurring_expense_negative_amount_rejected(self, client, user_a):
-        """Negative amount must return 400."""
-        _ensure_finance_category(client, "Bills", user_a["token"])
+    def test_batch_generate_empty_entries_rejected(self, client, user_a):
+        """An empty entries array must return 400."""
         resp = client.post(
-            "/recurring-expenses/create",
+            "/finance/batch-generate",
             headers=auth(user_a["token"]),
-            json={
-                "name": "Test",
-                "category": "Bills",
-                "amount": -50.00,
-                "frequency": "monthly",
-                "start_date": "2024-01-01",
-            },
+            json=self._valid_generate_payload(entries=[]),
         )
         assert resp.status_code == 400
 
     @pytest.mark.integration
-    def test_recurring_expense_invalid_date_format_rejected(self, client, user_a):
-        """start_date not in YYYY-MM-DD format must return 400."""
-        _ensure_finance_category(client, "Bills", user_a["token"])
+    def test_batch_generate_negative_price_rejected(self, client, user_a):
+        """Negative entry price must return 400."""
         resp = client.post(
-            "/recurring-expenses/create",
+            "/finance/batch-generate",
             headers=auth(user_a["token"]),
-            json={
-                "name": "Test",
-                "category": "Bills",
-                "amount": 10.00,
-                "frequency": "monthly",
-                "start_date": "01/01/2024",
-            },
+            json=self._valid_generate_payload(
+                entries=[
+                    {"product_name": "Rent", "category": "Bills", "price": -10.0}
+                ]
+            ),
+        )
+        assert resp.status_code == 400
+
+    @pytest.mark.integration
+    def test_batch_generate_invalid_status_rejected(self, client, user_a):
+        """status outside the allowed enum must return 400."""
+        resp = client.post(
+            "/finance/batch-generate",
+            headers=auth(user_a["token"]),
+            json=self._valid_generate_payload(status="approved"),
         )
         assert resp.status_code == 400
 

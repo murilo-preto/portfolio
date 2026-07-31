@@ -60,6 +60,7 @@ A comprehensive test suite has been created to verify the portfolio application 
 - Time entry operations
 - Batch imports
 - Finance entries
+- Finance batch generation
 
 ### 3. Next.js API Tests (Vitest)
 
@@ -69,8 +70,8 @@ A comprehensive test suite has been created to verify the portfolio application 
 - Time entry API
 - Finance API
 - Batch import API
+- Finance batch generate API
 - Token management
-- Recurring expenses
 
 ### 4. End-to-End Tests (requires `RUN_E2E_TESTS=true`)
 

@@ -443,6 +443,23 @@ describe('Batch Import API', () => {
       expect(response.status).toBe(400);
     });
   });
+
+  describe('Finance Batch Generate', () => {
+    it('should reject batch generate without entries', async () => {
+      const { POST } = await import('../next-version/app/api/finance/batch-generate/route');
+      
+      const request = new NextRequest('http://localhost:5000/api/finance/batch-generate', {
+        method: 'POST',
+        body: JSON.stringify({}),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const response = await POST(request);
+      const data = await response.json();
+      
+      expect(response.status).toBe(400);
+    });
+  });
 });
 
 describe('Token Management', () => {
@@ -454,76 +471,5 @@ describe('Token Management', () => {
     
     // Token endpoint should return something (either new token or error)
     expect(response.status).toBeDefined();
-  });
-});
-
-describe('Recurring Expenses API', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('Get Recurring Expenses', () => {
-    it('should require authentication', async () => {
-      const { GET } = await import('../next-version/app/api/recurring-expenses/route');
-      
-      const request = new NextRequest('http://localhost:5000/api/recurring-expenses');
-      const response = await GET(request);
-      
-      expect([302, 401, 403]).toContain(response.status);
-    });
-  });
-
-  describe('Create Recurring Expense', () => {
-    it('should reject creation with missing required fields', async () => {
-      const { POST } = await import('../next-version/app/api/recurring-expenses/create/route');
-      
-      const request = new NextRequest('http://localhost:5000/api/recurring-expenses/create', {
-        method: 'POST',
-        body: JSON.stringify({}),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const response = await POST(request);
-      const data = await response.json();
-      
-      expect(response.status).toBe(400);
-    });
-
-    it('should reject invalid frequency values', async () => {
-      const { POST } = await import('../next-version/app/api/recurring-expenses/create/route');
-      
-      const request = new NextRequest('http://localhost:5000/api/recurring-expenses/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: 'Test Expense',
-          amount: 100,
-          frequency: 'invalid-frequency',
-          start_date: '2024-01-01'
-        }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const response = await POST(request);
-      const data = await response.json();
-      
-      expect(response.status).toBe(400);
-    });
-  });
-
-  describe('Delete Recurring Expense', () => {
-    it('should reject deletion without id', async () => {
-      const { DELETE } = await import('../next-version/app/api/recurring-expenses/delete/route');
-      
-      const request = new NextRequest('http://localhost:5000/api/recurring-expenses/delete', {
-        method: 'DELETE',
-        body: JSON.stringify({}),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const response = await DELETE(request);
-      const data = await response.json();
-      
-      expect(response.status).toBe(400);
-    });
   });
 });

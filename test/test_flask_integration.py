@@ -6,6 +6,7 @@ import pytest
 import sys
 import os
 from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 import bcrypt
 
 # Mark all tests in this module as integration
@@ -356,6 +357,123 @@ class TestBatchImportIntegration:
         data = response.get_json()
         assert "success" in data
         assert "failed" in data
+
+
+class TestBatchGenerateIntegration:
+    """Integration tests for the finance batch generator."""
+
+    GENERATE_PAYLOAD = {
+        "frequency": "monthly",
+        "day": 31,
+        "start_date": "2024-01-15",
+        "end_date": "2024-06-30",
+        "entries": [
+            {"category": "Bills", "product_name": "Rent", "price": 1000.00},
+        ],
+    }
+
+    @pytest.mark.integration
+    def test_preview_returns_rows_without_writing(self, registered_user, auth_token, client):
+        """Preview must return the generated rows but insert nothing."""
+        if not auth_token:
+            pytest.skip("Authentication failed")
+
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        product_name = f"PreviewOnly_{int(datetime.now().timestamp())}"
+
+        payload = {**self.GENERATE_PAYLOAD, "preview": True}
+        payload["entries"] = [
+            {"category": "Bills", "product_name": product_name, "price": 10.0}
+        ]
+
+        response = client.post("/finance/batch-generate", headers=headers, json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["preview"] is True
+        assert data["count"] == 6, f"expected 6 monthly rows, got {data['count']}"
+        assert len(data["rows"]) == 6
+
+        # day 31 clamped to the last day of shorter months
+        purchase_dates = sorted(row["purchase_date"][:10] for row in data["rows"])
+        assert purchase_dates == [
+            "2024-01-31", "2024-02-29", "2024-03-31",
+            "2024-04-30", "2024-05-31", "2024-06-30",
+        ]
+
+        # nothing should have been written
+        listing = client.get("/finance", headers=headers)
+        assert listing.status_code == 200
+        names = [e["product_name"] for e in listing.get_json()["entries"]]
+        assert product_name not in names
+
+    @pytest.mark.integration
+    def test_generation_inserts_planned_entries(self, registered_user, auth_token, client):
+        """A non-preview request must persist one entry per occurrence."""
+        if not auth_token:
+            pytest.skip("Authentication failed")
+
+        headers = {"Authorization": f"Bearer {auth_token}"}
+        product_name = f"GenTest_{int(datetime.now().timestamp())}"
+
+        payload = {
+            "frequency": "monthly",
+            "day": 1,
+            "start_date": "2024-03-01",
+            "end_date": "2024-05-01",
+            "status": "planned",
+            "entries": [
+                {"category": "Bills", "product_name": product_name, "price": 5.0}
+            ],
+        }
+
+        response = client.post("/finance/batch-generate", headers=headers, json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] == 3
+        assert data["failed"] == 0
+
+        listing = client.get("/finance", headers=headers)
+        assert listing.status_code == 200
+        generated = [
+            e for e in listing.get_json()["entries"]
+            if e["product_name"] == product_name
+        ]
+        assert len(generated) == 3
+        assert all(e["status"] == "planned" for e in generated)
+        generated_dates = sorted(
+            parsedate_to_datetime(e["purchase_date"]).date().isoformat()
+            for e in generated
+        )
+        assert generated_dates == [
+            "2024-03-01", "2024-04-01", "2024-05-01",
+        ]
+
+    @pytest.mark.integration
+    def test_last_day_of_month_option(self, registered_user, auth_token, client):
+        """day=-1 should generate on the last day of every month in range."""
+        if not auth_token:
+            pytest.skip("Authentication failed")
+
+        headers = {"Authorization": f"Bearer {auth_token}"}
+
+        payload = {
+            "frequency": "monthly",
+            "day": -1,
+            "start_date": "2024-01-01",
+            "end_date": "2024-03-31",
+            "preview": True,
+            "entries": [
+                {"category": "Bills", "product_name": "LastDay", "price": 1.0}
+            ],
+        }
+
+        response = client.post("/finance/batch-generate", headers=headers, json=payload)
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 3
+        assert sorted(row["purchase_date"][:10] for row in data["rows"]) == [
+            "2024-01-31", "2024-02-29", "2024-03-31",
+        ]
 
 
 if __name__ == "__main__":

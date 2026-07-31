@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BatchImportModal } from "@/components/BatchImportModal";
+import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -717,6 +718,7 @@ export default function FinanceManagePage() {
   const [showCatForm, setShowCatForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showItauModal, setShowItauModal] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -829,6 +831,12 @@ export default function FinanceManagePage() {
             onSelectItauPdf={() => setShowItauModal(true)}
             buttonClassName="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
           />
+          <button
+            onClick={() => setShowGenerateModal(true)}
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
+          >
+            Bulk Add
+          </button>
           <a
             href="/namu/user/finance"
             className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
@@ -914,6 +922,12 @@ export default function FinanceManagePage() {
         isOpen={showItauModal}
         onClose={() => setShowItauModal(false)}
         onImportSuccess={fetchAll}
+      />
+
+      <BatchGenerateModal
+        isOpen={showGenerateModal}
+        onClose={() => setShowGenerateModal(false)}
+        onSuccess={fetchAll}
       />
 
       <ConfirmDialog

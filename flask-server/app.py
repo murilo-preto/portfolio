@@ -27,7 +27,7 @@ import os
 import logging
 import threading
 import calendar
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +54,7 @@ if not app.config["JWT_SECRET_KEY"]:
 MAX_PDF_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_PDF_UPLOAD_COUNT = 24
 MAX_BULK_DELETE_IDS = 500
+MAX_GENERATE_ROWS = 1000
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
 # Rate limiting — disabled when RATELIMIT_ENABLED=false (e.g. in tests)
@@ -1351,6 +1352,245 @@ def batch_import_finance_entries():
     return jsonify(results), 200
 
 
+# ─── Finance Bulk Generator ────────────────────────────────────────────────────
+
+
+def _last_day_of_month(year, month):
+    """Return the number of days in a given month (28/29 for February)."""
+    return calendar.monthrange(year, month)[1]
+
+
+def _clamped_generation_day(year, month, day):
+    """Resolve a requested day-of-month to an actual day, clamping to the last
+    day of the month when it is shorter (e.g. day 31 in April -> 30). A day of
+    -1 explicitly means the last day of the month."""
+    if day == -1:
+        return _last_day_of_month(year, month)
+    return min(day, _last_day_of_month(year, month))
+
+
+def _generate_occurrence_dates(frequency, day, start_date, end_date):
+    """Compute the occurrence dates in [start_date, end_date] for a day-of-month
+    frequency (monthly / quarterly / yearly), anchored on the start date's
+    month. Occurrences whose date falls outside the window are dropped."""
+    step = {"monthly": 1, "quarterly": 3, "yearly": 12}[frequency]
+    anchor = start_date.year * 12 + (start_date.month - 1)
+    dates = []
+    cursor = anchor
+    while True:
+        year, month = divmod(cursor, 12)
+        month += 1
+        occurrence = date(year, month, _clamped_generation_day(year, month, day))
+        if occurrence > end_date:
+            break
+        if occurrence >= start_date:
+            dates.append(occurrence)
+        cursor += step
+    return dates
+
+
+@app.route("/finance/batch-generate", methods=["POST"])
+@jwt_required()
+def batch_generate_finance_entries():
+    """
+    Generate finance entries from a schedule: a frequency plus a day-of-month,
+    applied across a date range to every entry template in one go.
+
+    Expected JSON:
+    {
+        "frequency": "monthly" | "quarterly" | "yearly",
+        "day": int,                 # 1-31, or -1 for the last day of the month
+        "start_date": "YYYY-MM-DD",
+        "end_date": "YYYY-MM-DD",
+        "status": "planned" | "done" (optional, defaults to "planned"),
+        "entries": [
+            { "category": "string", "product_name": "string", "price": number },
+            ...
+        ],
+        "preview": bool (optional, defaults to false),
+        "utc_offset_minutes": int (optional, defaults to 0)
+    }
+
+    `utc_offset_minutes` is the client's current UTC offset (new
+    Date().getTimezoneOffset()) so the stored timestamp keeps each entry on the
+    picked day when displayed back in the same timezone.
+
+    With preview=true no rows are written; the response contains every row that
+    would be created. Otherwise the rows are inserted and per-row errors are
+    collected like /finance/batch-import.
+
+    Returns:
+        200: { preview, count, rows } or { success, failed, errors }
+        400: Validation error
+        500: Server error
+    """
+    current_user = get_jwt_identity()
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    frequency = data.get("frequency")
+    day = data.get("day")
+    start_date_str = data.get("start_date")
+    end_date_str = data.get("end_date")
+    status = data.get("status", "planned")
+    entries = data.get("entries")
+    preview = bool(data.get("preview", False))
+    utc_offset_minutes = data.get("utc_offset_minutes", 0)
+
+    valid_frequencies = ("monthly", "quarterly", "yearly")
+    if frequency not in valid_frequencies:
+        return jsonify(
+            {"error": f"frequency must be one of: {', '.join(valid_frequencies)}"}
+        ), 400
+
+    try:
+        day_value = int(day)
+        if day_value == -1:
+            pass
+        elif not 1 <= day_value <= 31:
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({"error": "day must be an integer between 1 and 31, or -1 for the last day of the month"}), 400
+
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return jsonify({"error": "start_date and end_date must be in YYYY-MM-DD format"}), 400
+
+    if end_date < start_date:
+        return jsonify({"error": "end_date must be on or after start_date"}), 400
+
+    if status not in ("planned", "done"):
+        return jsonify({"error": "status must be 'planned' or 'done'"}), 400
+
+    if not isinstance(entries, list) or not entries:
+        return jsonify({"error": "entries must be a non-empty array"}), 400
+
+    normalized_entries = []
+    for entry in entries:
+        category_name = entry.get("category", "").strip()
+        product_name = entry.get("product_name", "").strip()
+        if not category_name or not product_name:
+            return jsonify({"error": "each entry needs a category and a product_name"}), 400
+        try:
+            price_value = float(entry.get("price"))
+            if price_value < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return jsonify({"error": f"price for '{product_name}' must be a non-negative number"}), 400
+        normalized_entries.append((category_name, product_name, price_value))
+
+    occurrence_dates = _generate_occurrence_dates(
+        frequency, day_value, start_date, end_date
+    )
+    if not occurrence_dates:
+        return jsonify(
+            {"error": "No occurrences fall inside the selected date range"}
+        ), 400
+
+    try:
+        utc_offset = int(utc_offset_minutes)
+    except (TypeError, ValueError):
+        return jsonify({"error": "utc_offset_minutes must be an integer"}), 400
+
+    generated_rows = []
+    for occurrence in occurrence_dates:
+        purchase_date = datetime.combine(
+            occurrence, datetime.min.time()
+        ) + timedelta(minutes=utc_offset)
+        for category_name, product_name, price_value in normalized_entries:
+            generated_rows.append({
+                "category": category_name,
+                "product_name": product_name,
+                "price": price_value,
+                "purchase_date": purchase_date,
+            })
+
+    if len(generated_rows) > MAX_GENERATE_ROWS:
+        return jsonify({
+            "error": f"This schedule would create {len(generated_rows)} entries (max {MAX_GENERATE_ROWS})"
+        }), 400
+
+    if preview:
+        return jsonify({
+            "preview": True,
+            "count": len(generated_rows),
+            "rows": [
+                {
+                    "category": row["category"],
+                    "product_name": row["product_name"],
+                    "price": row["price"],
+                    "purchase_date": row["purchase_date"].isoformat(),
+                }
+                for row in generated_rows
+            ],
+        }), 200
+
+    # Get or create all finance categories. The cache is keyed by casefolded
+    # name because finance_categories.name is uniquely indexed with a
+    # case-insensitive collation (see /finance/batch-import).
+    category_cache = {}
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id, name FROM finance_categories")
+            existing_categories = cursor.fetchall()
+            for cat in existing_categories:
+                category_cache[cat["name"].casefold()] = cat["id"]
+    except Error as e:
+        logger.error(f"Database error fetching categories: {e}")
+        return jsonify({"error": "Failed to fetch categories"}), 500
+
+    user_id = None
+    try:
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
+            user = cursor.fetchone()
+            if user:
+                user_id = user["id"]
+    except Error as e:
+        logger.error(f"Database error fetching user: {e}")
+        return jsonify({"error": "Failed to fetch user"}), 500
+
+    if not user_id:
+        return jsonify({"error": "User not found"}), 404
+
+    results = {"success": 0, "failed": 0, "errors": []}
+
+    for i, row in enumerate(generated_rows):
+        try:
+            category_key = row["category"].casefold()
+            if category_key not in category_cache:
+                with get_cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO finance_categories (name) VALUES (%s)",
+                        (normalize_category_name(row["category"]),)
+                    )
+                    category_cache[category_key] = cursor.lastrowid
+
+            category_id = category_cache[category_key]
+
+            with get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO finance_entries (user_id, category_id, product_name, price, purchase_date, status)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (user_id, category_id, row["product_name"], row["price"], row["purchase_date"], status)
+                )
+
+            results["success"] += 1
+
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({"index": i, "error": str(e)})
+            logger.error(f"Failed to generate finance entry {i}: {e}")
+
+    return jsonify(results), 200
+
+
 @app.route("/finance/parse-itau-pdf", methods=["POST"])
 @jwt_required()
 def parse_itau_pdf():
@@ -1471,501 +1711,6 @@ def invalid_token_callback(callback):
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
     return jsonify(error="Token expired"), 401
-
-
-# ─── Recurring Expense Routes ──────────────────────────────────────────────────
-
-
-def retrieve_recurring_expenses_from_username(username):
-    try:
-        with get_cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
-
-            if not user:
-                return jsonify({"error": "User not found"}), 404
-
-            cursor.execute(
-                """
-                SELECT
-                    re.id,
-                    fc.name AS category,
-                    re.name,
-                    re.amount,
-                    re.frequency,
-                    re.start_date,
-                    re.end_date,
-                    re.is_active,
-                    re.next_payment_date,
-                    re.created_at,
-                    re.updated_at
-                FROM recurring_expenses re
-                JOIN finance_categories fc ON re.category_id = fc.id
-                WHERE re.user_id = %s
-                ORDER BY re.is_active DESC, re.next_payment_date ASC
-                """,
-                (user["id"],),
-            )
-            expenses = cursor.fetchall()
-
-            # Convert Decimal to float for JSON serialization
-            for expense in expenses:
-                if expense["amount"] is not None:
-                    expense["amount"] = float(expense["amount"])
-                # Convert date objects to strings
-                for field in ["start_date", "end_date", "next_payment_date", "created_at", "updated_at"]:
-                    if expense[field] is not None:
-                        expense[field] = expense[field].isoformat()
-
-        return jsonify({"username": username, "expenses": expenses}), 200
-
-    except Error as e:
-        logger.error(f"Database error: {e}")
-        return jsonify({"error": "Failed to fetch recurring expenses"}), 500
-
-
-@app.get("/recurring-expenses")
-@jwt_required()
-def my_recurring_expenses():
-    """
-    Retrieves recurring expenses from a user from token username
-    """
-    username = get_jwt_identity()
-    if not username:
-        return jsonify({"error": "Username is required"}), 400
-
-    return retrieve_recurring_expenses_from_username(username)
-
-
-@app.route("/recurring-expenses/create", methods=["POST"])
-@jwt_required()
-def create_recurring_expense():
-    """
-    Create a new recurring expense.
-
-    Expected JSON:
-    {
-        "name": "string",
-        "category": "string",
-        "amount": number,
-        "frequency": "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
-        "start_date": "YYYY-MM-DD",
-        "end_date": "YYYY-MM-DD" (optional),
-        "next_payment_date": "YYYY-MM-DD" (optional)
-    }
-
-    Returns:
-        201: Expense created
-        400: Validation error
-        404: User or category not found
-        500: Server error
-    """
-    current_user = get_jwt_identity()
-    data = request.get_json()
-
-    required_fields = ["name", "category", "amount", "frequency", "start_date"]
-    if not data or not all(field in data for field in required_fields):
-        return jsonify(
-            {"error": "name, category, amount, frequency and start_date are required"}
-        ), 400
-
-    name = data["name"].strip()
-    category_name = data["category"].strip()
-    amount = data["amount"]
-    frequency = data["frequency"]
-    start_date_str = data["start_date"]
-    end_date_str = data.get("end_date")
-    next_payment_date_str = data.get("next_payment_date")
-
-    valid_frequencies = ("weekly", "biweekly", "monthly", "quarterly", "yearly")
-    if frequency not in valid_frequencies:
-        return jsonify({"error": f"Frequency must be one of: {', '.join(valid_frequencies)}"}), 400
-
-    try:
-        amount_value = float(amount)
-        if amount_value < 0:
-            return jsonify({"error": "Amount must be non-negative"}), 400
-    except (TypeError, ValueError):
-        return jsonify({"error": "Amount must be a valid number"}), 400
-
-    try:
-        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return jsonify({"error": "start_date must be in YYYY-MM-DD format"}), 400
-
-    end_date = None
-    if end_date_str:
-        try:
-            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-            if end_date < start_date:
-                return jsonify({"error": "end_date must be after start_date"}), 400
-        except ValueError:
-            return jsonify({"error": "end_date must be in YYYY-MM-DD format"}), 400
-
-    next_payment_date = None
-    if next_payment_date_str:
-        try:
-            next_payment_date = datetime.strptime(next_payment_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return jsonify({"error": "next_payment_date must be in YYYY-MM-DD format"}), 400
-
-    try:
-        with get_cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM users WHERE username = %s", (current_user,)
-            )
-            user = cursor.fetchone()
-
-            if not user:
-                return jsonify({"error": "User not found"}), 404
-
-            cursor.execute(
-                "SELECT id FROM finance_categories WHERE name = %s", (category_name,)
-            )
-            category = cursor.fetchone()
-
-            if not category:
-                return jsonify({"error": "Category not found"}), 404
-
-            cursor.execute(
-                """
-                INSERT INTO recurring_expenses (user_id, category_id, name, amount, frequency, start_date, end_date, next_payment_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (user["id"], category["id"], name, amount_value, frequency, start_date, end_date, next_payment_date),
-            )
-            expense_id = cursor.lastrowid
-
-        return jsonify(
-            {
-                "message": "Recurring expense created successfully",
-                "expense": {
-                    "id": expense_id,
-                    "name": name,
-                    "category": category_name,
-                    "amount": amount_value,
-                    "frequency": frequency,
-                    "start_date": start_date_str,
-                    "end_date": end_date_str,
-                    "next_payment_date": next_payment_date_str,
-                },
-            }
-        ), 201
-
-    except Error as e:
-        logger.error(f"Database error: {e}")
-        return jsonify({"error": "Failed to create recurring expense"}), 500
-
-
-@app.route("/recurring-expenses/<int:expense_id>", methods=["PUT"])
-@jwt_required()
-def update_recurring_expense(expense_id):
-    """
-    Update an existing recurring expense.
-
-    Expected JSON:
-    {
-        "name": "string",
-        "category": "string",
-        "amount": number,
-        "frequency": "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
-        "start_date": "YYYY-MM-DD",
-        "end_date": "YYYY-MM-DD" (optional),
-        "next_payment_date": "YYYY-MM-DD" (optional),
-        "is_active": boolean
-    }
-
-    Returns:
-        200: Expense updated
-        400: Validation error
-        403: Not owner of expense
-        404: Expense or category not found
-        500: Server error
-    """
-    current_user = get_jwt_identity()
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "Request body is required"}), 400
-
-    name = data.get("name", "").strip()
-    category_name = data.get("category", "").strip()
-    amount = data.get("amount")
-    frequency = data.get("frequency")
-    start_date_str = data.get("start_date")
-    end_date_str = data.get("end_date")
-    next_payment_date_str = data.get("next_payment_date")
-    is_active = data.get("is_active", True)
-
-    if not name or not category_name or not start_date_str:
-        return jsonify(
-            {"error": "name, category and start_date are required"}
-        ), 400
-
-    valid_frequencies = ("weekly", "biweekly", "monthly", "quarterly", "yearly")
-    if frequency and frequency not in valid_frequencies:
-        return jsonify({"error": f"Frequency must be one of: {', '.join(valid_frequencies)}"}), 400
-
-    try:
-        amount_value = float(amount) if amount is not None else None
-        if amount_value is not None and amount_value < 0:
-            return jsonify({"error": "Amount must be non-negative"}), 400
-    except (TypeError, ValueError):
-        return jsonify({"error": "Amount must be a valid number"}), 400
-
-    try:
-        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return jsonify({"error": "start_date must be in YYYY-MM-DD format"}), 400
-
-    end_date = None
-    if end_date_str:
-        try:
-            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-            if end_date < start_date:
-                return jsonify({"error": "end_date must be after start_date"}), 400
-        except ValueError:
-            return jsonify({"error": "end_date must be in YYYY-MM-DD format"}), 400
-
-    next_payment_date = None
-    if next_payment_date_str:
-        try:
-            next_payment_date = datetime.strptime(next_payment_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return jsonify({"error": "next_payment_date must be in YYYY-MM-DD format"}), 400
-
-    try:
-        with get_cursor() as cursor:
-            # Verify expense belongs to this user
-            cursor.execute(
-                """
-                SELECT re.id FROM recurring_expenses re
-                JOIN users u ON re.user_id = u.id
-                WHERE re.id = %s AND u.username = %s
-                """,
-                (expense_id, current_user),
-            )
-            expense = cursor.fetchone()
-
-            if not expense:
-                return jsonify({"error": "Expense not found or access denied"}), 404
-
-            # Resolve category
-            cursor.execute(
-                "SELECT id FROM finance_categories WHERE name = %s", (category_name,)
-            )
-            category = cursor.fetchone()
-
-            if not category:
-                return jsonify({"error": "Category not found"}), 404
-
-            cursor.execute(
-                """
-                UPDATE recurring_expenses
-                SET category_id = %s, name = %s, amount = %s, frequency = %s, 
-                    start_date = %s, end_date = %s, next_payment_date = %s, is_active = %s
-                WHERE id = %s
-                """,
-                (category["id"], name, amount_value, frequency, start_date, end_date, next_payment_date, is_active, expense_id),
-            )
-
-        return jsonify({"message": "Recurring expense updated successfully", "id": expense_id}), 200
-
-    except Error as e:
-        logger.error(f"Database error: {e}")
-        return jsonify({"error": "Failed to update recurring expense"}), 500
-
-
-@app.route("/recurring-expenses/delete", methods=["POST"])
-@jwt_required()
-def delete_recurring_expense():
-    """
-    Delete a recurring expense by expense_id.
-
-    Expects JSON:
-    {
-        "expense_id": int
-    }
-
-    Returns:
-        200: Expense deleted
-        400: Validation error
-        403: Not owner of expense
-        404: Expense not found
-        500: Server error
-    """
-    current_user = get_jwt_identity()
-    data = request.get_json()
-
-    if not data or "expense_id" not in data:
-        return jsonify({"error": "expense_id is required"}), 400
-
-    expense_id = data["expense_id"]
-
-    try:
-        with get_cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT re.id FROM recurring_expenses re
-                JOIN users u ON re.user_id = u.id
-                WHERE re.id = %s AND u.username = %s
-                """,
-                (expense_id, current_user),
-            )
-            expense = cursor.fetchone()
-
-            if not expense:
-                return jsonify({"error": "Expense not found or access denied"}), 404
-
-            cursor.execute("DELETE FROM recurring_expenses WHERE id = %s", (expense_id,))
-
-        return jsonify({"message": "Recurring expense deleted successfully", "id": expense_id}), 200
-
-    except Error as e:
-        logger.error(f"Database error: {e}")
-        return jsonify({"error": "Failed to delete recurring expense"}), 500
-
-
-@app.route("/recurring-expenses/batch-import", methods=["POST"])
-@jwt_required()
-def batch_import_recurring_expenses():
-    """
-    Batch import multiple recurring expenses from a single request.
-
-    Expected JSON:
-    {
-        "expenses": [
-            {
-                "category": "string",
-                "name": "string",
-                "amount": number,
-                "frequency": "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly",
-                "start_date": "YYYY-MM-DD",
-                "end_date": "YYYY-MM-DD" (optional),
-                "next_payment_date": "YYYY-MM-DD" (optional),
-                "is_active": boolean (optional, defaults to true)
-            },
-            ...
-        ]
-    }
-
-    Returns:
-        200: { success: number, failed: number, errors: Array<{index, error}> }
-        400: Validation error
-        500: Server error
-    """
-    current_user = get_jwt_identity()
-    data = request.get_json()
-
-    if not data or "expenses" not in data:
-        return jsonify({"error": "expenses array is required"}), 400
-
-    expenses = data["expenses"]
-    if not isinstance(expenses, list):
-        return jsonify({"error": "expenses must be an array"}), 400
-
-    results = {"success": 0, "failed": 0, "errors": []}
-
-    # First, get or create all finance categories. The cache is keyed by
-    # casefolded name because finance_categories.name is uniquely indexed with
-    # a case-insensitive collation — looking up case-sensitively would miss an
-    # existing "Food" for an incoming "FOOD" and then fail on a duplicate key.
-    category_cache = {}
-    try:
-        with get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM finance_categories")
-            existing_categories = cursor.fetchall()
-            for cat in existing_categories:
-                category_cache[cat["name"].casefold()] = cat["id"]
-    except Error as e:
-        logger.error(f"Database error fetching categories: {e}")
-        return jsonify({"error": "Failed to fetch categories"}), 500
-
-    # Get user ID once
-    user_id = None
-    try:
-        with get_cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
-            user = cursor.fetchone()
-            if user:
-                user_id = user["id"]
-    except Error as e:
-        logger.error(f"Database error fetching user: {e}")
-        return jsonify({"error": "Failed to fetch user"}), 500
-
-    if not user_id:
-        return jsonify({"error": "User not found"}), 404
-
-    valid_frequencies = ("weekly", "biweekly", "monthly", "quarterly", "yearly")
-
-    for i, expense in enumerate(expenses):
-        try:
-            category_name = expense.get("category", "").strip()
-            name = expense.get("name", "").strip()
-            amount = expense.get("amount")
-            frequency = expense.get("frequency", "monthly")
-            start_date_str = expense.get("start_date")
-            end_date_str = expense.get("end_date")
-            next_payment_date_str = expense.get("next_payment_date")
-            is_active = expense.get("is_active", True)
-
-            if not category_name or not name or not start_date_str:
-                raise ValueError("category, name and start_date are required")
-
-            # Validate amount
-            amount_value = float(amount)
-            if amount_value < 0:
-                raise ValueError("Amount must be non-negative")
-
-            # Validate frequency
-            if frequency not in valid_frequencies:
-                raise ValueError(f"Frequency must be one of: {', '.join(valid_frequencies)}")
-
-            # Parse and validate dates
-            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-
-            end_date = None
-            if end_date_str:
-                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-                if end_date < start_date:
-                    raise ValueError("end_date must be after start_date")
-
-            next_payment_date = None
-            if next_payment_date_str:
-                next_payment_date = datetime.strptime(next_payment_date_str, "%Y-%m-%d").date()
-
-            # Get or create category. A name that is not on record yet is
-            # normalized first, so an imported "ALIMENTAÇÃO" is stored as
-            # "Alimentação"; one that already exists keeps its stored spelling.
-            category_key = category_name.casefold()
-            if category_key not in category_cache:
-                with get_cursor() as cursor:
-                    cursor.execute(
-                        "INSERT INTO finance_categories (name) VALUES (%s)",
-                        (normalize_category_name(category_name),)
-                    )
-                    category_cache[category_key] = cursor.lastrowid
-
-            category_id = category_cache[category_key]
-
-            # Insert recurring expense
-            with get_cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO recurring_expenses (user_id, category_id, name, amount, frequency, start_date, end_date, next_payment_date, is_active)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (user_id, category_id, name, amount_value, frequency, start_date, end_date, next_payment_date, is_active)
-                )
-
-            results["success"] += 1
-
-        except Exception as e:
-            results["failed"] += 1
-            results["errors"].append({"index": i, "error": str(e)})
-            logger.error(f"Failed to import recurring expense {i}: {e}")
-
-    return jsonify(results), 200
 
 
 # ─── TODO Routes ──────────────────────────────────────────────────────────────

@@ -5,21 +5,21 @@ import { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     const { response } = await fetchWithTokenRefresh(
-      `${FLASK_BASE_URL}/recurring-expenses/batch-import`,
+      `${FLASK_BASE_URL}/finance/batch-generate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }
     );
-    
+
     return response;
   } catch (error) {
-    console.error("Recurring expenses batch import error:", error);
+    console.error("Finance batch generate error:", error);
     return Response.json(
-      { error: "Failed to import recurring expenses" },
+      { error: "Failed to generate finance entries" },
       { status: 500 }
     );
   }

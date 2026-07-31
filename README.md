@@ -10,7 +10,7 @@ A personal portfolio and **Namu** — a full-featured time management app built 
 | -------------------- | ------------------------------------------------------------------------------ |
 | **Time Tracking**    | Log, categorize, and visualize time entries with interactive charts (Recharts) |
 | **Pomodoro Timer**   | 25-minute focus sessions integrated with TODO items                            |
-| **Finance Tracking** | Expense management with recurring expenses support                             |
+| **Finance Tracking** | Expense management                                                          |
 | **TODO Manager**     | Full CRUD with priority/status badges and Pomodoro integration                 |
 | **CSV Batch Import** | Import time and finance entries in bulk                                        |
 | **Dashboard**        | Weekly calendar views, category charts (bar/pie), quick stats                  |
@@ -64,8 +64,7 @@ Next.js API routes act as thin proxies: they handle cookie-based JWT token refre
 | PUT    | `/finance/<id>`              | JWT  | Update entry              |
 | POST   | `/finance/delete`            | JWT  | Delete entry              |
 | POST   | `/finance/batch-import`      | JWT  | Batch import              |
-| GET    | `/recurring-expenses`        | JWT  | List recurring expenses   |
-| POST   | `/recurring-expenses/create` | JWT  | Create recurring expense  |
+| POST   | `/finance/batch-generate`    | JWT  | Generate planned entries from a frequency + day-of-month schedule |
 
 ### TODO & Pomodoro
 

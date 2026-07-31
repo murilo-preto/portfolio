@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 
-type BatchImportType = "time" | "finance" | "recurring";
+type BatchImportType = "time" | "finance";
 
 type BatchImportModalProps = {
   isOpen: boolean;
@@ -69,17 +69,11 @@ export function BatchImportModal({
     setMessage("Importing...");
 
     try {
-      const payload = importType === "time" 
-        ? { entries: preview }
-        : importType === "finance"
-        ? { entries: preview }
-        : { expenses: preview };
+      const payload = { entries: preview };
 
       const endpoint = importType === "time"
         ? "/api/entry/batch-import"
-        : importType === "finance"
-        ? "/api/finance/batch-import"
-        : "/api/recurring-expenses/batch-import";
+        : "/api/finance/batch-import";
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -383,31 +377,6 @@ function parseDataWithHeaders(rows: string[][], type: BatchImportType): ParsedEn
             status: status.toLowerCase(),
           });
         }
-      } else if (type === "recurring") {
-        const category = row[colIndex["category"]];
-        const name = row[colIndex["name"]];
-        const amount = row[colIndex["amount"]];
-        const frequency = row[colIndex["frequency"]] || "monthly";
-        const start_date = row[colIndex["start_date"]];
-        const end_date = row[colIndex["end_date"]];
-        const next_payment_date = row[colIndex["next_payment_date"]];
-        const is_active = row[colIndex["is_active"]];
-        
-        if (!category || !name || !amount || !frequency || !start_date) continue;
-        
-        const amountValue = parseFloat(amount);
-        if (!isNaN(amountValue) && amountValue >= 0) {
-          entries.push({
-            category,
-            name,
-            amount: amountValue,
-            frequency: frequency.toLowerCase(),
-            start_date,
-            end_date: end_date || undefined,
-            next_payment_date: next_payment_date || undefined,
-            is_active: is_active ? is_active.toLowerCase() === "true" : true,
-          });
-        }
       }
     } catch (err) {
       console.error(`Error parsing row ${i}:`, err);
@@ -439,8 +408,6 @@ function getConfig(type: BatchImportType): { title: string; columns: string[] } 
       return { title: "Time Entries", columns: ["Category", "Start Time", "End Time"] };
     case "finance":
       return { title: "Finance Entries", columns: ["Category", "Product", "Price", "Date", "Status"] };
-    case "recurring":
-      return { title: "Recurring Expenses", columns: ["Category", "Name", "Amount", "Frequency", "Start Date"] };
   }
 }
 
@@ -454,9 +421,5 @@ Study,01/16/2024,14:00,01/16/2024,15:30`;
       return `category,product_name,price,purchase_date,status
 Food,Groceries,85.50,2024-01-15 10:30:00,done
 Entertainment,Netflix,15.99,2024-01-16 00:00:00,planned`;
-    case "recurring":
-      return `category,name,amount,frequency,start_date,end_date,next_payment_date,is_active
-Subscriptions,Netflix,15.99,monthly,2024-01-01,,2024-02-01,true
-Utilities,Electric,120.00,monthly,2024-01-01,2024-12-31,,true`;
   }
 }

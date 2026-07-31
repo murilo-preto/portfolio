@@ -7,12 +7,11 @@ import { CategoryPieChart } from "@/components/finance/CategoryPieChart";
 import { EntriesTable } from "@/components/finance/EntriesTable";
 import { getMondayOf, addDays, formatPrice } from "@/components/finance/utils";
 import { SummaryCard } from "@/components/finance/SummaryCard";
-import { RecurringSummary } from "@/components/finance/RecurringSummary";
 import { BatchImportModal } from "@/components/BatchImportModal";
+import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
-import type { RecurringExpense } from "@/components/finance/types";
 
 type FilterMode = "today" | "week" | "month" | "all";
 
@@ -57,9 +56,9 @@ export default function FinanceDashboard() {
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [monthStart, setMonthStart] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
-  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showItauModal, setShowItauModal] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   async function getEntries() {
     try {
@@ -82,28 +81,8 @@ export default function FinanceDashboard() {
     }
   }
 
-  async function getRecurringExpenses() {
-    try {
-      const res = await fetch("/api/recurring-expenses", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to fetch recurring expenses");
-      }
-
-      const json = await res.json();
-      setRecurringExpenses(json.expenses ?? []);
-    } catch (err: unknown) {
-      console.error("Failed to fetch recurring expenses:", err);
-    }
-  }
-
   useEffect(() => {
     getEntries();
-    getRecurringExpenses();
   }, []);
 
   useEffect(() => {
@@ -163,40 +142,21 @@ export default function FinanceDashboard() {
   const visibleEntries =
     filterMode === "all" ? (data?.entries ?? []) : filteredEntries;
 
-  // Surface active recurring expenses as planned rows so they show up in the
-  // table, charts, and totals. They are never date-filtered, so a newly added
-  // expense is always visible — and they are placed first so the "recent"
-  // table (which slices to ten rows outside "all" mode) never hides them.
-  const recurringEntries: FinanceEntry[] = recurringExpenses
-    .filter((r) => r.is_active)
-    .map((r) => ({
-      id: -Math.abs(r.id),
-      category: r.category,
-      product_name: r.name,
-      price: r.amount,
-      purchase_date: `${r.next_payment_date ?? r.start_date}T00:00:00`,
-      status: "planned",
-      is_recurring: true,
-    }));
-
-  const allVisibleEntries = [...recurringEntries, ...visibleEntries];
-
-  // Planned payments: one-time planned entries plus every active recurring
-  // expense (each at its raw per-occurrence amount).
-  const plannedTotal = allVisibleEntries
+  // Planned payments: one-time planned entries.
+  const plannedTotal = visibleEntries
     .filter((e) => e.status === "planned")
     .reduce((acc, e) => acc + e.price, 0);
 
   // Calculate statistics
-  const totalSpent = allVisibleEntries.reduce((acc, e) => acc + e.price, 0);
-  const completedTotal = allVisibleEntries
+  const totalSpent = visibleEntries.reduce((acc, e) => acc + e.price, 0);
+  const completedTotal = visibleEntries
     .filter((e) => e.status === "done")
     .reduce((acc, e) => acc + e.price, 0);
-  const entryCount = allVisibleEntries.length;
+  const entryCount = visibleEntries.length;
   const avgTransaction = entryCount > 0 ? totalSpent / entryCount : 0;
 
   // Find highest single transaction
-  const highestTransaction = allVisibleEntries.reduce(
+  const highestTransaction = visibleEntries.reduce(
     (max, e) => (e.price > max.price ? e : max),
     { price: 0, product_name: "N/A" } as { price: number; product_name: string }
   );
@@ -205,8 +165,8 @@ export default function FinanceDashboard() {
   const completionRate = totalSpent > 0 ? ((completedTotal / totalSpent) * 100).toFixed(0) : 0;
 
   // Planned items count
-  const plannedCount = allVisibleEntries.filter((e) => e.status === "planned").length;
-  const completedCount = allVisibleEntries.filter((e) => e.status === "done").length;
+  const plannedCount = visibleEntries.filter((e) => e.status === "planned").length;
+  const completedCount = visibleEntries.filter((e) => e.status === "done").length;
 
   if (loading) {
     return (
@@ -250,12 +210,12 @@ export default function FinanceDashboard() {
             onSelectItauPdf={() => setShowItauModal(true)}
             buttonClassName="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
           />
-          <a
-            href="/namu/user/finance/recurring"
+          <button
+            onClick={() => setShowGenerateModal(true)}
             className="px-4 py-2 text-sm font-medium rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors text-gray-700 dark:text-gray-200"
           >
-            Recurring
-          </a>
+            Bulk Add
+          </button>
           <a
             href="/namu/user/finance/manage"
             className="px-4 py-2 text-sm font-medium rounded-lg bg-invert hover:bg-invert-hover transition-colors text-invert-fg"
@@ -351,7 +311,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All entries" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryChart entries={allVisibleEntries} isDark={isDark} />
+            <CategoryChart entries={visibleEntries} isDark={isDark} />
           </div>
 
           {/* Transactions Table */}
@@ -361,11 +321,11 @@ export default function FinanceDashboard() {
                 Transactions
               </h2>
               <span className="text-xs text-muted">
-                {allVisibleEntries.length} entries
+                {visibleEntries.length} entries
               </span>
             </div>
             <EntriesTable
-              entries={allVisibleEntries}
+              entries={visibleEntries}
               showAll={filterMode === "all"}
               onEntryUpdated={getEntries}
             />
@@ -374,9 +334,6 @@ export default function FinanceDashboard() {
 
         {/* Right Column - Sidebar */}
         <div className="space-y-6">
-          {/* Recurring Expenses Summary */}
-          <RecurringSummary recurringExpenses={recurringExpenses} />
-
           {/* Pie Chart */}
           <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
             <div className="flex items-center justify-between mb-4">
@@ -387,7 +344,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All time" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryPieChart entries={allVisibleEntries} isDark={isDark} height={250} />
+            <CategoryPieChart entries={visibleEntries} isDark={isDark} height={250} />
           </div>
 
           {/* Quick Stats */}
@@ -448,6 +405,12 @@ export default function FinanceDashboard() {
         isOpen={showItauModal}
         onClose={() => setShowItauModal(false)}
         onImportSuccess={getEntries}
+      />
+
+      <BatchGenerateModal
+        isOpen={showGenerateModal}
+        onClose={() => setShowGenerateModal(false)}
+        onSuccess={getEntries}
       />
     </main>
   );
