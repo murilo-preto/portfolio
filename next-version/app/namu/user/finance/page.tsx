@@ -163,38 +163,40 @@ export default function FinanceDashboard() {
   const visibleEntries =
     filterMode === "all" ? (data?.entries ?? []) : filteredEntries;
 
-  // Calculate planned total for "all" view:
-  // - Include all non-recurring planned payments
-  // - Include only monthly recurring expenses (to avoid infinite sums)
-  const plannedTotal = useMemo(() => {
-    if (filterMode !== "all") {
-      return visibleEntries
-        .filter((e) => e.status === "planned")
-        .reduce((acc, e) => acc + e.price, 0);
-    }
+  // Surface active recurring expenses as planned rows so they show up in the
+  // table, charts, and totals. They are never date-filtered, so a newly added
+  // expense is always visible — and they are placed first so the "recent"
+  // table (which slices to ten rows outside "all" mode) never hides them.
+  const recurringEntries: FinanceEntry[] = recurringExpenses
+    .filter((r) => r.is_active)
+    .map((r) => ({
+      id: -Math.abs(r.id),
+      category: r.category,
+      product_name: r.name,
+      price: r.amount,
+      purchase_date: `${r.next_payment_date ?? r.start_date}T00:00:00`,
+      status: "planned",
+      is_recurring: true,
+    }));
 
-    // For "all" view: planned one-time payments + monthly recurring expenses
-    const oneTimePlanned = visibleEntries
-      .filter((e) => e.status === "planned")
-      .reduce((acc, e) => acc + e.price, 0);
+  const allVisibleEntries = [...recurringEntries, ...visibleEntries];
 
-    const monthlyRecurring = recurringExpenses
-      .filter((r) => r.is_active && r.frequency === "monthly")
-      .reduce((acc, r) => acc + r.amount, 0);
-
-    return oneTimePlanned + monthlyRecurring;
-  }, [filterMode, visibleEntries, recurringExpenses]);
+  // Planned payments: one-time planned entries plus every active recurring
+  // expense (each at its raw per-occurrence amount).
+  const plannedTotal = allVisibleEntries
+    .filter((e) => e.status === "planned")
+    .reduce((acc, e) => acc + e.price, 0);
 
   // Calculate statistics
-  const totalSpent = visibleEntries.reduce((acc, e) => acc + e.price, 0);
-  const completedTotal = visibleEntries
+  const totalSpent = allVisibleEntries.reduce((acc, e) => acc + e.price, 0);
+  const completedTotal = allVisibleEntries
     .filter((e) => e.status === "done")
     .reduce((acc, e) => acc + e.price, 0);
-  const entryCount = visibleEntries.length;
+  const entryCount = allVisibleEntries.length;
   const avgTransaction = entryCount > 0 ? totalSpent / entryCount : 0;
 
   // Find highest single transaction
-  const highestTransaction = visibleEntries.reduce(
+  const highestTransaction = allVisibleEntries.reduce(
     (max, e) => (e.price > max.price ? e : max),
     { price: 0, product_name: "N/A" } as { price: number; product_name: string }
   );
@@ -203,8 +205,8 @@ export default function FinanceDashboard() {
   const completionRate = totalSpent > 0 ? ((completedTotal / totalSpent) * 100).toFixed(0) : 0;
 
   // Planned items count
-  const plannedCount = visibleEntries.filter((e) => e.status === "planned").length;
-  const completedCount = visibleEntries.filter((e) => e.status === "done").length;
+  const plannedCount = allVisibleEntries.filter((e) => e.status === "planned").length;
+  const completedCount = allVisibleEntries.filter((e) => e.status === "done").length;
 
   if (loading) {
     return (
@@ -349,7 +351,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All entries" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryChart entries={visibleEntries} isDark={isDark} />
+            <CategoryChart entries={allVisibleEntries} isDark={isDark} />
           </div>
 
           {/* Transactions Table */}
@@ -359,11 +361,11 @@ export default function FinanceDashboard() {
                 Transactions
               </h2>
               <span className="text-xs text-muted">
-                {visibleEntries.length} entries
+                {allVisibleEntries.length} entries
               </span>
             </div>
             <EntriesTable
-              entries={visibleEntries}
+              entries={allVisibleEntries}
               showAll={filterMode === "all"}
               onEntryUpdated={getEntries}
             />
@@ -385,7 +387,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All time" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryPieChart entries={visibleEntries} isDark={isDark} height={250} />
+            <CategoryPieChart entries={allVisibleEntries} isDark={isDark} height={250} />
           </div>
 
           {/* Quick Stats */}

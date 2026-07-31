@@ -199,7 +199,7 @@ export function EntriesTable({
                 >
                   <td className="py-3 font-medium">{entry.product_name}</td>
                   <td className="py-3 text-muted">
-                    {!editable || categories.length === 0 ? (
+                    {!editable || entry.is_recurring || categories.length === 0 ? (
                       entry.category
                     ) : creatingFor === entry.id ? (
                       <div className="flex items-center gap-1">

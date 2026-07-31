@@ -5,6 +5,8 @@ export type FinanceEntry = {
   price: number;
   purchase_date: string;
   status: "planned" | "done";
+  /** True for synthetic rows built from a recurring expense (no finance entry row). */
+  is_recurring?: boolean;
 };
 
 export type ApiResponse = {
