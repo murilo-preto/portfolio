@@ -71,8 +71,9 @@ export function EntriesTable({
   useEffect(() => {
     if (!editable) return;
     // Non-fatal: the cell just stays read-only if the list never arrives.
-    loadCategories().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void (async () => {
+      await loadCategories().catch(() => {});
+    })();
   }, [editable]);
 
   function startCreating(entryId: number) {

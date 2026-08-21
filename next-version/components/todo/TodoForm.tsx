@@ -62,12 +62,6 @@ export function TodoForm({
 }: TodoFormProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  // The resync effect below reads the current categories when the form opens,
-  // but must NOT depend on `categories`: creating a category inside the form
-  // mutates that prop, and re-running the reset would wipe in-progress input.
-  const categoriesRef = useRef(categories);
-  categoriesRef.current = categories;
-
   const [title, setTitle] = useState(editingItem?.title ?? "");
   const [category, setCategory] = useState(
     () => editingItem?.category ?? readLastCreateDefaults(categories).category
@@ -100,20 +94,25 @@ export function TodoForm({
 
   // TodoForm stays mounted for the lifetime of the page (only `isOpen` toggles
   // the dialog), so field state must be resynced from `editingItem` every time
-  // the form opens rather than just on first mount.
-  useEffect(() => {
-    if (!isOpen) return;
-    const defaults = editingItem ? null : readLastCreateDefaults(categoriesRef.current);
-    setTitle(editingItem?.title ?? "");
-    setCategory(editingItem?.category ?? defaults?.category ?? "");
-    setDescription(editingItem?.description ?? "");
-    setPriority(editingItem?.priority ?? defaults?.priority ?? "medium");
-    setDueDate(toLocalDatetimeValue(editingItem?.due_date ?? null));
-    setRecurrenceRule(editingItem?.recurrence_rule ?? "none");
-    setTags(editingItem?.tags?.map((t) => t.name) ?? []);
-    setStatus("idle");
-    setMessage(null);
-  }, [isOpen, editingItem]);
+  // the form opens rather than just on first mount. Adjusting during render
+  // avoids a cascading extra render from an effect.
+  const resetKey = `${isOpen}|${editingItem?.id ?? ""}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (prevResetKey !== resetKey) {
+    setPrevResetKey(resetKey);
+    if (isOpen) {
+      const defaults = editingItem ? null : readLastCreateDefaults(categories);
+      setTitle(editingItem?.title ?? "");
+      setCategory(editingItem?.category ?? defaults?.category ?? "");
+      setDescription(editingItem?.description ?? "");
+      setPriority(editingItem?.priority ?? defaults?.priority ?? "medium");
+      setDueDate(toLocalDatetimeValue(editingItem?.due_date ?? null));
+      setRecurrenceRule(editingItem?.recurrence_rule ?? "none");
+      setTags(editingItem?.tags?.map((t) => t.name) ?? []);
+      setStatus("idle");
+      setMessage(null);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -150,9 +149,9 @@ export function TodoForm({
       setTimeout(() => {
         onClose();
       }, 600);
-    } catch (err: any) {
+    } catch (err) {
       setStatus("error");
-      setMessage(err.message || "Failed to save To Do item");
+      setMessage(err instanceof Error ? err.message : "Failed to save To Do item");
     }
   }
 

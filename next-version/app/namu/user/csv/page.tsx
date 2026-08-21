@@ -88,7 +88,6 @@ export default function CSVPage() {
   const [entries, setEntries] = useState<ParsedEntry[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [msg, setMsg] = useState<string | null>(null);
-  const [errorCount, setErrorCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -100,7 +99,6 @@ export default function CSVPage() {
       const text = event.target?.result as string;
       const parsed = parseCSV(text);
       setEntries(parsed);
-      setErrorCount(0);
       setStatus("idle");
       setMsg(null);
     };
@@ -136,9 +134,9 @@ export default function CSVPage() {
         setEntries([]);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
-    } catch (err: any) {
+    } catch (err) {
       setStatus("error");
-      setMsg(err.message);
+      setMsg(err instanceof Error ? err.message : "Import failed");
     }
   }
 

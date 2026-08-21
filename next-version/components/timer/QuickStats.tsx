@@ -62,7 +62,7 @@ export function QuickStats({ entries, loading = false }: QuickStatsProps) {
   return (
     <div className="bg-surface p-5 rounded-xl shadow-sm border border-subtle">
       <h2 className="text-sm font-semibold text-primary mb-4">
-        Today's Activity
+        Today&apos;s Activity
       </h2>
       <div className="space-y-4">
         {/* Total Time */}

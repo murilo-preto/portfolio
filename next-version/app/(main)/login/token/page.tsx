@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type AuthState =
   | { loading: true }
-  | { loading: false; authenticated: true; data: any }
+  | { loading: false; authenticated: true; data: unknown }
   | { loading: false; authenticated: false; error: string };
 
 export default function TokenCheckPage() {
@@ -35,7 +35,7 @@ export default function TokenCheckPage() {
           authenticated: true,
           data,
         });
-      } catch (err) {
+      } catch {
         setState({
           loading: false,
           authenticated: false,

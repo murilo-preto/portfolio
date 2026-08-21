@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { FLASK_BASE_URL } from "./constants";
 
 /**
  * Fetches from Flask with the current access token and handles token refresh.

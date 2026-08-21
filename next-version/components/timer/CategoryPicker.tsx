@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 type Category = {
   id: number;
@@ -93,9 +93,12 @@ export function CategoryPicker({
   }, [categories]);
 
   // Keep the count sane if the category list shrinks between measurements.
-  useEffect(() => {
+  // Adjusting during render avoids a cascading extra render from an effect.
+  const [prevCategoryCount, setPrevCategoryCount] = useState(categories.length);
+  if (prevCategoryCount !== categories.length) {
+    setPrevCategoryCount(categories.length);
     setVisibleCount((c) => Math.min(c, Math.max(categories.length, 1)));
-  }, [categories.length]);
+  }
 
   if (loading) {
     return <p className="text-sm text-muted py-2">Loading categories...</p>;

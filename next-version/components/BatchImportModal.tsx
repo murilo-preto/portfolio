@@ -25,7 +25,6 @@ export function BatchImportModal({
   importType,
   onImportSuccess,
 }: BatchImportModalProps) {
-  const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ParsedEntry[]>([]);
   const [status, setStatus] = useState<"idle" | "parsing" | "ready" | "importing" | "success" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -40,7 +39,6 @@ export function BatchImportModal({
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    setFile(selectedFile);
     setStatus("parsing");
     setMessage(null);
     setResult(null);
@@ -121,7 +119,6 @@ export function BatchImportModal({
   }
 
   function resetState() {
-    setFile(null);
     setPreview([]);
     setStatus("idle");
     setMessage(null);

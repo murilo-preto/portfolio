@@ -1,14 +1,11 @@
 "use client";
 
-import { addDays } from "@/components/finance/utils";
-
 type FilterMode = "today" | "week" | "month" | "all";
 
 type WeekNavigatorProps = {
   weekStart: Date;
   weekEnd: Date;
   monthStart?: Date;
-  monthEnd?: Date;
   filterMode: FilterMode;
   onPrev: () => void;
   onNext: () => void;
@@ -19,7 +16,6 @@ export function WeekNavigator({
   weekStart,
   weekEnd,
   monthStart,
-  monthEnd,
   filterMode,
   onPrev,
   onNext,

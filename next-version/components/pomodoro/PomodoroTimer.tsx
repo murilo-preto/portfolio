@@ -210,6 +210,9 @@ export function PomodoroTimer({
     }
 
     modeRef.current = parsed.mode;
+    // Mount-time restore from localStorage (see above); must stay out of
+    // render to avoid an SSR hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMode(parsed.mode);
     sessionsCompletedRef.current = parsed.sessionsCompleted ?? 0;
     setSessionsCompleted(parsed.sessionsCompleted ?? 0);

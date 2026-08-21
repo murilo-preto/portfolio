@@ -2,19 +2,21 @@
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface ImageCarouselProps {
   images: string[];
 }
 
 export default function ImageCarousel({ images }: ImageCarouselProps) {
-  const autoplay = useRef(
-    Autoplay({
-      delay: 3000,
-      stopOnInteraction: false,
-      stopOnMouseEnter: true,
-    }),
+  const autoplay = useMemo(
+    () =>
+      Autoplay({
+        delay: 3000,
+        stopOnInteraction: false,
+        stopOnMouseEnter: true,
+      }),
+    [],
   );
 
   const [emblaRef, emblaApi] = useEmblaCarousel(
@@ -22,7 +24,7 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
       loop: true,
       align: "center",
     },
-    [autoplay.current],
+    [autoplay],
   );
 
   const [selectedIndex, setSelectedIndex] = useState(0);

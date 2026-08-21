@@ -42,6 +42,10 @@ type Entry = {
 // Window used to rank categories, so the ones in recent use stay on the row.
 const RECENT_WINDOW_DAYS = 14;
 
+// Reference point for the recency window. Captured once per module load so
+// render stays pure; the ranking only shifts on page reload, which is fine.
+const NOW = Date.now();
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function saveTimerState(state: unknown) {
@@ -112,8 +116,8 @@ export default function TimerPage() {
         if (!res.ok) throw new Error("Failed to load categories");
         const json = await res.json();
         setCategories(json.categories ?? []);
-      } catch (err: any) {
-        setCatError(err.message);
+      } catch (err) {
+        setCatError(err instanceof Error ? err.message : "Failed to load categories");
       } finally {
         setCatLoading(false);
       }
@@ -137,12 +141,17 @@ export default function TimerPage() {
   }, []);
 
   useEffect(() => {
-    fetchEntries();
+    void (async () => {
+      await fetchEntries();
+    })();
   }, [fetchEntries]);
 
   // ── Restore targets and timer from localStorage ─────────────────────────────
 
   useEffect(() => {
+    // Mount-time restore from localStorage; must stay out of render to avoid
+    // an SSR hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTargets(readTargets());
 
     const saved = localStorage.getItem(TIMER_STATE_KEY);
@@ -179,6 +188,9 @@ export default function TimerPage() {
   // sleep, throttled background tabs and clock changes. Sub-second polling
   // keeps the displayed second from visibly stuttering.
   useEffect(() => {
+    // Recompute immediately on state changes so the displayed second doesn't
+    // visibly stutter while waiting for the first interval tick.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setElapsed(totalSeconds(segments, Date.now()));
     if (timerState !== "running") return;
     const id = setInterval(
@@ -195,7 +207,7 @@ export default function TimerPage() {
   // Every category gets a chip; the picker fills the row and pushes whatever
   // is left over into its "More" menu, so the order decides what stays visible.
   const orderedCategories = useMemo(() => {
-    const cutoff = Date.now() - RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const cutoff = NOW - RECENT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     const counts: Record<string, number> = {};
     entries.forEach((e) => {
       if (new Date(e.start_time).getTime() >= cutoff) {
@@ -477,9 +489,9 @@ export default function TimerPage() {
 
       // Pull the entries we just created into today's totals
       fetchEntries();
-    } catch (err: any) {
+    } catch (err) {
       setSubmitStatus("error");
-      setSubmitMessage(err.message);
+      setSubmitMessage(err instanceof Error ? err.message : "Failed to submit entries");
     }
   }
 

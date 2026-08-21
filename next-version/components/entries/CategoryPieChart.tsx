@@ -99,7 +99,7 @@ export function CategoryPieChart({
           : 0;
 
     const pct = totalHours > 0 ? (numeric / totalHours) * 100 : 0;
-    const label = (item?.payload as any)?.category as string;
+    const label = (item?.payload as { category?: string } | undefined)?.category ?? "";
 
     // Recharts expects either ReactNode or [value, name]
     return [`${numeric} h (${pct.toFixed(1)}%)`, label];

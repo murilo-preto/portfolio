@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/entries/Card";
 import { WeekNavigator } from "@/components/entries/WeekNavigator";
 import { CategoryChart } from "@/components/entries/CategoryChart";
@@ -9,25 +9,18 @@ import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
 import { EntriesTable } from "@/components/entries/EntriesTable";
 import { getMondayOf, addDays } from "@/components/entries/utils";
 import { DEMO_DATA } from "./constants";
+import { usePrefersDark } from "@/lib/use-media-query";
 
 type FilterMode = "today" | "week" | "all";
 
 export default function EntriesDemo() {
   const data = DEMO_DATA;
 
-  const [isDark, setIsDark] = useState(false);
+  const isDark = usePrefersDark();
   const [weekStart, setWeekStart] = useState(() =>
     getMondayOf(new Date("2026-02-18")),
   );
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
-
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(media.matches);
-    const listener = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
-  }, []);
 
   const weekEnd = addDays(weekStart, 6);
 
@@ -76,7 +69,7 @@ export default function EntriesDemo() {
       {/* Non showAll reliant */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">
-          {data.username}'s Dashboard
+          {data.username}&apos;s Dashboard
         </h1>
         <p className="text-sm text-gray-500">Static Demo Version</p>
       </div>

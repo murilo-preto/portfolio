@@ -160,9 +160,12 @@ export function ItauPdfImportModal({
 
   // Covers categories arriving after a parse; handleFileChange covers the
   // usual order, where they are already loaded when files are picked.
-  useEffect(() => {
+  // Adjusting during render avoids a cascading extra render from an effect.
+  const [prevKnownCategories, setPrevKnownCategories] = useState(knownCategories);
+  if (prevKnownCategories !== knownCategories) {
+    setPrevKnownCategories(knownCategories);
     setEntries((prev) => adoptExistingSpellings(prev, knownCategories));
-  }, [knownCategories]);
+  }
 
   if (!isOpen) return null;
 

@@ -148,14 +148,6 @@ function Header() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="m-1 p-1 rounded-md bg-surface">
-      Footer
-    </footer>
-  );
-}
-
 export default function ClientLayout({
   children,
 }: {
@@ -170,7 +162,6 @@ export default function ClientLayout({
       >
         <Header />
         <main className="flex-1">{children}</main>
-        {/* <Footer /> */}
       </body>
     </html>
   );

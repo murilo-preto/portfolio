@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { formatDuration } from "./utils";
 
 // Presets offered when picking a target, in seconds.
@@ -33,9 +33,12 @@ export function DailyTarget({
   const [draftM, setDraftM] = useState("0");
 
   // Always show the stored target for whatever category is now selected.
-  useEffect(() => {
+  // Adjusting during render avoids a cascading extra render from an effect.
+  const [prevCategoryName, setPrevCategoryName] = useState(categoryName);
+  if (prevCategoryName !== categoryName) {
+    setPrevCategoryName(categoryName);
     setEditing(false);
-  }, [categoryName]);
+  }
 
   const done = loggedSeconds + liveSeconds;
   const remaining = (target ?? 0) - done;

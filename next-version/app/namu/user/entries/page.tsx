@@ -10,6 +10,7 @@ import { QuickStats } from "@/components/entries/QuickStats";
 import { SummaryCard } from "@/components/finance/SummaryCard";
 import { getMondayOf, addDays, formatDuration } from "@/components/entries/utils";
 import type { ApiResponse } from "@/components/entries/types";
+import { usePrefersDark } from "@/lib/use-media-query";
 
 type FilterMode = "today" | "week" | "all";
 
@@ -17,41 +18,33 @@ export default function Entries() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(false);
+  const isDark = usePrefersDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
 
-  async function get_entries() {
-    try {
-      const res = await fetch("/api/entry", {
-        method: "GET",
-        credentials: "include",
-      });
+  useEffect(() => {
+    async function get_entries() {
+      try {
+        const res = await fetch("/api/entry", {
+          method: "GET",
+          credentials: "include",
+        });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to fetch entries");
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || "Failed to fetch entries");
+        }
+
+        const json = await res.json();
+        setData(json);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
       }
-
-      const json = await res.json();
-      setData(json);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
     }
-  }
 
-  useEffect(() => {
     get_entries();
-  }, []);
-
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(media.matches);
-    const listener = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
   }, []);
 
   const weekEnd = addDays(weekStart, 6);
@@ -125,7 +118,7 @@ export default function Entries() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-primary">
-            {data.username}'s Dashboard
+            {data.username}&apos;s Dashboard
           </h1>
           <p className="text-sm text-muted mt-1">
             Track your time and productivity

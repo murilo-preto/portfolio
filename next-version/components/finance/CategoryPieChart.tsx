@@ -92,7 +92,7 @@ export function CategoryPieChart({
           : 0;
 
     const pct = totalPrice > 0 ? (numeric / totalPrice) * 100 : 0;
-    const label = (item?.payload as any)?.category as string;
+    const label = (item?.payload as { category?: string } | undefined)?.category ?? "";
 
     return [`$${numeric.toFixed(2)} (${pct.toFixed(1)}%)`, label];
   };

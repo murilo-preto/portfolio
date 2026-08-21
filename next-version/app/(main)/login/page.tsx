@@ -33,8 +33,8 @@ export default function LoginPage() {
 
       router.push("/namu");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
     }

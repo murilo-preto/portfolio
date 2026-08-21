@@ -54,8 +54,8 @@ export function CategorySelector({
       onCategoryCreated?.(data.category);
       onChange(data.category.name);
       setCreating(false);
-    } catch (err: any) {
-      setError(err.message || "Failed to create category");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create category");
     } finally {
       setSubmitting(false);
     }

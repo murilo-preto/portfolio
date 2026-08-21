@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   formatDuration,
   isSegmentValid,
@@ -9,6 +9,7 @@ import {
   type Segment,
   type TimerState,
 } from "./utils";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 type SessionSegmentsProps = {
   segments: Segment[];
@@ -29,15 +30,18 @@ export function SessionSegments({
   state,
 }: SessionSegmentsProps) {
   const [open, setOpen] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 640px)");
 
   // Once a session is finished the times are about to be submitted, so this is
   // the moment they are worth checking — open the editor automatically. Not on
   // phones though: a stack of date pickers there would push Submit off-screen,
   // and the interval count in the summary is enough of an invitation.
-  useEffect(() => {
-    if (state !== "stopped") return;
-    if (window.matchMedia("(min-width: 640px)").matches) setOpen(true);
-  }, [state]);
+  // Adjusting during render avoids a cascading extra render from an effect.
+  const [prevState, setPrevState] = useState<TimerState | null>(null);
+  if (prevState !== state) {
+    setPrevState(state);
+    if (state === "stopped" && isDesktop) setOpen(true);
+  }
 
   function updateSegment(index: number, patch: Partial<Segment>) {
     onChange(segments.map((seg, i) => (i === index ? { ...seg, ...patch } : seg)));
@@ -107,7 +111,9 @@ export function SessionSegments({
                       <span className="ml-2 font-normal text-dim tabular-nums">
                         {openEnded
                           ? "running"
-                          : formatDuration(segmentSeconds(segment, Date.now()))}
+                          : // Closed segments ignore the `now` argument, so no
+                            // live clock is needed here.
+                            formatDuration(segmentSeconds(segment, 0))}
                       </span>
                     </span>
                     {!openEnded && (

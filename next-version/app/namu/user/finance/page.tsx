@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { WeekNavigator } from "@/components/finance/WeekNavigator";
 import { CategoryChart } from "@/components/finance/CategoryChart";
 import { CategoryPieChart } from "@/components/finance/CategoryPieChart";
@@ -12,6 +12,7 @@ import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
+import { usePrefersDark } from "@/lib/use-media-query";
 
 type FilterMode = "today" | "week" | "month" | "all";
 
@@ -52,7 +53,7 @@ export default function FinanceDashboard() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(false);
+  const isDark = usePrefersDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [monthStart, setMonthStart] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
@@ -60,7 +61,7 @@ export default function FinanceDashboard() {
   const [showItauModal, setShowItauModal] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
 
-  async function getEntries() {
+  const getEntries = useCallback(async () => {
     try {
       const res = await fetch("/api/finance", {
         method: "GET",
@@ -79,22 +80,19 @@ export default function FinanceDashboard() {
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    getEntries();
   }, []);
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(media.matches);
-    const listener = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
-  }, []);
+    void (async () => {
+      await getEntries();
+    })();
+  }, [getEntries]);
 
   const weekEnd = addDays(weekStart, 6);
-  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  const monthEnd = useMemo(
+    () => new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0),
+    [monthStart],
+  );
 
   const filteredEntries = useMemo(() => {
     if (!data) return [];
@@ -192,7 +190,7 @@ export default function FinanceDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-primary">
-            {data.username}'s Finance Dashboard
+            {data.username}&apos;s Finance Dashboard
           </h1>
           <p className="text-sm text-muted mt-1">
             Track your spending and manage your budget
@@ -230,7 +228,6 @@ export default function FinanceDashboard() {
         weekStart={weekStart}
         weekEnd={weekEnd}
         monthStart={monthStart}
-        monthEnd={monthEnd}
         filterMode={filterMode}
         onPrev={() => {
           if (filterMode === "month") {

@@ -69,8 +69,8 @@ export default function TodoPage() {
       }
       const data = await res.json();
       setItems(data.items ?? []);
-    } catch (err: any) {
-      setError(err.message || "Unknown error");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -99,16 +99,16 @@ export default function TodoPage() {
   }
 
   useEffect(() => {
-    fetchTodoItems();
-    fetchCategories();
-    fetchTags();
+    void (async () => {
+      await Promise.all([fetchTodoItems(), fetchCategories(), fetchTags()]);
 
-    try {
-      const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
-      if (raw) setFilters({ ...DEFAULT_FILTERS, ...JSON.parse(raw) });
-    } catch {
-      // ignore malformed/unavailable storage
-    }
+      try {
+        const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+        if (raw) setFilters({ ...DEFAULT_FILTERS, ...JSON.parse(raw) });
+      } catch {
+        // ignore malformed/unavailable storage
+      }
+    })();
   }, []);
 
   // Press "n" to open a fresh Create form, unless typing in a field or the

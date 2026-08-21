@@ -46,7 +46,7 @@ export function TodaySessions({
     <div className="h-full min-h-0 flex flex-col bg-surface p-5 rounded-xl shadow-sm border border-subtle">
       <div className="flex items-baseline justify-between gap-2 mb-3 flex-none">
         <h2 className="text-sm font-semibold text-primary">
-          Today's Sessions
+          Today&apos;s Sessions
         </h2>
         {today.length > 0 && (
           <span className="text-xs text-dim tabular-nums">

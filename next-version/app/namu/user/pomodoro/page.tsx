@@ -20,6 +20,9 @@ function PomodoroPageContent() {
   const [selectedTodo, setSelectedTodo] = useState<TodoItem | null>(null);
 
   useEffect(() => {
+    // Restoring persisted settings must happen after mount: reading
+    // localStorage during render would cause an SSR hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(loadSettings());
   }, []);
 

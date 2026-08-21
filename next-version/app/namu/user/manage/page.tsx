@@ -236,9 +236,9 @@ function CategoryPanel({
       if (catsRes.ok) {
         // Parent will re-fetch on next fetchAll; trigger it by re-mounting
       }
-    } catch (err: any) {
+    } catch (err) {
       setStatus("error");
-      setMsg(err.message);
+      setMsg(err instanceof Error ? err.message : "Failed to create category");
     }
   }
 
@@ -422,9 +422,9 @@ function CreateEntryPanel({
       setStart("");
       setEnd("");
       onCreated();
-    } catch (err: any) {
+    } catch (err) {
       setStatus("error");
-      setMsg(err.message);
+      setMsg(err instanceof Error ? err.message : "Failed to create entry");
     }
   }
 
@@ -484,8 +484,11 @@ function EditEntryPanel({
   const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Reset state when the selected entry changes
-  useEffect(() => {
+  // Reset state when the selected entry changes. Adjusting state during
+  // render (rather than in an effect) avoids a cascading extra render.
+  const [prevEntryId, setPrevEntryId] = useState(entry.id);
+  if (prevEntryId !== entry.id) {
+    setPrevEntryId(entry.id);
     setCategory(entry.category);
     setStart(toLocalDatetimeValue(entry.start_time));
     setEnd(toLocalDatetimeValue(entry.end_time));
@@ -494,7 +497,7 @@ function EditEntryPanel({
     setDeleteStatus("idle");
     setDeleteMsg(null);
     setConfirmDelete(false);
-  }, [entry.id]);
+  }
 
   async function handleUpdate() {
     setSaveStatus("loading");
@@ -531,9 +534,9 @@ function EditEntryPanel({
       setSaveStatus("success");
       setSaveMsg("Entry updated.");
       onSaved();
-    } catch (err: any) {
+    } catch (err) {
       setSaveStatus("error");
-      setSaveMsg(err.message);
+      setSaveMsg(err instanceof Error ? err.message : "Update failed");
     }
   }
 
@@ -554,9 +557,9 @@ function EditEntryPanel({
       setDeleteStatus("success");
       setDeleteMsg("Entry deleted.");
       onDeleted();
-    } catch (err: any) {
+    } catch (err) {
       setDeleteStatus("error");
-      setDeleteMsg(err.message);
+      setDeleteMsg(err instanceof Error ? err.message : "Delete failed");
     }
   }
 
@@ -660,15 +663,17 @@ export default function ManagePage() {
         const { categories: c } = await catsRes.json();
         setCategories(c ?? []);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch entries");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    fetchAll();
+    void (async () => {
+      await fetchAll();
+    })();
   }, []);
 
   const selectedEntry = entries.find((e) => e.id === selectedId) ?? null;
