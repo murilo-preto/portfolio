@@ -13,11 +13,11 @@ export default function Experience() {
               Qualcomm
               <span className="font-normal text-muted-foreground">
                 {" "}
-                — Software Engineer Intern
+                — Software Engineer
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              São Paulo · 02/2025 – Present
+              São Paulo · 08/2026 – Present
             </p>
           </div>
 
@@ -26,6 +26,24 @@ export default function Experience() {
             <li>Integration across Windows, Ubuntu and Yocto Linux</li>
             <li>Enterprise customer support for AI solutions</li>
           </ul>
+        </div>
+
+        {/* Qualcomm Intern */}
+        <div className="relative">
+          <span className="rounded-full bg-foreground" />
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+            <p className="font-semibold tracking-tight">
+              Qualcomm
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                — Software Engineer Intern
+              </span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              São Paulo · 02/2025 – 08/2026
+            </p>
+          </div>
         </div>
 
         {/* UFABC */}
