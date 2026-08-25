@@ -92,3 +92,29 @@ export function writeTargets(targets: Record<string, number>) {
     // localStorage unavailable — targets just won't survive a refresh.
   }
 }
+
+/**
+ * "today at 6:30 PM" / "tomorrow at 1:15 AM" / "Wed at 2:00 AM" — the wall
+ * clock moment a countdown lands on, so a remaining duration can be read as
+ * a time of day without doing the arithmetic. Times follow the browser locale
+ * (12h or 24h).
+ */
+export function formatEta(finish: Date, now: Date): string {
+  const time = finish.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const startOfToday = new Date(now).setHours(0, 0, 0, 0);
+  const startOfFinish = new Date(finish).setHours(0, 0, 0, 0);
+  // Rounded, not floored: on a DST boundary two adjacent day starts sit 23 or
+  // 25 hours apart, which would otherwise read as the same day.
+  const dayDiff = Math.round((startOfFinish - startOfToday) / 86_400_000);
+
+  if (dayDiff <= 0) return `today at ${time}`;
+  if (dayDiff === 1) return `tomorrow at ${time}`;
+  if (dayDiff < 7) {
+    return `${finish.toLocaleDateString(undefined, { weekday: "short" })} at ${time}`;
+  }
+  return `${finish.toLocaleDateString(undefined, { month: "short", day: "numeric" })} at ${time}`;
+}

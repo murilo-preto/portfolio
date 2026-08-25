@@ -10,6 +10,7 @@ import { SessionSegments } from "@/components/timer/SessionSegments";
 import {
   TIMER_STATE_KEY,
   formatDuration,
+  formatEta,
   isSegmentValid,
   readTargets,
   splitClock,
@@ -100,6 +101,12 @@ export default function TimerPage() {
   const [timerState, setTimerState] = useState<TimerState>("idle");
   const [segments, setSegments] = useState<Segment[]>([]);
   const [elapsed, setElapsed] = useState(0);
+
+  // Wall clock behind the projected finish time. It needs its own tick because
+  // that projection slides forward whenever the timer *isn't* running, while
+  // `elapsed` only advances during a live session. Null until mounted so the
+  // server-rendered markup doesn't disagree with the client's clock.
+  const [now, setNow] = useState<number | null>(null);
 
   // Submission
   const [submitStatus, setSubmitStatus] = useState<
@@ -200,6 +207,15 @@ export default function TimerPage() {
     return () => clearInterval(id);
   }, [timerState, segments]);
 
+  // A minute of drift is invisible on a "finishes at 6:30 PM" label, so this
+  // ticks far slower than the clock itself.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
+
   // ── Derived values ──────────────────────────────────────────────────────────
 
   const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
@@ -240,12 +256,18 @@ export default function TimerPage() {
   const doneToday = loggedSecondsToday + elapsed;
   const progress = target ? Math.min(1, doneToday / target) : 0;
   const targetMet = target != null && doneToday >= target;
+  // Bare values: TimerDisplay pairs each with its own caption.
   const remainingLabel =
     target == null
       ? undefined
-      : targetMet
-        ? `${formatDuration(doneToday - target)} over target`
-        : `${formatDuration(target - doneToday)} left today`;
+      : formatDuration(targetMet ? doneToday - target : target - doneToday);
+
+  // When the target will be reached if tracking continues uninterrupted from
+  // now — and, while the timer is stopped, if it were restarted right now.
+  const etaLabel =
+    target == null || targetMet || now == null
+      ? undefined
+      : formatEta(new Date(now + (target - doneToday) * 1000), new Date(now));
 
   const allClosed = segments.every((seg) => seg.end !== null);
   const allValid = segments.every(isSegmentValid);
@@ -553,6 +575,7 @@ export default function TimerPage() {
               hasTarget={target != null}
               targetMet={targetMet}
               remainingLabel={remainingLabel}
+              etaLabel={etaLabel}
             />
           </div>
 

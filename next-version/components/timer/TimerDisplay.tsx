@@ -16,8 +16,10 @@ type TimerDisplayProps = {
   progress: number;
   hasTarget: boolean;
   targetMet: boolean;
-  /** e.g. "4h 50m left" — kept inside the ring so phones never scroll for it. */
+  /** e.g. "4h 50m" — time still owed to today's target, or the overshoot. */
   remainingLabel?: string;
+  /** e.g. "today at 6:30 PM" — the clock time the target lands on. */
+  etaLabel?: string;
 };
 
 const RADIUS = 88;
@@ -43,6 +45,7 @@ export function TimerDisplay({
   hasTarget,
   targetMet,
   remainingLabel,
+  etaLabel,
 }: TimerDisplayProps) {
   const { hm, ss } = splitClock(elapsed);
   const isRunning = state === "running";
@@ -59,9 +62,11 @@ export function TimerDisplay({
 
   return (
     <div className="h-full flex flex-col justify-center bg-surface p-5 md:p-8 rounded-xl shadow-sm border border-subtle">
-      {/* Ring + elapsed time */}
-      <div className="flex justify-center">
-        <div className="relative w-full max-w-[210px] sm:max-w-[260px] aspect-square">
+      {/* Ring + elapsed time, with today's target stats alongside. The stats
+          sit outside the ring so the clock itself stays the one thing read
+          first; they drop below it when there is no room to the side. */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8">
+        <div className="relative w-full max-w-[210px] sm:max-w-[260px] shrink-0 aspect-square">
           <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
             <circle
               cx="100"
@@ -116,20 +121,46 @@ export function TimerDisplay({
                 STATUS_LABEL[state]
               )}
             </p>
-
-            {hasTarget && remainingLabel && (
-              <p
-                className={`text-xs mt-1.5 tabular-nums font-medium ${
-                  targetMet
-                    ? "text-tint-green-ink dark:text-green-400"
-                    : "text-muted"
-                }`}
-              >
-                {remainingLabel}
-              </p>
-            )}
           </div>
         </div>
+
+        {hasTarget && (remainingLabel || etaLabel) && (
+          <dl className="flex sm:flex-col items-center sm:items-start gap-8 sm:gap-5 text-center sm:text-left">
+            {remainingLabel && (
+              <div>
+                <dt className="text-[11px] uppercase tracking-widest text-dim">
+                  {targetMet ? "Over target" : "Left today"}
+                </dt>
+                <dd
+                  className={`mt-1 text-xl font-semibold tabular-nums ${
+                    targetMet
+                      ? "text-tint-green-ink dark:text-green-400"
+                      : "text-secondary"
+                  }`}
+                >
+                  {remainingLabel}
+                </dd>
+              </div>
+            )}
+
+            {etaLabel && (
+              <div
+                title={
+                  isRunning
+                    ? "When today's target is reached if the timer keeps running"
+                    : "When today's target would be reached if the timer started now"
+                }
+              >
+                <dt className="text-[11px] uppercase tracking-widest text-dim">
+                  Finishes
+                </dt>
+                <dd className="mt-1 text-sm font-medium text-muted tabular-nums">
+                  {etaLabel}
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
       </div>
 
       {/* Controls */}
