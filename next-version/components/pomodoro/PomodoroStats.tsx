@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { PomodoroStats as PomodoroStatsType } from "@/lib/types";
 import { formatDuration } from "@/components/todo/utils";
+import { warmFetch } from "@/lib/prefetch";
 
 export function PomodoroStats() {
   const [stats, setStats] = useState<PomodoroStatsType | null>(null);
@@ -11,7 +12,7 @@ export function PomodoroStats() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch("/api/pomodoro/stats", {
+        const res = await warmFetch("/api/pomodoro/stats", {
           credentials: "include",
         });
 

@@ -13,6 +13,7 @@ import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
 import { usePrefersDark } from "@/lib/use-media-query";
+import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "month" | "all";
 
@@ -63,7 +64,7 @@ export default function FinanceDashboard() {
 
   const getEntries = useCallback(async () => {
     try {
-      const res = await fetch("/api/finance", {
+      const res = await warmFetch("/api/finance", {
         method: "GET",
         credentials: "include",
       });

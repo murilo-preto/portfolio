@@ -6,6 +6,7 @@ import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { warmFetch } from "@/lib/prefetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -784,8 +785,8 @@ export default function FinanceManagePage() {
     setError(null);
     try {
       const [entriesRes, catsRes] = await Promise.all([
-        fetch("/api/finance", { credentials: "include" }),
-        fetch("/api/finance/categories"),
+        warmFetch("/api/finance", { credentials: "include" }),
+        warmFetch("/api/finance/categories"),
       ]);
       if (!entriesRes.ok) throw new Error("Failed to fetch finance entries");
       const { entries: e } = await entriesRes.json();

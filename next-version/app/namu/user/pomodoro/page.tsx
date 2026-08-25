@@ -8,6 +8,7 @@ import { PomodoroStats } from "@/components/pomodoro/PomodoroStats";
 import { PomodoroSettings } from "@/components/pomodoro/PomodoroSettings";
 import { TaskPicker } from "@/components/pomodoro/TaskPicker";
 import { loadSettings, saveSettings } from "@/components/pomodoro/utils";
+import { warmFetch } from "@/lib/prefetch";
 
 function PomodoroPageContent() {
   const searchParams = useSearchParams();
@@ -29,7 +30,7 @@ function PomodoroPageContent() {
   useEffect(() => {
     async function fetchTodos() {
       try {
-        const res = await fetch("/api/todo", { credentials: "include" });
+        const res = await warmFetch("/api/todo", { credentials: "include" });
         if (!res.ok) throw new Error("Failed to load To Do items");
         const data = await res.json();
         const items = (data.items as TodoItem[]).filter(

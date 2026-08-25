@@ -2,7 +2,7 @@
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
-import Link from "next/link";
+import { PrefetchLink } from "@/components/PrefetchLink";
 import LogoutButton from "@/components/LogoutButton";
 import { NavDropdown, type NavDropdownItem } from "@/components/NavDropdown";
 import { useState, useEffect } from "react";
@@ -56,9 +56,9 @@ function NavLink({
 }) {
   return (
     <div className="bg-surface-deep p-1 rounded-md hover:cursor-pointer">
-      <Link href={href} onClick={onClick}>
+      <PrefetchLink href={href} onClick={onClick}>
         {children}
-      </Link>
+      </PrefetchLink>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { PrefetchLink } from "@/components/PrefetchLink";
 import { useEffect, useRef, useState } from "react";
 
 export type NavDropdownItem = { label: string; href: string };
@@ -101,7 +101,7 @@ export function NavDropdown({ label, items }: NavDropdownProps) {
             className="rounded-lg border border-default bg-surface shadow-xl overflow-hidden"
           >
             {items.map((item) => (
-              <Link
+              <PrefetchLink
                 key={item.href}
                 href={item.href}
                 role="menuitem"
@@ -112,7 +112,7 @@ export function NavDropdown({ label, items }: NavDropdownProps) {
                 className="block w-full px-4 py-2.5 text-left text-sm text-secondary hover:bg-surface-hover transition-colors"
               >
                 {item.label}
-              </Link>
+              </PrefetchLink>
             ))}
           </div>
         </div>

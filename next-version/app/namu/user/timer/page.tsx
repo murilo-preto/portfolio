@@ -24,6 +24,7 @@ import {
   notifyCompletion,
   playChime,
 } from "@/lib/notifications";
+import { warmFetch } from "@/lib/prefetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -119,7 +120,7 @@ export default function TimerPage() {
   useEffect(() => {
     async function fetchCategories() {
       try {
-        const res = await fetch("/api/categories");
+        const res = await warmFetch("/api/categories");
         if (!res.ok) throw new Error("Failed to load categories");
         const json = await res.json();
         setCategories(json.categories ?? []);
@@ -136,7 +137,7 @@ export default function TimerPage() {
 
   const fetchEntries = useCallback(async () => {
     try {
-      const res = await fetch("/api/entry", { credentials: "include" });
+      const res = await warmFetch("/api/entry", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch entries");
       const json = await res.json();
       setEntries(json.entries ?? []);

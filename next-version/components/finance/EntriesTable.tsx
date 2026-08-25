@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FinanceEntry } from "@/components/finance/types";
 import { formatPrice } from "@/components/finance/utils";
 import { normalizeCategoryName } from "@/lib/categoryName";
+import { warmFetch } from "@/lib/prefetch";
 
 /** Sentinel option value that opens the "new category" input. */
 const NEW_CATEGORY = "__new__";
@@ -60,7 +61,7 @@ export function EntriesTable({
   const [draftName, setDraftName] = useState("");
 
   async function loadCategories() {
-    const res = await fetch("/api/finance/categories", {
+    const res = await warmFetch("/api/finance/categories", {
       credentials: "include",
     });
     if (!res.ok) return;

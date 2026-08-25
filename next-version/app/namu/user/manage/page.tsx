@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BatchImportModal } from "@/components/BatchImportModal";
+import { warmFetch } from "@/lib/prefetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -649,8 +650,8 @@ export default function ManagePage() {
     setError(null);
     try {
       const [entriesRes, catsRes] = await Promise.all([
-        fetch("/api/entry", { credentials: "include" }),
-        fetch("/api/categories"),
+        warmFetch("/api/entry", { credentials: "include" }),
+        warmFetch("/api/categories"),
       ]);
       if (!entriesRes.ok) throw new Error("Failed to fetch entries");
       const { entries: e } = await entriesRes.json();

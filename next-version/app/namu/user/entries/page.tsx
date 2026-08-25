@@ -16,6 +16,7 @@ import {
 } from "@/components/entries/utils";
 import type { ApiResponse } from "@/components/entries/types";
 import { usePrefersDark } from "@/lib/use-media-query";
+import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "all";
 
@@ -30,7 +31,7 @@ export default function Entries() {
   useEffect(() => {
     async function get_entries() {
       try {
-        const res = await fetch("/api/entry", {
+        const res = await warmFetch("/api/entry", {
           method: "GET",
           credentials: "include",
         });

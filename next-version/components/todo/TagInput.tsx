@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Tag } from "@/lib/types";
+import { warmFetch } from "@/lib/prefetch";
 
 type TagInputProps = {
   value: string[];
@@ -15,7 +16,7 @@ export function TagInput({ value, onChange }: TagInputProps) {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const res = await fetch("/api/todo/tags");
+        const res = await warmFetch("/api/todo/tags");
         if (!res.ok) return;
         const data = await res.json();
         setAllTags(data.tags ?? []);

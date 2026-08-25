@@ -13,6 +13,7 @@ import { TodoList, type SortOption } from "@/components/todo/TodoList";
 import { TodoForm } from "@/components/todo/TodoForm";
 import { SummaryCards } from "@/components/todo/SummaryCards";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { warmFetch } from "@/lib/prefetch";
 
 const FILTERS_STORAGE_KEY = "todoFilters";
 
@@ -62,7 +63,7 @@ export default function TodoPage() {
 
   async function fetchTodoItems() {
     try {
-      const res = await fetch("/api/todo", { credentials: "include" });
+      const res = await warmFetch("/api/todo", { credentials: "include" });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.message || "Failed to fetch To Do items");
@@ -78,7 +79,7 @@ export default function TodoPage() {
 
   async function fetchCategories() {
     try {
-      const res = await fetch("/api/todo/categories");
+      const res = await warmFetch("/api/todo/categories");
       if (!res.ok) return;
       const data = await res.json();
       setCategories(data.categories ?? []);
@@ -89,7 +90,7 @@ export default function TodoPage() {
 
   async function fetchTags() {
     try {
-      const res = await fetch("/api/todo/tags");
+      const res = await warmFetch("/api/todo/tags");
       if (!res.ok) return;
       const data = await res.json();
       setAllTags(data.tags ?? []);
