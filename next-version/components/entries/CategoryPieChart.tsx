@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Entry } from "@/components/entries/types";
 import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
+import { EmptyState } from "@/components/entries/EmptyState";
 import { ReactNode } from "react";
 
 type CategoryPieChartProps = {
@@ -42,6 +43,8 @@ export function CategoryPieChart({
   }));
 
   const totalHours = data.reduce((sum, d) => sum + d.hours, 0);
+
+  const isEmpty = data.length === 0;
 
   // ---- Label renderer (typed) ----
   const renderLabel = ({
@@ -105,40 +108,42 @@ export function CategoryPieChart({
     return [`${numeric} h (${pct.toFixed(1)}%)`, label];
   };
 
+  if (isEmpty) {
+    return <EmptyState message="No time logged in this period." height={height} />;
+  }
+
   return (
-    <div>
-      <ResponsiveContainer width="100%" height={height}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="hours"
-            nameKey="category"
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={100}
-            labelLine={false}
-            label={renderLabel}
-            // IMPORTANT: rely on per-item "fill" from data; no <Cell> needed
-            isAnimationActive={false}
-          />
-          <Tooltip
-            cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }}
-            formatter={tooltipFormatter}
-            labelStyle={{ color: isDark ? "#000000" : undefined }}
-          />
-          <Legend
-            verticalAlign="bottom"
-            height={28}
-            iconType="circle"
-            formatter={(value) => (
-              <span style={{ color: isDark ? "#e5e7eb" : "#111827" }}>
-                {value}
-              </span>
-            )}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
+    <ResponsiveContainer width="100%" height={height}>
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="hours"
+          nameKey="category"
+          cx="50%"
+          cy="50%"
+          innerRadius={60}
+          outerRadius={100}
+          labelLine={false}
+          label={renderLabel}
+          // IMPORTANT: rely on per-item "fill" from data; no <Cell> needed
+          isAnimationActive={false}
+        />
+        <Tooltip
+          cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }}
+          formatter={tooltipFormatter}
+          labelStyle={{ color: isDark ? "#000000" : undefined }}
+        />
+        <Legend
+          verticalAlign="bottom"
+          height={28}
+          iconType="circle"
+          formatter={(value) => (
+            <span style={{ color: isDark ? "#e5e7eb" : "#111827" }}>
+              {value}
+            </span>
+          )}
+        />
+      </PieChart>
+    </ResponsiveContainer>
   );
 }

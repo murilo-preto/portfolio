@@ -161,7 +161,7 @@ export default function EntriesDemo() {
         </div>
       )}
 
-      <EntriesTable entries={visibleEntries} showAll={filterMode === "all"} />
+      <EntriesTable entries={visibleEntries} />
     </main>
   );
 }

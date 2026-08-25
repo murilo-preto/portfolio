@@ -141,19 +141,18 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
   return (
     <div
-      className="bg-surface p-3 md:p-4 rounded-xl shadow text-black dark:text-white overflow-hidden"
+      className="h-full bg-surface p-3 md:p-4 rounded-xl shadow-md border border-default text-primary overflow-hidden"
       style={
         maxHeight
           ? { maxHeight: `${maxHeight}px`, overflowY: "auto" }
           : undefined
       }
     >
-      {/* <div className="flex items-center justify-between mb-2"> */}
-      {/* <h2 className="text-base md:text-lg font-semibold">Weekly Calendar</h2> */}
-      {/* <span className="text-xs opacity-70"> */}
-      {/*   Displays the selected week (24h). Uses half-width on overlap. */}
-      {/* </span> */}
-      {/* </div> */}
+      {entries.length === 0 && (
+        <p className="text-xs text-muted text-center pb-2">
+          No entries in this period.
+        </p>
+      )}
 
       <div className="w-full text-center">
         <div className="w-full">

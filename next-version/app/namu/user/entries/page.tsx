@@ -6,9 +6,14 @@ import { CategoryChart } from "@/components/entries/CategoryChart";
 import { CategoryPieChart } from "@/components/entries/CategoryPieChart";
 import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
 import { EntriesTable } from "@/components/entries/EntriesTable";
-import { QuickStats } from "@/components/entries/QuickStats";
+import { Panel } from "@/components/entries/Panel";
 import { SummaryCard } from "@/components/finance/SummaryCard";
-import { getMondayOf, addDays, formatDuration } from "@/components/entries/utils";
+import {
+  getMondayOf,
+  addDays,
+  stripTime,
+  formatDuration,
+} from "@/components/entries/utils";
 import type { ApiResponse } from "@/components/entries/types";
 import { usePrefersDark } from "@/lib/use-media-query";
 
@@ -80,19 +85,36 @@ export default function Entries() {
     });
   }, [data, weekStart, weekEnd, filterMode]);
 
-  const visibleEntries =
-    filterMode === "all" ? (data?.entries ?? []) : filteredEntries;
+  const showAll = filterMode === "all";
+  const visibleEntries = useMemo(
+    () => (showAll ? (data?.entries ?? []) : filteredEntries),
+    [showAll, data, filteredEntries],
+  );
 
-  const totalHours = (
-    visibleEntries.reduce((acc, e) => acc + e.duration_seconds, 0) / 3600
-  ).toFixed(1);
+  const totalSeconds = visibleEntries.reduce(
+    (acc, e) => acc + e.duration_seconds,
+    0,
+  );
+  const totalHours = (totalSeconds / 3600).toFixed(1);
 
-  const longestSessionSeconds = Math.max(0, ...visibleEntries.map((e) => e.duration_seconds));
-  const longestSessionHours = (longestSessionSeconds / 3600).toFixed(2);
+  const longestSessionHours = (
+    Math.max(0, ...visibleEntries.map((e) => e.duration_seconds)) / 3600
+  ).toFixed(2);
 
-  const avgSessionSeconds = visibleEntries.length > 0
-    ? visibleEntries.reduce((acc, e) => acc + e.duration_seconds, 0) / visibleEntries.length
-    : 0;
+  const avgSessionSeconds =
+    visibleEntries.length > 0 ? totalSeconds / visibleEntries.length : 0;
+
+  const activeDays = useMemo(
+    () =>
+      new Set(
+        visibleEntries.map((e) => stripTime(new Date(e.start_time)).getTime()),
+      ).size,
+    [visibleEntries],
+  );
+
+  // "today" pins the calendar to the current day; every other mode uses the
+  // selected week. The surrounding layout is identical, so it stays one branch.
+  const calendarStart = filterMode === "today" ? stripTime(new Date()) : weekStart;
 
   if (loading) {
     return (
@@ -101,7 +123,7 @@ export default function Entries() {
       </main>
     );
   }
-  
+
   if (error) {
     return (
       <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
@@ -109,12 +131,12 @@ export default function Entries() {
       </main>
     );
   }
-  
+
   if (!data) return null;
 
   return (
     <main className="flex-1 p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-primary">
@@ -134,7 +156,7 @@ export default function Entries() {
         </div>
       </div>
 
-      {/* Week Navigator */}
+      {/* Scope control — the single place the active period is stated */}
       <WeekNavigator
         weekStart={weekStart}
         weekEnd={weekEnd}
@@ -144,12 +166,12 @@ export default function Entries() {
         onFilterModeChange={setFilterMode}
       />
 
-      {/* Summary Cards */}
+      {/* Headline metrics — each one appears here and nowhere else */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="Total Hours"
           value={`${totalHours}h`}
-          subtitle={`${visibleEntries.length} sessions`}
+          subtitle={`${visibleEntries.length} ${visibleEntries.length === 1 ? "session" : "sessions"}`}
           accentColor="blue"
           icon={
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,9 +180,9 @@ export default function Entries() {
           }
         />
         <SummaryCard
-          title="Sessions"
-          value={visibleEntries.length}
-          subtitle={filterMode === "all" ? "All time" : filterMode === "today" ? "Today" : "This week"}
+          title="Active Days"
+          value={activeDays}
+          subtitle="Days with entries"
           accentColor="green"
           icon={
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,118 +214,38 @@ export default function Entries() {
         />
       </div>
 
-      {/* Main Content - Previous Layout */}
-      {filterMode === "all" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-primary">Hours by Category</h2>
-              <span className="text-xs text-muted">
-                Scope: All entries
-              </span>
-            </div>
+      {/* Analysis: supporting charts beside the focus panel. The frame is the
+          same in every mode so switching scope never reflows the page. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Both panels absorb the leftover height evenly, so the column ends
+            flush with the calendar beside it. */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <Panel title="Hours per Category" className="lg:flex-1 lg:min-h-0">
             <CategoryChart entries={visibleEntries} isDark={isDark} />
-          </div>
-          <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-primary">Time Distribution</h2>
-              <span className="text-xs text-muted">
-                Scope: All entries
-              </span>
-            </div>
+          </Panel>
+          <Panel
+            title="Relative Time per Category"
+            className="lg:flex-1 lg:min-h-0"
+          >
             <CategoryPieChart entries={visibleEntries} isDark={isDark} />
-          </div>
+          </Panel>
         </div>
-      ) : filterMode === "today" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 grid grid-rows-2 content-between gap-6 h-full">
-            <div className="row-span-1">
-              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-primary">Hours per Category</h2>
-                  <span className="text-xs text-muted">Scope: Today</span>
-                </div>
-                <CategoryChart entries={visibleEntries} isDark={isDark} />
-              </div>
-            </div>
-            <div className="row-span-1">
-              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-primary">
-                    Relative Time per Category
-                  </h2>
-                  <span className="text-xs text-muted">Scope: Today</span>
-                </div>
-                <CategoryPieChart entries={visibleEntries} isDark={isDark} />
-              </div>
-            </div>
-          </div>
-          <div className="lg:col-span-2">
+
+        <div className="lg:col-span-2">
+          {showAll ? (
+            <EntriesTable entries={visibleEntries} />
+          ) : (
             <WeeklyCalendar
-              weekStart={new Date(new Date().setHours(0, 0, 0, 0))}
+              weekStart={calendarStart}
               entries={filteredEntries}
               isDark={isDark}
             />
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 grid grid-rows-2 content-between gap-6 h-full">
-            <div className="row-span-1">
-              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-primary">Hours per Category</h2>
-                  <span className="text-xs text-muted">
-                    Scope: Selected week
-                  </span>
-                </div>
-                <CategoryChart entries={visibleEntries} isDark={isDark} />
-              </div>
-            </div>
-
-            <div className="row-span-1">
-              <div className="bg-surface p-4 md:p-6 rounded-xl shadow-sm border border-subtle h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-primary">
-                    Relative Time per Category
-                  </h2>
-                  <span className="text-xs text-muted">
-                    Scope: Selected week
-                  </span>
-                </div>
-                <CategoryPieChart entries={visibleEntries} isDark={isDark} />
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2">
-            <WeeklyCalendar
-              weekStart={weekStart}
-              entries={filteredEntries}
-              isDark={isDark}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
-          <h2 className="text-base font-semibold text-primary mb-4">
-            Overview Stats
-          </h2>
-          <QuickStats entries={visibleEntries} compact />
-        </div>
-        <div className="bg-surface p-4 md:p-5 rounded-xl shadow-sm border border-subtle">
-          <h2 className="text-base font-semibold text-primary mb-4">
-            Category Breakdown
-          </h2>
-          <QuickStats entries={visibleEntries} showCategoriesOnly />
+          )}
         </div>
       </div>
 
-      {/* Entries Table */}
-      <EntriesTable entries={visibleEntries} showAll={filterMode === "all"} />
+      {/* Detail — omitted in "all time", where it occupies the focus slot */}
+      {!showAll && <EntriesTable entries={visibleEntries} />}
     </main>
   );
 }

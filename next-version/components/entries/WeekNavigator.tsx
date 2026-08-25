@@ -76,7 +76,7 @@ export function WeekNavigator({
       </div>
 
       {/* Filter Mode Tabs */}
-      <div className="flex gap-1 p-1 rounded-lg bg-surface-muted">
+      <div className="flex gap-1 p-1 rounded-lg bg-surface-inset">
         {(["today", "week", "all"] as FilterMode[]).map((mode) => {
           const isActive = filterMode === mode;
           const label = mode === "all" ? "All time" : mode.charAt(0).toUpperCase() + mode.slice(1);
@@ -84,11 +84,12 @@ export function WeekNavigator({
             <button
               key={mode}
               type="button"
+              aria-pressed={isActive}
               onClick={() => onFilterModeChange(mode)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-white dark:bg-neutral-700 text-primary shadow-sm"
-                  : "text-muted hover:text-gray-900 dark:hover:text-gray-200"
+                  ? "bg-surface-raised dark:bg-surface-hover text-primary shadow-sm"
+                  : "text-muted hover:text-primary"
               }`}
             >
               {label}

@@ -33,14 +33,14 @@ export function SummaryCard({
 }: SummaryCardProps) {
   return (
     <div
-      className={`relative overflow-hidden p-4 md:p-5 rounded-xl shadow-sm border bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 bg-gradient-to-br ${accentStyles[accentColor]}`}
+      className={`relative overflow-hidden p-4 md:p-5 rounded-xl shadow-sm border bg-surface-raised bg-gradient-to-br ${accentStyles[accentColor]}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <h3 className="text-xs font-medium text-muted uppercase tracking-wide">
             {title}
           </h3>
-          <p className="text-2xl md:text-3xl font-bold mt-2 text-primary truncate">
+          <p className="text-xl md:text-2xl font-bold mt-2 text-primary truncate">
             {value}
           </p>
           {subtitle && (
