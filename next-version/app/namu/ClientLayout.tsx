@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
+import { NavDropdown, type NavDropdownItem } from "@/components/NavDropdown";
 import { useState, useEffect } from "react";
 
 const geistSans = Geist({
@@ -15,6 +16,34 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+type NavGroup = { label: string; items: NavDropdownItem[] };
+type NavEntry = NavDropdownItem | NavGroup;
+
+/** Single source for the nav, shared by the desktop bar and the mobile panel.
+ *  Entries with `items` become a dropdown; the rest are plain links. */
+const NAV_ENTRIES: NavEntry[] = [
+  {
+    label: "Time management",
+    items: [
+      { label: "Entries", href: "/namu/user/entries" },
+      { label: "Stopwatch", href: "/namu/user/timer" },
+      { label: "Manage Entries", href: "/namu/user/manage" },
+    ],
+  },
+  {
+    label: "Task management",
+    items: [
+      { label: "To Do", href: "/namu/user/todo" },
+      { label: "Pomodoro", href: "/namu/user/pomodoro" },
+    ],
+  },
+  { label: "Finance", href: "/namu/user/finance" },
+];
+
+function isGroup(entry: NavEntry): entry is NavGroup {
+  return "items" in entry;
+}
 
 function NavLink({
   href,
@@ -46,7 +75,9 @@ function Header() {
   }, []);
 
   return (
-    <header className="m-1 p-1 rounded-md bg-surface">
+    // `relative z-40` keeps the open dropdowns above page content that creates
+    // its own stacking context (the entries and finance toolbars do).
+    <header className="relative z-40 m-1 p-1 rounded-md bg-surface">
       {/* ── Desktop nav (md+) ── */}
       <nav className="hidden md:grid grid-cols-3 items-center p-1">
         {/* Left */}
@@ -56,11 +87,19 @@ function Header() {
 
         {/* Center */}
         <div className="justify-self-center flex gap-2">
-          <NavLink href="/namu/user/entries">Entries</NavLink>
-          <NavLink href="/namu/user/timer">Stopwatch</NavLink>
-          <NavLink href="/namu/user/todo">To Do</NavLink>
-          <NavLink href="/namu/user/pomodoro">Pomodoro</NavLink>
-          <NavLink href="/namu/user/finance">Finance</NavLink>
+          {NAV_ENTRIES.map((entry) =>
+            isGroup(entry) ? (
+              <NavDropdown
+                key={entry.label}
+                label={entry.label}
+                items={entry.items}
+              />
+            ) : (
+              <NavLink key={entry.href} href={entry.href}>
+                {entry.label}
+              </NavLink>
+            ),
+          )}
         </div>
 
         {/* Right */}
@@ -120,25 +159,27 @@ function Header() {
 
       {/* ── Mobile dropdown (account links) ── */}
       {menuOpen && (
+        // Groups become labelled sections rather than hover menus — an
+        // accordion reads better on a narrow screen and needs no pointer.
         <div className="md:hidden flex flex-col gap-2 p-2 mt-1 border-t border-default">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1">
-            Pages
-          </p>
-          <NavLink href="/namu/user/entries" onClick={close}>
-            Entries
-          </NavLink>
-          <NavLink href="/namu/user/timer" onClick={close}>
-            Stopwatch
-          </NavLink>
-          <NavLink href="/namu/user/todo" onClick={close}>
-            To Do
-          </NavLink>
-          <NavLink href="/namu/user/pomodoro" onClick={close}>
-            Pomodoro
-          </NavLink>
-          <NavLink href="/namu/user/finance" onClick={close}>
-            Finance
-          </NavLink>
+          {NAV_ENTRIES.map((entry) =>
+            isGroup(entry) ? (
+              <div key={entry.label} className="flex flex-col gap-2">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1">
+                  {entry.label}
+                </p>
+                {entry.items.map((item) => (
+                  <NavLink key={item.href} href={item.href} onClick={close}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            ) : (
+              <NavLink key={entry.href} href={entry.href} onClick={close}>
+                {entry.label}
+              </NavLink>
+            ),
+          )}
 
           <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1 mt-2">
             Account
