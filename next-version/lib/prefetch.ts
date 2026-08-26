@@ -27,6 +27,12 @@ const ROUTE_DATA: Record<string, readonly string[]> = {
   "/namu/user/pomodoro": ["/api/todo", "/api/pomodoro/stats"],
   "/namu/user/finance": ["/api/finance", "/api/finance/categories"],
   "/namu/user/finance/manage": ["/api/finance", "/api/finance/categories"],
+  "/namu/user/categories": [
+    "/api/categories",
+    "/api/finance/categories",
+    "/api/todo/categories",
+  ],
+  "/namu/user/settings": ["/api/user/preferences"],
 };
 
 /** How long a warmed response may still be handed to a page. Past this the

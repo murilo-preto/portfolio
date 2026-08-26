@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { formatPriceIn, SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { CURRENCY_CODE, formatPriceIn, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import {
   applyTheme,
   changePassword,
@@ -320,7 +320,9 @@ export default function SettingsPage() {
             ))}
           </select>
           <p className="text-xs text-dim">
-            Amounts read as {formatPriceIn(PREVIEW_AMOUNT, currency)}.
+            Amounts will read as {formatPriceIn(PREVIEW_AMOUNT, currency)}. The
+            finance screens still show {formatPriceIn(PREVIEW_AMOUNT, CURRENCY_CODE)}{" "}
+            until they are switched over to this preference.
           </p>
         </div>
 

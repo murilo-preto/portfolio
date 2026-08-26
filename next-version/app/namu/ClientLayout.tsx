@@ -6,6 +6,7 @@ import { PrefetchLink } from "@/components/PrefetchLink";
 import LogoutButton from "@/components/LogoutButton";
 import { NavDropdown, type NavDropdownItem } from "@/components/NavDropdown";
 import { usePathname } from "next/navigation";
+import { applyTheme, readStoredTheme } from "@/lib/preferences";
 import { useState, useEffect } from "react";
 
 const geistSans = Geist({
@@ -48,6 +49,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { label: "Manage Expenses", href: "/namu/user/finance/manage" },
     ],
   },
+  { label: "Categories", href: "/namu/user/categories" },
 ];
 
 function isGroup(entry: NavEntry): entry is NavGroup {
@@ -108,6 +110,12 @@ function Header() {
       .catch(() => setIsLoggedIn(false));
   }, []);
 
+  // The settings page writes the choice to localStorage; every other page
+  // needs it painted on mount or a hard reload falls back to the OS setting.
+  useEffect(() => {
+    applyTheme(readStoredTheme());
+  }, []);
+
   return (
     // `relative z-40` keeps the open dropdowns above page content that creates
     // its own stacking context (the entries and finance toolbars do).
@@ -144,7 +152,15 @@ function Header() {
         {/* Right */}
         <div className="justify-self-end flex gap-2">
           {isLoggedIn ? (
-            <LogoutButton />
+            <>
+              <NavLink
+                href="/namu/user/settings"
+                active={activeHref === "/namu/user/settings"}
+              >
+                Settings
+              </NavLink>
+              <LogoutButton />
+            </>
           ) : (
             <>
               <NavLink href="/login">Login</NavLink>
@@ -234,9 +250,18 @@ function Header() {
             Account
           </p>
           {isLoggedIn ? (
-            <div onClick={close}>
-              <LogoutButton />
-            </div>
+            <>
+              <NavLink
+                href="/namu/user/settings"
+                active={activeHref === "/namu/user/settings"}
+                onClick={close}
+              >
+                Settings
+              </NavLink>
+              <div onClick={close}>
+                <LogoutButton />
+              </div>
+            </>
           ) : (
             <>
               <NavLink href="/login" onClick={close}>
