@@ -12,6 +12,14 @@
 
 /** The GETs a route issues on mount, warmed when its nav link is hovered. */
 const ROUTE_DATA: Record<string, readonly string[]> = {
+  // The Today dashboard reads one endpoint per domain it summarises.
+  "/namu/user": [
+    "/api/entry",
+    "/api/todo",
+    "/api/finance",
+    "/api/pomodoro/stats",
+    "/api/pomodoro/sessions",
+  ],
   "/namu/user/entries": ["/api/entry"],
   "/namu/user/timer": ["/api/entry", "/api/categories"],
   "/namu/user/manage": ["/api/entry", "/api/categories"],

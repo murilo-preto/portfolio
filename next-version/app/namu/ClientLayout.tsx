@@ -5,6 +5,7 @@ import "@/app/globals.css";
 import { PrefetchLink } from "@/components/PrefetchLink";
 import LogoutButton from "@/components/LogoutButton";
 import { NavDropdown, type NavDropdownItem } from "@/components/NavDropdown";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const geistSans = Geist({
@@ -23,12 +24,14 @@ type NavEntry = NavDropdownItem | NavGroup;
 /** Single source for the nav, shared by the desktop bar and the mobile panel.
  *  Entries with `items` become a dropdown; the rest are plain links. */
 const NAV_ENTRIES: NavEntry[] = [
+  { label: "Dashboard", href: "/namu/user" },
   {
     label: "Time management",
     items: [
       { label: "Entries", href: "/namu/user/entries" },
       { label: "Stopwatch", href: "/namu/user/timer" },
       { label: "Manage Entries", href: "/namu/user/manage" },
+      { label: "Import CSV", href: "/namu/user/csv" },
     ],
   },
   {
@@ -38,25 +41,55 @@ const NAV_ENTRIES: NavEntry[] = [
       { label: "Pomodoro", href: "/namu/user/pomodoro" },
     ],
   },
-  { label: "Finance", href: "/namu/user/finance" },
+  {
+    label: "Finance",
+    items: [
+      { label: "Overview", href: "/namu/user/finance" },
+      { label: "Manage Expenses", href: "/namu/user/finance/manage" },
+    ],
+  },
 ];
 
 function isGroup(entry: NavEntry): entry is NavGroup {
   return "items" in entry;
 }
 
+/** The nav href the current page corresponds to, or null before hydration.
+ *  Matching is exact everywhere: `/namu/user` is a page in its own right and
+ *  must not stay lit for every route nested beneath it. */
+function useActiveHref(): string | null {
+  const pathname = usePathname();
+  if (!pathname) return null;
+  // A trailing slash only ever arrives from a hand-typed URL, but it would
+  // silently defeat the comparisons below.
+  return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+}
+
 function NavLink({
   href,
   children,
+  active = false,
   onClick,
 }: {
   href: string;
   children: React.ReactNode;
+  /** Marks the page currently on screen. */
+  active?: boolean;
   onClick?: () => void;
 }) {
   return (
-    <div className="bg-surface-deep p-1 rounded-md hover:cursor-pointer">
-      <PrefetchLink href={href} onClick={onClick}>
+    <div
+      className={`p-1 rounded-md hover:cursor-pointer transition-colors ${
+        active
+          ? "bg-invert text-invert-fg font-semibold"
+          : "bg-surface-deep hover:bg-surface-hover"
+      }`}
+    >
+      <PrefetchLink
+        href={href}
+        onClick={onClick}
+        aria-current={active ? "page" : undefined}
+      >
         {children}
       </PrefetchLink>
     </div>
@@ -66,6 +99,7 @@ function NavLink({
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const activeHref = useActiveHref();
   const close = () => setMenuOpen(false);
 
   useEffect(() => {
@@ -93,9 +127,14 @@ function Header() {
                 key={entry.label}
                 label={entry.label}
                 items={entry.items}
+                activeHref={activeHref}
               />
             ) : (
-              <NavLink key={entry.href} href={entry.href}>
+              <NavLink
+                key={entry.href}
+                href={entry.href}
+                active={entry.href === activeHref}
+              >
                 {entry.label}
               </NavLink>
             ),
@@ -169,13 +208,23 @@ function Header() {
                   {entry.label}
                 </p>
                 {entry.items.map((item) => (
-                  <NavLink key={item.href} href={item.href} onClick={close}>
+                  <NavLink
+                    key={item.href}
+                    href={item.href}
+                    active={item.href === activeHref}
+                    onClick={close}
+                  >
                     {item.label}
                   </NavLink>
                 ))}
               </div>
             ) : (
-              <NavLink key={entry.href} href={entry.href} onClick={close}>
+              <NavLink
+                key={entry.href}
+                href={entry.href}
+                active={entry.href === activeHref}
+                onClick={close}
+              >
                 {entry.label}
               </NavLink>
             ),

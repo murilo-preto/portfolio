@@ -8,6 +8,8 @@ export type NavDropdownItem = { label: string; href: string };
 type NavDropdownProps = {
   label: string;
   items: NavDropdownItem[];
+  /** Current route, so the group and its matching item can show as active. */
+  activeHref?: string | null;
 };
 
 /** Grace period before a hover-out closes the menu, so the pointer can take a
@@ -21,9 +23,17 @@ const CLOSE_DELAY_MS = 400;
  * leave the menu unreachable by keyboard and on touch devices, so the trigger
  * also toggles on click and the menu opens on focus.
  */
-export function NavDropdown({ label, items }: NavDropdownProps) {
+export function NavDropdown({
+  label,
+  items,
+  activeHref = null,
+}: NavDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The group carries the highlight while the menu is shut, which is the only
+  // state in which the active item itself isn't visible.
+  const containsActive = items.some((item) => item.href === activeHref);
 
   function cancelClose() {
     if (closeTimer.current !== null) {
@@ -69,7 +79,11 @@ export function NavDropdown({ label, items }: NavDropdownProps) {
         onKeyDown={(e) => {
           if (e.key === "Escape") close();
         }}
-        className="bg-surface-deep p-1 rounded-md flex items-center gap-1 hover:cursor-pointer"
+        className={`p-1 rounded-md flex items-center gap-1 hover:cursor-pointer transition-colors ${
+          containsActive
+            ? "bg-invert text-invert-fg font-semibold"
+            : "bg-surface-deep hover:bg-surface-hover"
+        }`}
       >
         {label}
         <svg
@@ -100,20 +114,28 @@ export function NavDropdown({ label, items }: NavDropdownProps) {
             role="menu"
             className="rounded-lg border border-default bg-surface shadow-xl overflow-hidden"
           >
-            {items.map((item) => (
-              <PrefetchLink
-                key={item.href}
-                href={item.href}
-                role="menuitem"
-                onClick={close}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") close();
-                }}
-                className="block w-full px-4 py-2.5 text-left text-sm text-secondary hover:bg-surface-hover transition-colors"
-              >
-                {item.label}
-              </PrefetchLink>
-            ))}
+            {items.map((item) => {
+              const active = item.href === activeHref;
+              return (
+                <PrefetchLink
+                  key={item.href}
+                  href={item.href}
+                  role="menuitem"
+                  aria-current={active ? "page" : undefined}
+                  onClick={close}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") close();
+                  }}
+                  className={`block w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                    active
+                      ? "bg-surface-hover text-primary font-semibold"
+                      : "text-secondary hover:bg-surface-hover"
+                  }`}
+                >
+                  {item.label}
+                </PrefetchLink>
+              );
+            })}
           </div>
         </div>
       )}

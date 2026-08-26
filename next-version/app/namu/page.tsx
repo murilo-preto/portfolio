@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { PrefetchLink } from "@/components/PrefetchLink";
 
 export default function NamuHome() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -71,36 +71,36 @@ export default function NamuHome() {
 
         {!loading && !isLoggedIn && (
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
+            <PrefetchLink
               href="/login"
               className="px-6 py-3 bg-invert text-invert-fg rounded-lg font-medium hover:opacity-90 transition-opacity"
             >
               Login
-            </Link>
-            <Link
+            </PrefetchLink>
+            <PrefetchLink
               href="/register"
               className="px-6 py-3 border border-strong rounded-lg font-medium hover:bg-surface-inset transition-colors"
             >
               Register
-            </Link>
+            </PrefetchLink>
           </div>
         )}
 
         {!loading && isLoggedIn && (
           <div className="mt-8">
-            <Link
-              href="/namu/user/entries"
+            <PrefetchLink
+              href="/namu/user"
               className="px-6 py-3 bg-invert text-invert-fg rounded-lg font-medium hover:opacity-90 transition-opacity"
             >
               Go to Dashboard
-            </Link>
+            </PrefetchLink>
           </div>
         )}
       </section>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
         {features.map((feature) => (
-          <Link
+          <PrefetchLink
             key={feature.href}
             href={feature.href}
             className="block p-6 rounded-xl border border-default bg-surface hover:border-gray-400 dark:hover:border-neutral-500 transition-colors group"
@@ -114,7 +114,7 @@ export default function NamuHome() {
             <p className="text-sm text-muted">
               {feature.description}
             </p>
-          </Link>
+          </PrefetchLink>
         ))}
       </section>
     </main>
