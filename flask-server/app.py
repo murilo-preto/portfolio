@@ -15,6 +15,7 @@ from mysql.connector import Error
 from mysql.connector.pooling import MySQLConnectionPool
 
 from categories import normalize_category_name
+from migrations import run_migrations
 from itau_pdf import (
     ItauPdfError,
     extract_statement_from_bytes,
@@ -2873,6 +2874,11 @@ def pomodoro_stats():
 
 # Runs under gunicorn too, where there is no __main__. Compose only starts this
 # service once MySQL reports healthy, so the pool is ready by now.
+#
+# Migrations come first: everything below, and every request handler, assumes an
+# up-to-date schema. run_migrations raises rather than limping on, so a failure
+# here stops the worker booting.
+run_migrations(lambda: get_pool().get_connection())
 normalize_existing_finance_categories()
 
 
