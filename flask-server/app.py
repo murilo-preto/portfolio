@@ -162,6 +162,29 @@ def normalize_existing_finance_categories():
         logger.error(f"Could not normalize finance category names: {e}")
 
 
+MAX_NOTE_LENGTH = 255
+
+
+def clean_entry_note(raw):
+    """Normalise an optional time-entry note.
+
+    Blank in any form collapses to None, so "no note" is one value in the
+    database rather than a mix of NULL and "". Raises ValueError with a
+    caller-safe message, which the batch importer reports per row and the
+    single-entry routes turn into a 400.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ValueError("note must be a string")
+    note = raw.strip()
+    if not note:
+        return None
+    if len(note) > MAX_NOTE_LENGTH:
+        raise ValueError(f"note must be at most {MAX_NOTE_LENGTH} characters")
+    return note
+
+
 def retrieve_entry_from_username(username):
     try:
         with get_cursor() as cursor:
@@ -178,6 +201,7 @@ def retrieve_entry_from_username(username):
                     c.name AS category,
                     te.start_time,
                     te.end_time,
+                    te.note,
                     TIMESTAMPDIFF(SECOND, te.start_time, te.end_time) AS duration_seconds
                 FROM time_entries te
                 JOIN category c ON te.category_id = c.id
@@ -441,7 +465,8 @@ def create_time_entry():
         "username": "string",
         "category": "string",
         "start_time": "YYYY-MM-DD HH:MM:SS",
-        "end_time": "YYYY-MM-DD HH:MM:SS"
+        "end_time": "YYYY-MM-DD HH:MM:SS",
+        "note": "string" (optional, max 255 chars)
     }
 
     Returns:
@@ -461,6 +486,11 @@ def create_time_entry():
     category_name = data["category"].strip()
     start_time_str = data["start_time"]
     end_time_str = data["end_time"]
+
+    try:
+        note = clean_entry_note(data.get("note"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     try:
         start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
@@ -495,10 +525,10 @@ def create_time_entry():
 
             cursor.execute(
                 """
-                INSERT INTO time_entries (user_id, category_id, start_time, end_time)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO time_entries (user_id, category_id, start_time, end_time, note)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
-                (user["id"], category["id"], start_time, end_time),
+                (user["id"], category["id"], start_time, end_time, note),
             )
             entry_id = cursor.lastrowid
 
@@ -511,6 +541,7 @@ def create_time_entry():
                     "category": category_name,
                     "start_time": start_time_str,
                     "end_time": end_time_str,
+                    "note": note,
                 },
             }
         ), 201
@@ -530,8 +561,13 @@ def update_time_entry(entry_id):
     {
         "category": "string",
         "start_time": "YYYY-MM-DD HH:MM:SS",
-        "end_time": "YYYY-MM-DD HH:MM:SS"
+        "end_time": "YYYY-MM-DD HH:MM:SS",
+        "note": "string" (optional, max 255 chars)
     }
+
+    Omitting "note" leaves the stored note untouched; sending it null or blank
+    clears it. A client that predates notes therefore cannot wipe one just by
+    round-tripping an entry.
 
     Returns:
         200: Entry updated
@@ -552,6 +588,14 @@ def update_time_entry(entry_id):
 
     if not category_name or not start_time_str or not end_time_str:
         return jsonify({"error": "category, start_time and end_time are required"}), 400
+
+    note_provided = "note" in data
+    note = None
+    if note_provided:
+        try:
+            note = clean_entry_note(data["note"])
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
 
     try:
         start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
@@ -593,13 +637,16 @@ def update_time_entry(entry_id):
             if not category:
                 return jsonify({"error": "Category not found"}), 404
 
+            assignments = ["category_id = %s", "start_time = %s", "end_time = %s"]
+            values = [category["id"], start_time, end_time]
+            if note_provided:
+                assignments.append("note = %s")
+                values.append(note)
+            values.append(entry_id)
+
             cursor.execute(
-                """
-                UPDATE time_entries
-                SET category_id = %s, start_time = %s, end_time = %s
-                WHERE id = %s
-                """,
-                (category["id"], start_time, end_time, entry_id),
+                f"UPDATE time_entries SET {', '.join(assignments)} WHERE id = %s",
+                tuple(values),
             )
 
         return jsonify({"message": "Entry updated successfully", "id": entry_id}), 200
@@ -671,7 +718,8 @@ def batch_import_time_entries():
             {
                 "category": "string",
                 "start_time": "YYYY-MM-DD HH:MM:SS",
-                "end_time": "YYYY-MM-DD HH:MM:SS"
+                "end_time": "YYYY-MM-DD HH:MM:SS",
+                "note": "string" (optional, max 255 chars)
             },
             ...
         ]
@@ -726,6 +774,8 @@ def batch_import_time_entries():
             if not category_name or not start_time_str or not end_time_str:
                 raise ValueError("category, start_time and end_time are required")
 
+            note = clean_entry_note(entry.get("note"))
+
             # Parse and validate dates
             start_time = datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
             end_time = datetime.fromisoformat(end_time_str.replace("Z", "+00:00"))
@@ -753,10 +803,10 @@ def batch_import_time_entries():
             with get_cursor() as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO time_entries (user_id, category_id, start_time, end_time)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO time_entries (user_id, category_id, start_time, end_time, note)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (user_id, category_id, start_time, end_time)
+                    (user_id, category_id, start_time, end_time, note)
                 )
 
             results["success"] += 1

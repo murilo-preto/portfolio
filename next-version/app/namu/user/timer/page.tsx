@@ -42,6 +42,9 @@ type Entry = {
 };
 
 // Window used to rank categories, so the ones in recent use stay on the row.
+// Mirrors MAX_NOTE_LENGTH in flask-server/app.py; the column is VARCHAR(255).
+const NOTE_MAX_LENGTH = 255;
+
 const RECENT_WINDOW_DAYS = 14;
 
 // Reference point for the recency window. Captured once per module load so
@@ -102,6 +105,9 @@ export default function TimerPage() {
   const [timerState, setTimerState] = useState<TimerState>("idle");
   const [segments, setSegments] = useState<Segment[]>([]);
   const [elapsed, setElapsed] = useState(0);
+  // What the session was spent on. Persisted with the rest of the timer so a
+  // note typed before a refresh isn't lost along with the session it describes.
+  const [note, setNote] = useState("");
 
   // Wall clock behind the projected finish time. It needs its own tick because
   // that projection slides forward whenever the timer *isn't* running, while
@@ -167,6 +173,7 @@ export default function TimerPage() {
     try {
       const parsed = JSON.parse(saved);
       if (parsed.categoryId) setCategoryId(parsed.categoryId);
+      if (typeof parsed.note === "string") setNote(parsed.note);
 
       const restored = restoreSegments(parsed);
       if (restored.length === 0) return;
@@ -281,8 +288,18 @@ export default function TimerPage() {
   // ── Persistence ─────────────────────────────────────────────────────────────
 
   const persist = useCallback(
-    (state: TimerState, segs: Segment[], catId: number | null) => {
-      saveTimerState({ state, segments: segs, categoryId: catId });
+    (
+      state: TimerState,
+      segs: Segment[],
+      catId: number | null,
+      sessionNote: string
+    ) => {
+      saveTimerState({
+        state,
+        segments: segs,
+        categoryId: catId,
+        note: sessionNote,
+      });
     },
     []
   );
@@ -347,9 +364,9 @@ export default function TimerPage() {
     setTimerState("running");
     setSubmitStatus("idle");
     setSubmitMessage(null);
-    persist("running", next, categoryId);
+    persist("running", next, categoryId, note);
     ensureNotificationPermission();
-  }, [categoryId, timerState, segments.length, persist]);
+  }, [categoryId, timerState, segments.length, note, persist]);
 
   const handlePause = useCallback(() => {
     const next = segments.map((seg, i) =>
@@ -359,15 +376,15 @@ export default function TimerPage() {
     );
     setSegments(next);
     setTimerState("paused");
-    persist("paused", next, categoryId);
-  }, [segments, categoryId, persist]);
+    persist("paused", next, categoryId, note);
+  }, [segments, categoryId, note, persist]);
 
   const handleResume = useCallback(() => {
     const next = [...segments, { start: new Date().toISOString(), end: null }];
     setSegments(next);
     setTimerState("running");
-    persist("running", next, categoryId);
-  }, [segments, categoryId, persist]);
+    persist("running", next, categoryId, note);
+  }, [segments, categoryId, note, persist]);
 
   const handleStop = useCallback(() => {
     const now = new Date().toISOString();
@@ -376,19 +393,19 @@ export default function TimerPage() {
     );
     setSegments(next);
     setTimerState("stopped");
-    persist("stopped", next, categoryId);
-  }, [segments, categoryId, persist]);
+    persist("stopped", next, categoryId, note);
+  }, [segments, categoryId, note, persist]);
 
   function handleSegmentsChange(next: Segment[]) {
     setSegments(next);
     const state = next.length === 0 ? "idle" : timerState;
     if (next.length === 0) setTimerState("idle");
-    persist(state, next, categoryId);
+    persist(state, next, categoryId, note);
   }
 
   function handleSelectCategory(id: number | null) {
     setCategoryId(id);
-    persist(timerState, segments, id);
+    persist(timerState, segments, id, note);
   }
 
   function handleDiscard() {
@@ -398,7 +415,8 @@ export default function TimerPage() {
     setElapsed(0);
     setSubmitStatus("idle");
     setSubmitMessage(null);
-    persist("idle", [], categoryId);
+    setNote("");
+    persist("idle", [], categoryId, "");
   }
 
   function setTarget(seconds: number) {
@@ -470,6 +488,7 @@ export default function TimerPage() {
             category: selectedCategory.name,
             start_time: segments[0].start,
             end_time: segments[0].end,
+            note: note.trim() || null,
           }),
         });
         const data = await res.json();
@@ -484,6 +503,7 @@ export default function TimerPage() {
               category: selectedCategory.name,
               start_time: seg.start,
               end_time: seg.end,
+              note: note.trim() || null,
             })),
           }),
         });
@@ -508,7 +528,8 @@ export default function TimerPage() {
       setTimerState("idle");
       setSegments([]);
       setElapsed(0);
-      persist("idle", [], categoryId);
+      setNote("");
+      persist("idle", [], categoryId, "");
 
       // Pull the entries we just created into today's totals
       fetchEntries();
@@ -598,6 +619,17 @@ export default function TimerPage() {
                     {formatDuration(elapsed)}
                   </span>
                 </div>
+
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  maxLength={NOTE_MAX_LENGTH}
+                  placeholder="What did you work on? (optional)"
+                  aria-label="Session note"
+                  className="w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm
+                             focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                />
 
                 <div className="flex gap-3">
                   <button

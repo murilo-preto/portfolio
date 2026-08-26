@@ -13,6 +13,7 @@ type Entry = {
   category: string;
   start_time: string;
   end_time: string;
+  note: string | null;
   duration_seconds: number;
 };
 
@@ -66,12 +67,12 @@ function exportToCSV(entries: Entry[]) {
   }
 
   const header =
-    "start_date,start_time,end_date,end_time,duration_seconds,category";
+    "start_date,start_time,end_date,end_time,duration_seconds,category,note";
   const rows = entries.map((entry) => {
     const startParts = formatCSVDate(entry.start_time).split(",");
     const endParts = formatCSVDate(entry.end_time).split(",");
     const q = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    return `${startParts[0]},${startParts[1]},${endParts[0]},${endParts[1]},${entry.duration_seconds},${q(entry.category)}`;
+    return `${startParts[0]},${startParts[1]},${endParts[0]},${endParts[1]},${entry.duration_seconds},${q(entry.category)},${q(entry.note ?? "")}`;
   });
 
   const csv = [header, ...rows].join("\n");
@@ -132,6 +133,9 @@ function DurationPreview({ start, end }: { start: string; end: string }) {
   );
 }
 
+// Mirrors MAX_NOTE_LENGTH in flask-server/app.py; the column is VARCHAR(255).
+const NOTE_MAX_LENGTH = 255;
+
 function inputClass() {
   return "w-full px-3 py-2 rounded-lg border border-strong bg-surface-raised text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400";
 }
@@ -171,6 +175,28 @@ function CategorySelect({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function NoteField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label>Note (optional)</Label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        maxLength={NOTE_MAX_LENGTH}
+        placeholder="What did you work on?"
+        className={inputClass()}
+      />
     </div>
   );
 }
@@ -354,6 +380,14 @@ function EntryList({
               >
                 {formatDate(entry.start_time)} → {formatDate(entry.end_time)}
               </div>
+              {entry.note && (
+                <div
+                  className={`text-xs mt-0.5 truncate ${isSelected ? "text-gray-300 dark:text-neutral-500" : "text-muted"}`}
+                  title={entry.note}
+                >
+                  {entry.note}
+                </div>
+              )}
             </button>
           );
         })}
@@ -376,6 +410,7 @@ function CreateEntryPanel({
   const [category, setCategory] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [note, setNote] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -412,6 +447,7 @@ function CreateEntryPanel({
           category,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
+          note: note.trim() || null,
         }),
       });
       const data = await res.json();
@@ -422,6 +458,7 @@ function CreateEntryPanel({
       setCategory("");
       setStart("");
       setEnd("");
+      setNote("");
       onCreated();
     } catch (err) {
       setStatus("error");
@@ -446,6 +483,7 @@ function CreateEntryPanel({
       />
       <DateTimeField label="Start Time" value={start} onChange={setStart} />
       <DateTimeField label="End Time" value={end} onChange={setEnd} />
+      <NoteField value={note} onChange={setNote} />
       <DurationPreview start={start} end={end} />
 
       <button
@@ -479,6 +517,7 @@ function EditEntryPanel({
   const [category, setCategory] = useState(entry.category);
   const [start, setStart] = useState(toLocalDatetimeValue(entry.start_time));
   const [end, setEnd] = useState(toLocalDatetimeValue(entry.end_time));
+  const [note, setNote] = useState(entry.note ?? "");
   const [saveStatus, setSaveStatus] = useState<Status>("idle");
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<Status>("idle");
@@ -493,6 +532,7 @@ function EditEntryPanel({
     setCategory(entry.category);
     setStart(toLocalDatetimeValue(entry.start_time));
     setEnd(toLocalDatetimeValue(entry.end_time));
+    setNote(entry.note ?? "");
     setSaveStatus("idle");
     setSaveMsg(null);
     setDeleteStatus("idle");
@@ -527,6 +567,7 @@ function EditEntryPanel({
           category,
           start_time: startDate.toISOString(),
           end_time: endDate.toISOString(),
+          note: note.trim() || null,
         }),
       });
       const data = await res.json();
@@ -581,6 +622,7 @@ function EditEntryPanel({
       />
       <DateTimeField label="Start Time" value={start} onChange={setStart} />
       <DateTimeField label="End Time" value={end} onChange={setEnd} />
+      <NoteField value={note} onChange={setNote} />
       <DurationPreview start={start} end={end} />
 
       <div className="grid grid-cols-4 gap-2">

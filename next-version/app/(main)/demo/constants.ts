@@ -5,6 +5,7 @@ export const DEMO_DATA: ApiResponse = {
   entries: [
     {
       category: "Reading",
+      note: "The Pragmatic Programmer",
       duration_seconds: 7320,
       end_time: "Mon, 12 Feb 2026 12:44:08 GMT",
       id: 1,
@@ -12,6 +13,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Reading",
+      note: null,
       duration_seconds: 7320,
       end_time: "Mon, 16 Feb 2026 12:44:08 GMT",
       id: 12,
@@ -19,6 +21,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Work",
+      note: "Sprint planning",
       duration_seconds: 10440,
       end_time: "Mon, 16 Feb 2026 13:43:50 GMT",
       id: 41,
@@ -26,6 +29,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Study",
+      note: "Distributed systems chapter 4",
       duration_seconds: 10920,
       end_time: "Mon, 16 Feb 2026 17:01:05 GMT",
       id: 42,
@@ -33,6 +37,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Work",
+      note: "Code review backlog",
       duration_seconds: 9180,
       end_time: "Tue, 17 Feb 2026 07:54:54 GMT",
       id: 46,
@@ -40,6 +45,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Exercise",
+      note: "5k easy run",
       duration_seconds: 10260,
       end_time: "Tue, 17 Feb 2026 09:46:25 GMT",
       id: 18,
@@ -47,6 +53,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Work",
+      note: "Pairing on the importer",
       duration_seconds: 14400,
       end_time: "Wed, 18 Feb 2026 19:18:56 GMT",
       id: 19,
@@ -54,6 +61,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Study",
+      note: "SQL indexing exercises",
       duration_seconds: 13080,
       end_time: "Wed, 18 Feb 2026 23:58:15 GMT",
       id: 20,
@@ -61,6 +69,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Study",
+      note: "Rust ownership notes",
       duration_seconds: 13440,
       end_time: "Thu, 19 Feb 2026 02:46:56 GMT",
       id: 44,
@@ -68,6 +77,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Study",
+      note: null,
       duration_seconds: 10440,
       end_time: "Thu, 19 Feb 2026 07:25:33 GMT",
       id: 48,
@@ -75,6 +85,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Exercise",
+      note: "Upper body",
       duration_seconds: 9300,
       end_time: "Thu, 19 Feb 2026 12:46:13 GMT",
       id: 45,
@@ -82,6 +93,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Reading",
+      note: "Designing Data-Intensive Applications",
       duration_seconds: 3360,
       end_time: "Thu, 19 Feb 2026 15:53:04 GMT",
       id: 15,
@@ -89,6 +101,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Exercise",
+      note: null,
       duration_seconds: 5520,
       end_time: "Thu, 19 Feb 2026 19:00:10 GMT",
       id: 43,
@@ -96,6 +109,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Work",
+      note: "Deploy + smoke test",
       duration_seconds: 12720,
       end_time: "Fri, 20 Feb 2026 07:08:44 GMT",
       id: 49,
@@ -103,6 +117,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Work",
+      note: "Bug triage",
       duration_seconds: 5400,
       end_time: "Fri, 20 Feb 2026 09:22:55 GMT",
       id: 14,
@@ -110,6 +125,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Study",
+      note: "Algorithms problem set",
       duration_seconds: 9840,
       end_time: "Fri, 20 Feb 2026 20:51:17 GMT",
       id: 50,
@@ -117,6 +133,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Study",
+      note: "Paper: Raft consensus",
       duration_seconds: 4500,
       end_time: "Fri, 20 Feb 2026 23:43:51 GMT",
       id: 47,
@@ -124,6 +141,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Work",
+      note: null,
       duration_seconds: 1800,
       end_time: "Sat, 21 Feb 2026 12:01:15 GMT",
       id: 13,
@@ -131,6 +149,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Work",
+      note: "Roadmap write-up",
       duration_seconds: 13200,
       end_time: "Sat, 21 Feb 2026 22:55:31 GMT",
       id: 16,
@@ -138,6 +157,7 @@ export const DEMO_DATA: ApiResponse = {
     },
     {
       category: "Study",
+      note: "Spaced repetition review",
       duration_seconds: 11580,
       end_time: "Sun, 22 Feb 2026 06:28:09 GMT",
       id: 11,

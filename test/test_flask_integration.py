@@ -478,3 +478,186 @@ class TestBatchGenerateIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-m", "integration"])
+
+
+class TestTimeEntryNotes:
+    """Notes on time entries — the optional free-text field added by
+    migration 001_add_time_entry_note.sql."""
+
+    @pytest.fixture
+    def headers(self, registered_user, auth_token):
+        if not registered_user or not auth_token:
+            pytest.skip("User registration or login failed")
+        return {"Authorization": f"Bearer {auth_token}"}
+
+    def make_entry(self, client, headers, **overrides):
+        client.post("/category", json={"name": "Work"}, headers=headers)
+        start = datetime.now(timezone.utc)
+        payload = {
+            "category": "Work",
+            "start_time": start.isoformat(),
+            "end_time": (start + timedelta(hours=1)).isoformat(),
+        }
+        payload.update(overrides)
+        return client.post("/entry/create", headers=headers, json=payload)
+
+    def fetch_entry(self, client, headers, entry_id):
+        entries = client.get("/entry", headers=headers).get_json()["entries"]
+        return next((e for e in entries if e["id"] == entry_id), None)
+
+    @pytest.mark.integration
+    def test_create_stores_the_note(self, client, headers):
+        response = self.make_entry(client, headers, note="Sprint planning")
+        assert response.status_code == 201
+        assert response.get_json()["entry"]["note"] == "Sprint planning"
+
+        entry_id = response.get_json()["entry"]["id"]
+        assert self.fetch_entry(client, headers, entry_id)["note"] == "Sprint planning"
+
+    @pytest.mark.integration
+    def test_note_is_optional(self, client, headers):
+        response = self.make_entry(client, headers)
+        assert response.status_code == 201
+        entry_id = response.get_json()["entry"]["id"]
+        assert self.fetch_entry(client, headers, entry_id)["note"] is None
+
+    @pytest.mark.integration
+    def test_blank_note_is_stored_as_null(self, client, headers):
+        response = self.make_entry(client, headers, note="   ")
+        assert response.status_code == 201
+        entry_id = response.get_json()["entry"]["id"]
+        assert self.fetch_entry(client, headers, entry_id)["note"] is None
+
+    @pytest.mark.integration
+    def test_note_is_trimmed(self, client, headers):
+        response = self.make_entry(client, headers, note="  padded  ")
+        assert response.get_json()["entry"]["note"] == "padded"
+
+    @pytest.mark.integration
+    def test_note_over_the_limit_is_rejected(self, client, headers):
+        response = self.make_entry(client, headers, note="x" * 256)
+        assert response.status_code == 400
+        assert "255" in response.get_json()["error"]
+
+    @pytest.mark.integration
+    def test_note_at_the_limit_is_accepted(self, client, headers):
+        response = self.make_entry(client, headers, note="x" * 255)
+        assert response.status_code == 201
+
+    @pytest.mark.integration
+    def test_non_string_note_is_rejected(self, client, headers):
+        response = self.make_entry(client, headers, note=42)
+        assert response.status_code == 400
+
+    @pytest.mark.integration
+    def test_update_can_set_a_note(self, client, headers):
+        entry_id = self.make_entry(client, headers).get_json()["entry"]["id"]
+        start = datetime.now(timezone.utc)
+
+        response = client.put(f"/entry/{entry_id}", headers=headers, json={
+            "category": "Work",
+            "start_time": start.isoformat(),
+            "end_time": (start + timedelta(hours=2)).isoformat(),
+            "note": "Added later",
+        })
+        assert response.status_code == 200
+        assert self.fetch_entry(client, headers, entry_id)["note"] == "Added later"
+
+    @pytest.mark.integration
+    def test_update_without_note_key_preserves_it(self, client, headers):
+        """A client that predates notes must not wipe one by round-tripping."""
+        entry_id = self.make_entry(
+            client, headers, note="Keep me"
+        ).get_json()["entry"]["id"]
+        start = datetime.now(timezone.utc)
+
+        response = client.put(f"/entry/{entry_id}", headers=headers, json={
+            "category": "Work",
+            "start_time": start.isoformat(),
+            "end_time": (start + timedelta(hours=3)).isoformat(),
+        })
+        assert response.status_code == 200
+        assert self.fetch_entry(client, headers, entry_id)["note"] == "Keep me"
+
+    @pytest.mark.integration
+    def test_update_with_null_note_clears_it(self, client, headers):
+        entry_id = self.make_entry(
+            client, headers, note="Clear me"
+        ).get_json()["entry"]["id"]
+        start = datetime.now(timezone.utc)
+
+        response = client.put(f"/entry/{entry_id}", headers=headers, json={
+            "category": "Work",
+            "start_time": start.isoformat(),
+            "end_time": (start + timedelta(hours=4)).isoformat(),
+            "note": None,
+        })
+        assert response.status_code == 200
+        assert self.fetch_entry(client, headers, entry_id)["note"] is None
+
+    @pytest.mark.integration
+    def test_update_rejects_an_oversized_note(self, client, headers):
+        entry_id = self.make_entry(client, headers).get_json()["entry"]["id"]
+        start = datetime.now(timezone.utc)
+
+        response = client.put(f"/entry/{entry_id}", headers=headers, json={
+            "category": "Work",
+            "start_time": start.isoformat(),
+            "end_time": (start + timedelta(hours=1)).isoformat(),
+            "note": "x" * 256,
+        })
+        assert response.status_code == 400
+
+    @pytest.mark.integration
+    def test_batch_import_carries_notes(self, client, headers):
+        client.post("/category", json={"name": "Work"}, headers=headers)
+        start = datetime.now(timezone.utc)
+
+        response = client.post("/entry/batch-import", headers=headers, json={
+            "entries": [
+                {
+                    "category": "Work",
+                    "start_time": start.isoformat(),
+                    "end_time": (start + timedelta(hours=1)).isoformat(),
+                    "note": "First interval",
+                },
+                {
+                    "category": "Work",
+                    "start_time": (start + timedelta(hours=2)).isoformat(),
+                    "end_time": (start + timedelta(hours=3)).isoformat(),
+                },
+            ],
+        })
+
+        assert response.status_code == 200
+        assert response.get_json()["success"] == 2
+
+        notes = [e["note"] for e in client.get("/entry", headers=headers).get_json()["entries"]]
+        assert "First interval" in notes
+
+    @pytest.mark.integration
+    def test_batch_import_reports_a_bad_note_per_row(self, client, headers):
+        client.post("/category", json={"name": "Work"}, headers=headers)
+        start = datetime.now(timezone.utc)
+
+        response = client.post("/entry/batch-import", headers=headers, json={
+            "entries": [
+                {
+                    "category": "Work",
+                    "start_time": start.isoformat(),
+                    "end_time": (start + timedelta(hours=1)).isoformat(),
+                    "note": "x" * 256,
+                },
+            ],
+        })
+
+        body = response.get_json()
+        assert body["failed"] == 1
+        assert "255" in body["errors"][0]["error"]
+
+    @pytest.mark.integration
+    def test_listing_always_exposes_the_note_key(self, client, headers):
+        self.make_entry(client, headers)
+        entries = client.get("/entry", headers=headers).get_json()["entries"]
+        assert entries, "expected at least one entry"
+        assert all("note" in e for e in entries)

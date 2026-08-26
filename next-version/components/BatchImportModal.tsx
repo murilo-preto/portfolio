@@ -347,13 +347,19 @@ function parseDataWithHeaders(rows: string[][], type: BatchImportType): ParsedEn
         const start_time = row[colIndex["start_time"]];
         const end_date = row[colIndex["end_date"]];
         const end_time = row[colIndex["end_time"]];
+        const note = row[colIndex["note"]];
         
         if (!category || !start_date || !start_time || !end_date || !end_time) continue;
         
         const startISO = parseDateTime(start_date, start_time);
         const endISO = parseDateTime(end_date, end_time);
         if (startISO && endISO) {
-          entries.push({ category, start_time: startISO, end_time: endISO });
+          entries.push({
+            category,
+            start_time: startISO,
+            end_time: endISO,
+            note: note?.trim() || null,
+          });
         }
       } else if (type === "finance") {
         const category = row[colIndex["category"]];
@@ -411,9 +417,9 @@ function getConfig(type: BatchImportType): { title: string; columns: string[] } 
 function getTemplate(type: BatchImportType): string {
   switch (type) {
     case "time":
-      return `category,start_date,start_time,end_date,end_time
-Work,01/15/2024,09:00,01/15/2024,10:30
-Study,01/16/2024,14:00,01/16/2024,15:30`;
+      return `category,start_date,start_time,end_date,end_time,note
+Work,01/15/2024,09:00,01/15/2024,10:30,Sprint planning
+Study,01/16/2024,14:00,01/16/2024,15:30,`;
     case "finance":
       return `category,product_name,price,purchase_date,status
 Food,Groceries,85.50,2024-01-15 10:30:00,done

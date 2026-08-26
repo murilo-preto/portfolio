@@ -55,6 +55,9 @@ export function EntriesTable({ entries, initialLimit = 25 }: EntriesTableProps) 
                   <p>Start: {formatStamp(entry.start_time)}</p>
                   <p>End: {formatStamp(entry.end_time)}</p>
                 </div>
+                {entry.note && (
+                  <p className="text-xs text-secondary">{entry.note}</p>
+                )}
               </div>
             ))}
           </div>
@@ -64,6 +67,7 @@ export function EntriesTable({ entries, initialLimit = 25 }: EntriesTableProps) 
               <thead className="sticky top-0 bg-background">
                 <tr className="border-b border-default text-xs uppercase tracking-wide text-muted">
                   <th className="py-2 pr-4 text-left font-medium">Category</th>
+                  <th className="py-2 pr-4 text-left font-medium">Note</th>
                   <th className="py-2 pr-4 text-left font-medium">Start</th>
                   <th className="py-2 pr-4 text-left font-medium">End</th>
                   <th className="py-2 text-right font-medium">Duration</th>
@@ -77,6 +81,12 @@ export function EntriesTable({ entries, initialLimit = 25 }: EntriesTableProps) 
                   >
                     <td className="py-2 pr-4 text-left font-medium text-primary">
                       {entry.category}
+                    </td>
+                    <td
+                      className="py-2 pr-4 text-left text-secondary max-w-xs truncate"
+                      title={entry.note ?? undefined}
+                    >
+                      {entry.note ?? <span className="text-dim">—</span>}
                     </td>
                     <td className="py-2 pr-4 text-left text-secondary tabular-nums">
                       {formatStamp(entry.start_time)}

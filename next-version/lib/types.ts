@@ -10,6 +10,9 @@ export interface TimeEntry {
   category: string;
   start_time: string;
   end_time: string;
+  /** Optional free text describing what was actually done. Null on entries
+   *  logged before notes existed, and on any entry left blank. */
+  note: string | null;
   duration_seconds?: number;
 }
 
