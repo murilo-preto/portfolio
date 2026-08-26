@@ -7,6 +7,7 @@ import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { warmFetch } from "@/lib/prefetch";
+import { formatPrice } from "@/lib/currency";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,13 +44,6 @@ function formatDate(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(price);
 }
 
 // ─── Shared UI Primitives ────────────────────────────────────────────────────

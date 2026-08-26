@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { formatPrice } from "@/lib/currency";
 
 type BatchGenerateModalProps = {
   isOpen: boolean;
@@ -56,13 +57,6 @@ function defaultEndDate(): string {
 
 function formatDate(iso: string): string {
   return iso.slice(0, 10);
-}
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(price);
 }
 
 function inputClass() {

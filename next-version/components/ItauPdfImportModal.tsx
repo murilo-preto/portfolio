@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeCategoryName } from "@/lib/categoryName";
+import { formatPrice } from "@/lib/currency";
 
 type ItauPdfImportModalProps = {
   isOpen: boolean;
@@ -426,7 +427,7 @@ export function ItauPdfImportModal({
                           {statement.entry_count}
                         </td>
                         <td className="px-4 py-2 text-secondary whitespace-nowrap">
-                          {statement.total.toFixed(2)}
+                          {formatPrice(statement.total)}
                         </td>
                       </tr>
                     ))}
@@ -443,7 +444,7 @@ export function ItauPdfImportModal({
                         {entries.length}
                       </td>
                       <td className="px-4 py-2 text-primary whitespace-nowrap">
-                        {grandTotal.toFixed(2)}
+                        {formatPrice(grandTotal)}
                       </td>
                     </tr>
                   </tfoot>
@@ -589,7 +590,7 @@ export function ItauPdfImportModal({
                           {entry.card ? `••••${entry.card}` : "—"}
                         </td>
                         <td className="px-4 py-2 text-secondary whitespace-nowrap">
-                          {entry.price.toFixed(2)}
+                          {formatPrice(entry.price)}
                         </td>
                         {statements.length > 1 && (
                           <td className="px-4 py-2 text-dim whitespace-nowrap">

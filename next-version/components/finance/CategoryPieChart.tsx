@@ -10,6 +10,7 @@ import {
   PieLabelRenderProps,
 } from "recharts";
 import { FinanceEntry } from "@/components/finance/types";
+import { formatPrice } from "@/lib/currency";
 import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
 import { ReactNode } from "react";
 
@@ -94,7 +95,7 @@ export function CategoryPieChart({
     const pct = totalPrice > 0 ? (numeric / totalPrice) * 100 : 0;
     const label = (item?.payload as { category?: string } | undefined)?.category ?? "";
 
-    return [`$${numeric.toFixed(2)} (${pct.toFixed(1)}%)`, label];
+    return [`${formatPrice(numeric)} (${pct.toFixed(1)}%)`, label];
   };
 
   return (

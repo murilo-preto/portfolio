@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FinanceEntry } from "@/components/finance/types";
-import { formatPrice } from "@/components/finance/utils";
+import { formatPrice } from "@/lib/currency";
 import { normalizeCategoryName } from "@/lib/categoryName";
 import { warmFetch } from "@/lib/prefetch";
 

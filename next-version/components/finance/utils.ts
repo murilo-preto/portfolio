@@ -17,10 +17,3 @@ export function getMondayOf(date: Date): Date {
   monday.setHours(0, 0, 0, 0);
   return monday;
 }
-
-export function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(price);
-}

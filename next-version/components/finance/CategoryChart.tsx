@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { FinanceEntry } from "@/components/finance/types";
+import { formatPrice } from "@/lib/currency";
 import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
 
 type CategoryChartProps = {
@@ -50,7 +51,7 @@ export function CategoryChart({ entries, isDark }: CategoryChartProps) {
           <Tooltip
             cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }}
             labelStyle={{ color: isDark ? "#000000" : undefined }}
-            formatter={(value) => [`$${Number(value).toFixed(2)}`, "Amount"]}
+            formatter={(value) => [formatPrice(Number(value)), "Amount"]}
           />
           <Bar dataKey="price" />
         </BarChart>
