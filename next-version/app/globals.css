@@ -85,7 +85,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) {
     --background: #0a0a0a;
     --foreground: #ededed;
     color-scheme: dark;
@@ -140,6 +140,66 @@
     --tint-gray-a: oklch(55.1% 0.027 264.364 / 0.1); /* gray-500/10 */
     --tint-gray-line: oklch(55.1% 0.027 264.364 / 0.2); /* gray-500/20 */
   }
+}
+
+/* An explicit theme preference (account settings, mirrored to
+   localStorage) wins over the OS setting. The declarations below are the
+   dark block above, verbatim — the media query is scoped to "no explicit
+   choice" so the two can never both apply. Edit them together. */
+:root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  color-scheme: dark;
+
+  --surface: oklch(20.5% 0 0); /* neutral-900 */
+  --surface-raised: oklch(26.9% 0 0); /* neutral-800 */
+  --surface-inset: oklch(26.9% 0 0); /* neutral-800 */
+  --surface-muted: oklch(26.9% 0 0); /* neutral-800 */
+  --surface-deep: oklch(14.5% 0 0); /* neutral-950 */
+  --surface-hover: oklch(37.1% 0 0); /* neutral-700 */
+
+  --border-subtle: oklch(26.9% 0 0); /* neutral-800 */
+  --border-default: oklch(37.1% 0 0); /* neutral-700 */
+  --border-strong: oklch(43.9% 0 0); /* neutral-600 */
+
+  --text-primary: oklch(96.7% 0.003 264.542); /* gray-100 */
+  --text-secondary: oklch(87.2% 0.01 258.338); /* gray-300 */
+  --text-muted: oklch(70.7% 0.022 261.325); /* gray-400 */
+  --text-dim: oklch(55.1% 0.027 264.364); /* gray-500 */
+
+  --invert-bg: oklch(97% 0 0); /* neutral-100 */
+  --invert-bg-hover: oklch(92.2% 0 0); /* neutral-200 */
+  --invert-fg: oklch(20.5% 0 0); /* neutral-900 */
+
+  /* Pinned to exactly what Tailwind emitted for the classes these
+     replaced, alpha included — e.g. `from-blue-500/10` is blue-500 at
+     0.1. Dark renders bit-for-bit what it did before. */
+  --tint-blue-a: oklch(62.3% 0.214 259.815 / 0.1); /* blue-500/10 */
+  --tint-blue-b: oklch(54.6% 0.245 262.881 / 0.05); /* blue-600/5 */
+  --tint-blue-line: oklch(62.3% 0.214 259.815 / 0.2); /* blue-500/20 */
+  --tint-blue-ink: oklch(62.3% 0.214 259.815); /* blue-500 */
+
+  --tint-green-a: oklch(72.3% 0.219 149.579 / 0.1); /* green-500/10 */
+  --tint-green-b: oklch(62.7% 0.194 149.214 / 0.05); /* green-600/5 */
+  --tint-green-line: oklch(72.3% 0.219 149.579 / 0.2); /* green-500/20 */
+  --tint-green-ink: oklch(72.3% 0.219 149.579); /* green-500 */
+
+  --tint-amber-a: oklch(76.9% 0.188 70.08 / 0.1); /* amber-500/10 */
+  --tint-amber-b: oklch(66.6% 0.179 58.318 / 0.05); /* amber-600/5 */
+  --tint-amber-line: oklch(76.9% 0.188 70.08 / 0.2); /* amber-500/20 */
+  --tint-amber-ink: oklch(76.9% 0.188 70.08); /* amber-500 */
+
+  --tint-purple-a: oklch(62.7% 0.265 303.9 / 0.1); /* purple-500/10 */
+  --tint-purple-b: oklch(55.8% 0.288 302.321 / 0.05); /* purple-600/5 */
+  --tint-purple-line: oklch(62.7% 0.265 303.9 / 0.2); /* purple-500/20 */
+  --tint-purple-ink: oklch(62.7% 0.265 303.9); /* purple-500 */
+
+  --tint-red-a: oklch(63.7% 0.237 25.331 / 0.1); /* red-500/10 */
+  --tint-red-b: oklch(57.7% 0.245 27.325 / 0.05); /* red-600/5 */
+  --tint-red-line: oklch(63.7% 0.237 25.331 / 0.2); /* red-500/20 */
+
+  --tint-gray-a: oklch(55.1% 0.027 264.364 / 0.1); /* gray-500/10 */
+  --tint-gray-line: oklch(55.1% 0.027 264.364 / 0.2); /* gray-500/20 */
 }
 
 @theme inline {

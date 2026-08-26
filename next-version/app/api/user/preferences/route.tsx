@@ -1,0 +1,31 @@
+import { NextResponse } from "next/server";
+import { fetchWithTokenRefresh } from "@/lib/flask-client";
+import { FLASK_BASE_URL } from "@/lib/constants";
+
+export async function GET() {
+  const { response } = await fetchWithTokenRefresh(
+    `${FLASK_BASE_URL}/user/preferences`,
+  );
+  return response;
+}
+
+export async function PUT(req: Request) {
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { response } = await fetchWithTokenRefresh(
+    `${FLASK_BASE_URL}/user/preferences`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+
+  return response;
+}
