@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { BatchImportModal } from "@/components/BatchImportModal";
 import { warmFetch } from "@/lib/prefetch";
 
@@ -228,9 +229,13 @@ function DateTimeField({
 function CategoryPanel({
   categories,
   onClose,
+  onCreated,
 }: {
   categories: Category[];
   onClose: () => void;
+  /** Reloads the page's data so a new category reaches the entry form's
+   *  <select> without a browser reload. */
+  onCreated: () => Promise<void> | void;
 }) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -258,11 +263,7 @@ function CategoryPanel({
       );
       setName("");
 
-      // Refresh categories list in parent via page reload or callback
-      const catsRes = await fetch("/api/categories");
-      if (catsRes.ok) {
-        // Parent will re-fetch on next fetchAll; trigger it by re-mounting
-      }
+      await onCreated();
     } catch (err) {
       setStatus("error");
       setMsg(err instanceof Error ? err.message : "Failed to create category");
@@ -275,7 +276,15 @@ function CategoryPanel({
         <h2 className="font-semibold text-sm text-secondary uppercase tracking-wide">
           Create Category
         </h2>
-        <PanelCloseButton onClick={onClose} />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/namu/user/categories"
+            className="text-xs text-muted hover:text-primary underline underline-offset-2"
+          >
+            Rename / merge…
+          </Link>
+          <PanelCloseButton onClick={onClose} />
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -775,6 +784,7 @@ export default function ManagePage() {
         <CategoryPanel
           categories={categories}
           onClose={() => setShowCatForm(false)}
+          onCreated={fetchAll}
         />
       )}
 
