@@ -80,6 +80,25 @@ limiter = Limiter(
     enabled=_ratelimit_enabled,
 )
 
+
+
+@app.errorhandler(429)
+def rate_limit_exceeded(e):
+    """Answer a throttled request in JSON like every other endpoint.
+
+    Flask-Limiter's default 429 is an HTML page. Every caller here is an API
+    client that parses JSON, so the HTML surfaced as a parse failure rather
+    than as "you are going too fast" — the Next.js login and register proxies
+    turned it into a blank 500, which is what the user actually saw.
+    """
+    return jsonify(
+        {
+            "error": "Too many requests. Please wait and try again.",
+            "detail": str(e.description),
+        }
+    ), 429
+
+
 jwt = JWTManager(app)
 
 DB_CONFIG = {

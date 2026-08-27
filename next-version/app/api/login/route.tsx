@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { FLASK_BASE_URL } from "@/lib/constants";
 
+/** What Flask's /login returns — the error field on the failure path. */
+type LoginResponse = {
+  access_token?: string;
+  user_id?: number;
+  username?: string;
+  error?: string;
+};
+
 export async function POST(req: Request) {
   let body: unknown;
   try {
@@ -24,7 +32,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const data = await res.json();
+  // Flask normally answers in JSON, but an infrastructure-level response (a
+  // proxy error page, an empty 502) need not. Parsing unconditionally turned
+  // those into a blank 500 and hid the real status from the caller.
+  let data: LoginResponse;
+  try {
+    data = await res.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Unexpected response from auth service" },
+      { status: res.status },
+    );
+  }
 
   if (!res.ok || !data.access_token) {
     return NextResponse.json(

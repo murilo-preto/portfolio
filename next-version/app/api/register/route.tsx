@@ -24,6 +24,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const data = await res.json();
+  // Flask normally answers in JSON, but an infrastructure-level response (a
+  // proxy error page, an empty 502) need not. Parsing unconditionally turned
+  // those into a blank 500 and hid the real status from the caller.
+  let data: Record<string, unknown>;
+  try {
+    data = await res.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Unexpected response from auth service" },
+      { status: res.status },
+    );
+  }
+
   return NextResponse.json(data, { status: res.status });
 }
