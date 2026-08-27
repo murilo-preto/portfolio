@@ -740,6 +740,7 @@ class TestMyTodoItems:
                 }
             ],
             [],  # no tags for item 1
+            [],  # no focus sessions for item 1
         ]
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
@@ -749,6 +750,8 @@ class TestMyTodoItems:
         assert data["items"][0]["due_date"] == now.isoformat()
         assert data["items"][0]["completed_at"] is None
         assert data["items"][0]["tags"] == []
+        assert data["items"][0]["focus_sessions"] == 0
+        assert data["items"][0]["focus_seconds"] == 0
 
 
 class TestPomodoroStart:
@@ -858,7 +861,12 @@ class TestPomodoroComplete:
     def test_complete_pomodoro_success(self, mock_cursor_context, client, sample_jwt_token):
         """Should complete the session successfully."""
         mock_cursor = _mock_cursor(mock_cursor_context)
-        mock_cursor.fetchone.return_value = {"id": 1}
+        mock_cursor.fetchone.return_value = {
+            "id": 1,
+            "user_id": 1,
+            "todo_id": None,
+            "session_type": "pomodoro",
+        }
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}
         response = client.post(
@@ -867,6 +875,21 @@ class TestPomodoroComplete:
             headers=headers,
         )
         assert response.status_code == 200
+        data = response.get_json()
+        # No category asked for, no task linked — nothing else should happen.
+        assert data["time_entry_id"] is None
+        assert data["todo_id"] is None
+        assert data["todo_status"] is None
+
+    def test_complete_pomodoro_non_string_category(self, client, sample_jwt_token):
+        """Should reject a category that is not a string."""
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.post(
+            "/pomodoro/complete",
+            json={"session_id": 1, "duration_seconds": 1500, "category": 7},
+            headers=headers,
+        )
+        assert response.status_code == 400
 
 
 class TestPomodoroCancel:

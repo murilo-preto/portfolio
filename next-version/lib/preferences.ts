@@ -31,12 +31,20 @@ export type PomodoroPreferences = {
   sessionsBeforeLongBreak: number;
 };
 
+export type FocusPreferences = {
+  /** Whether a finished focus session is also written to the time log. */
+  logToTimeEntries: boolean;
+  /** The time category those entries land in. Null until one is chosen. */
+  category: string | null;
+};
+
 export type PreferenceSettings = {
   /** Daily target seconds, keyed by category name. */
   timerDailyTargets: Record<string, number>;
   pomodoro: PomodoroPreferences;
   todoFilters: Record<string, unknown>;
   lastUsed: { category: string | null; priority: string | null };
+  focus: FocusPreferences;
 };
 
 export type UserPreferences = {
@@ -63,6 +71,7 @@ export const DEFAULT_PREFERENCE_SETTINGS: PreferenceSettings = {
   },
   todoFilters: {},
   lastUsed: { category: null, priority: null },
+  focus: { logToTimeEntries: false, category: null },
 };
 
 /**

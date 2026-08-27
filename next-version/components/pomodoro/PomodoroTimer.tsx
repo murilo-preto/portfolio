@@ -19,6 +19,36 @@ type PomodoroTimerProps = {
   settings: PomodoroSettings;
   selectedTodo: TodoItem | null;
   onClearSelectedTodo: () => void;
+  /** Time category finished focus sessions are logged under, or null to
+   *  keep them out of the time log entirely. */
+  logCategory: string | null;
+  /** A finished session moved its task forward, so the caller's copy of the
+   *  To Do list is stale. */
+  onTodosChanged: () => void;
+};
+
+/** Prose duration for the completion banner — `formatTime`'s "25:00" clock
+ *  face reads as a countdown, not as an amount of time already spent. */
+function describeDuration(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 1) return "less than a minute";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${minutes}m`;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
+/** What a just-finished session actually did, beyond stopping the clock. */
+type Completion = {
+  mode: TimerMode;
+  seconds: number;
+  /** Time entry written for this session, if logging was on and succeeded. */
+  loggedTo: string | null;
+  /** Why logging was asked for but skipped (deleted category, etc.). */
+  logError: string | null;
+  todoId: number | null;
+  todoTitle: string | null;
+  todoDone: boolean;
 };
 
 type PersistedState = {
@@ -43,6 +73,8 @@ export function PomodoroTimer({
   settings,
   selectedTodo,
   onClearSelectedTodo,
+  logCategory,
+  onTodosChanged,
 }: PomodoroTimerProps) {
   const [mode, setMode] = useState<TimerMode>("pomodoro");
   const [runState, setRunState] = useState<TimerRunState>("idle");
@@ -50,7 +82,10 @@ export function PomodoroTimer({
     getDurationSeconds("pomodoro", settings)
   );
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
-  const [justCompleted, setJustCompleted] = useState<TimerMode | null>(null);
+  // Sticks around until the next session starts rather than auto-dismissing:
+  // it now carries actions (mark the task done) and outcomes worth reading.
+  const [completion, setCompletion] = useState<Completion | null>(null);
+  const [markingDone, setMarkingDone] = useState(false);
 
   // Refs mirror the state above so the tick interval and the
   // navigation-cleanup handler always see current values without having to
@@ -64,6 +99,11 @@ export function PomodoroTimer({
   const selectedTodoRef = useRef(selectedTodo);
   const sessionsCompletedRef = useRef(0);
   const restoredRef = useRef(false);
+  // Mirrored like the rest: finishSession is a dependency of the tick
+  // interval, so reading these through refs keeps the interval from being
+  // torn down and rebuilt every time a preference changes.
+  const logCategoryRef = useRef(logCategory);
+  const onTodosChangedRef = useRef(onTodosChanged);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -72,6 +112,14 @@ export function PomodoroTimer({
   useEffect(() => {
     selectedTodoRef.current = selectedTodo;
   }, [selectedTodo]);
+
+  useEffect(() => {
+    logCategoryRef.current = logCategory;
+  }, [logCategory]);
+
+  useEffect(() => {
+    onTodosChangedRef.current = onTodosChanged;
+  }, [onTodosChanged]);
 
   const persistCurrent = useCallback(() => {
     persist({
@@ -98,19 +146,32 @@ export function PomodoroTimer({
   }, []);
 
   const completeBackendSession = useCallback(
-    async (sessionId: number, durationSeconds: number) => {
+    async (
+      sessionId: number,
+      durationSeconds: number,
+      category: string | null
+    ): Promise<{
+      time_entry_id: number | null;
+      time_entry_error?: string;
+      todo_id: number | null;
+      todo_status: string | null;
+    } | null> => {
       try {
-        await fetch("/api/pomodoro/complete", {
+        const res = await fetch("/api/pomodoro/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
             session_id: sessionId,
             duration_seconds: durationSeconds,
+            ...(category ? { category } : {}),
           }),
         });
+        if (!res.ok) return null;
+        return await res.json();
       } catch (err) {
         console.error("Failed to complete Pomodoro session:", err);
+        return null;
       }
     },
     []
@@ -168,8 +229,43 @@ export function PomodoroTimer({
       remainingSecondsRef.current = null;
       sessionIdRef.current = null;
 
+      const isFocus = finishedMode === "pomodoro";
+      const linkedTodo = isFocus ? selectedTodoRef.current : null;
+      const category = isFocus ? logCategoryRef.current : null;
+
+      // Painted from what the client already knows, so the banner appears with
+      // the chime rather than a round trip later; the server's answer fills in
+      // the parts only it can know (whether the entry was really written, what
+      // the task's status became).
+      setCompletion({
+        mode: finishedMode,
+        seconds: durationSeconds,
+        loggedTo: null,
+        logError: null,
+        todoId: linkedTodo?.id ?? null,
+        todoTitle: linkedTodo?.title ?? null,
+        todoDone: false,
+      });
+
       if (sessionId) {
-        completeBackendSession(sessionId, durationSeconds);
+        completeBackendSession(sessionId, durationSeconds, category).then(
+          (result) => {
+            if (!result) return;
+            setCompletion((current) =>
+              current && current.mode === finishedMode
+                ? {
+                    ...current,
+                    loggedTo: result.time_entry_id ? category : null,
+                    logError: result.time_entry_error ?? null,
+                    todoId: result.todo_id,
+                    todoDone: result.todo_status === "completed",
+                  }
+                : current
+            );
+            // The task just moved to in_progress server-side.
+            if (result.todo_id) onTodosChangedRef.current();
+          }
+        );
       }
 
       playChime();
@@ -180,14 +276,41 @@ export function PomodoroTimer({
           : "Time to get back to it."
       );
 
-      setJustCompleted(finishedMode);
-      setTimeout(() => setJustCompleted(null), 4000);
-
       advanceMode(finishedMode);
       persistCurrent();
     },
     [advanceMode, completeBackendSession, persistCurrent]
   );
+
+  // Marking the task done goes through PUT /todo/<id> rather than riding along
+  // with the session completion, because that endpoint is also what spawns the
+  // next occurrence of a recurring task.
+  async function handleMarkTaskDone() {
+    const todoId = completion?.todoId;
+    if (!todoId || markingDone) return;
+
+    setMarkingDone(true);
+    try {
+      const res = await fetch(`/api/todo/${todoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      if (!res.ok) return;
+      setCompletion((current) =>
+        current && current.todoId === todoId
+          ? { ...current, todoDone: true }
+          : current
+      );
+      onClearSelectedTodo();
+      onTodosChangedRef.current();
+    } catch (err) {
+      console.error("Failed to complete the linked task:", err);
+    } finally {
+      setMarkingDone(false);
+    }
+  }
 
   // ── Restore from localStorage on mount ────────────────────────────────
   useEffect(() => {
@@ -282,6 +405,7 @@ export function PomodoroTimer({
 
   async function handleStart() {
     await ensureNotificationPermission();
+    setCompletion(null);
 
     if (runState === "paused" && remainingSecondsRef.current != null) {
       endTimestampRef.current = Date.now() + remainingSecondsRef.current * 1000;
@@ -321,6 +445,7 @@ export function PomodoroTimer({
   }
 
   function handleReset() {
+    setCompletion(null);
     if (sessionIdRef.current) {
       cancelBackendSession(sessionIdRef.current);
     }
@@ -334,6 +459,7 @@ export function PomodoroTimer({
   }
 
   function switchMode(newMode: TimerMode) {
+    setCompletion(null);
     if (runStateRef.current !== "idle" && sessionIdRef.current) {
       cancelBackendSession(sessionIdRef.current);
     }
@@ -408,9 +534,45 @@ export function PomodoroTimer({
           />
         </div>
 
-        {justCompleted && (
-          <div className="mt-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm font-medium">
-            {justCompleted === "pomodoro" ? "Pomodoro complete! 🎉" : "Break complete — back to it!"}
+        {completion && (
+          <div className="mt-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm text-left space-y-2">
+            <p className="font-medium">
+              {completion.mode === "pomodoro"
+                ? "Pomodoro complete! 🎉"
+                : "Break complete — back to it!"}
+            </p>
+
+            {completion.loggedTo && (
+              <p className="text-xs">
+                Logged {describeDuration(completion.seconds)} to{" "}
+                <span className="font-medium">{completion.loggedTo}</span>.
+              </p>
+            )}
+            {completion.logError && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Not logged to your time entries: {completion.logError}
+              </p>
+            )}
+
+            {completion.todoTitle && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs">
+                  {completion.todoDone ? "Finished" : "Progress on"}{" "}
+                  <span className="font-medium">{completion.todoTitle}</span>
+                </span>
+                {!completion.todoDone && completion.todoId && (
+                  <button
+                    onClick={handleMarkTaskDone}
+                    disabled={markingDone}
+                    className="text-xs px-2 py-1 rounded-md border border-green-300 dark:border-green-800
+                               hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors
+                               disabled:opacity-60"
+                  >
+                    {markingDone ? "Marking…" : "Mark task done"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

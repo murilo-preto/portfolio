@@ -186,6 +186,8 @@ export default function TodoPage() {
       created_at: now,
       updated_at: now,
       tags: body.item.tags ?? [],
+      focus_sessions: 0,
+      focus_seconds: 0,
     };
     setItems((prev) => [newItem, ...prev]);
 

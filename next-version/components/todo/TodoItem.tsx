@@ -3,7 +3,7 @@
 import type { TodoItem } from "@/lib/types";
 import { PriorityBadge } from "./PriorityBadge";
 import { StatusBadge } from "./StatusBadge";
-import { formatDateTime, isOverdue } from "./utils";
+import { formatDateTime, formatDuration, isOverdue } from "./utils";
 
 type TodoItemProps = {
   item: TodoItem;
@@ -133,12 +133,36 @@ export function TodoItemComponent({
                 Due: {formatDateTime(item.due_date)}
               </span>
             )}
+            {item.focus_sessions > 0 && (
+              <span
+                title="Completed focus sessions aimed at this task"
+                className="text-tint-purple-ink dark:text-purple-400"
+              >
+                ⏱ {item.focus_sessions} focus session
+                {item.focus_sessions !== 1 ? "s" : ""}
+                {item.focus_seconds > 0 && ` · ${formatDuration(item.focus_seconds)}`}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Actions */}
         {!selectMode && (
           <div className="flex items-center gap-1">
+            <a
+              href={`/namu/user/timer?note=${encodeURIComponent(item.title)}`}
+              className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-muted hover:text-blue-500 transition-colors active:scale-90"
+              title="Start stopwatch on this task"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+            </a>
             <a
               href={`/namu/user/pomodoro?todo_id=${item.id}`}
               className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-muted hover:text-red-500 transition-colors active:scale-90"

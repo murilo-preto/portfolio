@@ -1022,6 +1022,10 @@ DEFAULT_PREFERENCE_SETTINGS = {
     },
     "todoFilters": {},
     "lastUsed": {"category": None, "priority": None},
+    # Which time category finished focus sessions are logged under, and
+    # whether to log them at all. Off by default: silently writing time
+    # entries on someone's behalf would be a surprise, not a feature.
+    "focus": {"logToTimeEntries": False, "category": None},
 }
 
 DEFAULT_THEME = "system"
@@ -2515,6 +2519,7 @@ def retrieve_todo_items_from_username(username):
 
             # Attach tags per item (single grouped query, no N+1)
             tags_by_item = {item["id"]: [] for item in items}
+            focus_by_item = {item["id"]: (0, 0) for item in items}
             if items:
                 item_ids = list(tags_by_item.keys())
                 placeholders = ", ".join(["%s"] * len(item_ids))
@@ -2533,12 +2538,38 @@ def retrieve_todo_items_from_username(username):
                         {"id": row["id"], "name": row["name"]}
                     )
 
+                # How much focus each task has actually absorbed. Derived from
+                # pomodoro_sessions rather than stored on the item, so it stays
+                # correct without a counter to keep in sync; one grouped query
+                # for the same reason as the tags above.
+                cursor.execute(
+                    f"""
+                    SELECT todo_id,
+                           COUNT(*) AS sessions,
+                           COALESCE(SUM(duration_seconds), 0) AS seconds
+                    FROM pomodoro_sessions
+                    WHERE todo_id IN ({placeholders})
+                      AND status = 'completed'
+                      AND session_type = 'pomodoro'
+                    GROUP BY todo_id
+                    """,
+                    item_ids,
+                )
+                for row in cursor.fetchall():
+                    focus_by_item[row["todo_id"]] = (
+                        int(row["sessions"]),
+                        int(row["seconds"]),
+                    )
+
             # Convert datetime objects to strings
             for item in items:
                 for field in ["due_date", "completed_at", "created_at", "updated_at"]:
                     if item[field] is not None:
                         item[field] = item[field].isoformat()
                 item["tags"] = tags_by_item[item["id"]]
+                sessions, seconds = focus_by_item[item["id"]]
+                item["focus_sessions"] = sessions
+                item["focus_seconds"] = seconds
 
         return jsonify({"username": username, "items": items}), 200
 
@@ -3330,6 +3361,86 @@ def start_pomodoro_session():
         return jsonify({"error": "Failed to start Pomodoro session"}), 500
 
 
+# ─── Task ↔ time linking ──────────────────────────────────────────────────────
+
+# A focus session is worth more than its row in pomodoro_sessions: for anyone
+# who also tracks time, it is 25 minutes of "Work" that the entries dashboard
+# would otherwise never see, and 25 minutes of visible progress on the task it
+# was aimed at. The two helpers below run when a focus session completes.
+#
+# Both are deliberately soft about *caller-fixable* problems — a category the
+# user has since deleted, a task deleted mid-session, a zero-length session.
+# Completing the pomodoro is the irreversible thing the user just earned, so it
+# must not fail because a piece of bookkeeping could not be attached; the
+# reason comes back in the response body instead. A genuine database error
+# still propagates, rolling the whole thing back, because a half-written
+# transaction is worse than a 500.
+
+
+def log_focus_session_as_time_entry(
+    cursor, user_id, category_name, duration_seconds, finished_at, note
+):
+    """Materialise a completed focus session as a time entry.
+
+    Returns (entry_id, None) on success, or (None, reason) when there is
+    nothing sensible to write. The entry spans backwards from `finished_at`,
+    which is the only interval the server can reconstruct — the client reports
+    a duration, not a start.
+    """
+    if duration_seconds <= 0:
+        return None, "Session was too short to log as a time entry"
+
+    name = (category_name or "").strip()
+    if not name:
+        return None, "No category selected for time logging"
+
+    cursor.execute("SELECT id FROM category WHERE name = %s", (name,))
+    category = cursor.fetchone()
+    if not category:
+        return None, f"Category {name!r} no longer exists"
+
+    start_time = finished_at - timedelta(seconds=duration_seconds)
+    cursor.execute(
+        """
+        INSERT INTO time_entries (user_id, category_id, start_time, end_time, note)
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (user_id, category["id"], start_time, finished_at, note),
+    )
+    return cursor.lastrowid, None
+
+
+def advance_linked_todo(cursor, user_id, todo_id):
+    """Move the task a finished focus session was aimed at out of `pending`.
+
+    Finishing a pomodoro on a task is proof the task is underway, so the bump
+    to `in_progress` needs no prompting. Marking it *done* deliberately is not
+    done here: that decision belongs to the user after the session, and it goes
+    through PUT /todo/<id>, which is also what spawns the next occurrence of a
+    recurring task. Duplicating the completion here would skip that.
+
+    Returns the item's status after the call, or None when there is no such
+    item to advance. A task deleted mid-session does not reach here — the FK on
+    pomodoro_sessions.todo_id is ON DELETE SET NULL, so the link is already
+    gone; the None case guards against a caller that has not checked ownership.
+    """
+    cursor.execute(
+        "SELECT id, status FROM todo_items WHERE id = %s AND user_id = %s",
+        (todo_id, user_id),
+    )
+    item = cursor.fetchone()
+    if not item:
+        return None
+
+    if item["status"] == "pending":
+        cursor.execute(
+            "UPDATE todo_items SET status = 'in_progress' WHERE id = %s", (todo_id,)
+        )
+        return "in_progress"
+
+    return item["status"]
+
+
 @app.route("/pomodoro/complete", methods=["POST"])
 @jwt_required()
 def complete_pomodoro_session():
@@ -3339,14 +3450,27 @@ def complete_pomodoro_session():
     Expected JSON:
     {
         "session_id": int,
-        "duration_seconds": int
+        "duration_seconds": int,
+        "category": "string" (optional) — log the session as a time entry
+                    under this time category. Focus sessions only.
+    }
+
+    A focus session linked to a task also moves that task out of `pending`;
+    see advance_linked_todo. Neither extra can fail the completion itself, so
+    the response reports what actually happened:
+
+    {
+        "message": ..., "id": int,
+        "time_entry_id": int | null,
+        "time_entry_error": "string" (only when logging was asked for and skipped),
+        "todo_id": int | null,
+        "todo_status": "string" | null
     }
 
     Returns:
         200: Session completed
         400: Validation error
-        403: Not owner of session
-        404: Session not found
+        404: Session not found (or not this user's, or already resolved)
         500: Server error
     """
     current_user = get_jwt_identity()
@@ -3357,9 +3481,13 @@ def complete_pomodoro_session():
 
     session_id = data.get("session_id")
     duration_seconds = data.get("duration_seconds")
+    category_name = data.get("category")
 
     if not session_id or duration_seconds is None:
         return jsonify({"error": "session_id and duration_seconds are required"}), 400
+
+    if category_name is not None and not isinstance(category_name, str):
+        return jsonify({"error": "category must be a string"}), 400
 
     try:
         duration_seconds = int(duration_seconds)
@@ -3368,13 +3496,16 @@ def complete_pomodoro_session():
     except (TypeError, ValueError):
         return jsonify({"error": "duration_seconds must be an integer"}), 400
 
+    finished_at = datetime.now(timezone.utc)
+
     try:
         with get_cursor() as cursor:
             # Verify session belongs to this user and is still in progress
             # (prevents double-completing an already-resolved session)
             cursor.execute(
                 """
-                SELECT ps.id FROM pomodoro_sessions ps
+                SELECT ps.id, ps.user_id, ps.todo_id, ps.session_type
+                FROM pomodoro_sessions ps
                 JOIN users u ON ps.user_id = u.id
                 WHERE ps.id = %s AND u.username = %s AND ps.status = 'in_progress'
                 """,
@@ -3394,7 +3525,54 @@ def complete_pomodoro_session():
                 (duration_seconds, session_id),
             )
 
-        return jsonify({"message": "Pomodoro session completed", "id": session_id}), 200
+            is_focus = session["session_type"] == "pomodoro"
+            todo_id = session["todo_id"]
+            todo_title = None
+            todo_status = None
+
+            if is_focus and todo_id is not None:
+                todo_status = advance_linked_todo(
+                    cursor, session["user_id"], todo_id
+                )
+                if todo_status is None:
+                    # Not this user's task after all; report no link rather
+                    # than a task the response has no business naming.
+                    todo_id = None
+                else:
+                    cursor.execute(
+                        "SELECT title FROM todo_items WHERE id = %s", (todo_id,)
+                    )
+                    row = cursor.fetchone()
+                    todo_title = row["title"] if row else None
+
+            time_entry_id = None
+            time_entry_error = None
+
+            if category_name is not None:
+                if not is_focus:
+                    time_entry_error = "Only focus sessions are logged as time entries"
+                else:
+                    note = todo_title[:MAX_NOTE_LENGTH] if todo_title else None
+                    time_entry_id, time_entry_error = log_focus_session_as_time_entry(
+                        cursor,
+                        session["user_id"],
+                        category_name,
+                        duration_seconds,
+                        finished_at,
+                        note,
+                    )
+
+        payload = {
+            "message": "Pomodoro session completed",
+            "id": session_id,
+            "time_entry_id": time_entry_id,
+            "todo_id": todo_id,
+            "todo_status": todo_status,
+        }
+        if time_entry_error:
+            payload["time_entry_error"] = time_entry_error
+
+        return jsonify(payload), 200
 
     except Error as e:
         logger.error(f"Database error: {e}")

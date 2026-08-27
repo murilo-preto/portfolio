@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { TimerDisplay } from "@/components/timer/TimerDisplay";
 import { QuickStats } from "@/components/timer/QuickStats";
 import { DailyTarget } from "@/components/timer/DailyTarget";
@@ -87,7 +88,13 @@ function restoreSegments(parsed: {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function TimerPage() {
+function TimerPageContent() {
+  // A task handed over from the To Do list ("start stopwatch on this task").
+  // The stopwatch has no notion of a task, so the title arrives as the note
+  // the session will be saved with — which is exactly what a note is for.
+  const searchParams = useSearchParams();
+  const handoffNote = searchParams.get("note");
+
   // Categories
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<number | null>(null);
@@ -169,11 +176,18 @@ export default function TimerPage() {
     setTargets(readTargets());
 
     const saved = localStorage.getItem(TIMER_STATE_KEY);
-    if (!saved) return;
+    if (!saved) {
+      if (handoffNote) setNote(handoffNote.slice(0, NOTE_MAX_LENGTH));
+      return;
+    }
     try {
       const parsed = JSON.parse(saved);
       if (parsed.categoryId) setCategoryId(parsed.categoryId);
-      if (typeof parsed.note === "string") setNote(parsed.note);
+      // A note already typed for a session in progress outranks the handoff:
+      // arriving from a task must never overwrite work the user can't see.
+      const savedNote = typeof parsed.note === "string" ? parsed.note : "";
+      const seedNote = savedNote || (handoffNote ?? "");
+      if (seedNote) setNote(seedNote.slice(0, NOTE_MAX_LENGTH));
 
       const restored = restoreSegments(parsed);
       if (restored.length === 0) return;
@@ -195,6 +209,7 @@ export default function TimerPage() {
     } catch {
       localStorage.removeItem(TIMER_STATE_KEY);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Tick ────────────────────────────────────────────────────────────────────
@@ -728,5 +743,13 @@ export default function TimerPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function TimerPage() {
+  return (
+    <Suspense fallback={null}>
+      <TimerPageContent />
+    </Suspense>
   );
 }

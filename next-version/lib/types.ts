@@ -56,6 +56,11 @@ export interface TodoItem {
   created_at: string;
   updated_at: string;
   tags: Tag[];
+  /** Completed focus sessions aimed at this task, and their total length.
+   *  Derived server-side from `pomodoro_sessions`, so there is no counter to
+   *  drift; both are 0 for a task nothing has been focused on. */
+  focus_sessions: number;
+  focus_seconds: number;
 }
 
 export type SessionType = "pomodoro" | "short_break" | "long_break";

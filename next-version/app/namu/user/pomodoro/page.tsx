@@ -1,13 +1,24 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { PomodoroSettings as PomodoroSettingsType, TodoItem } from "@/lib/types";
+import type {
+  Category,
+  PomodoroSettings as PomodoroSettingsType,
+  TodoItem,
+} from "@/lib/types";
 import { PomodoroTimer } from "@/components/pomodoro/PomodoroTimer";
 import { PomodoroStats } from "@/components/pomodoro/PomodoroStats";
 import { PomodoroSettings } from "@/components/pomodoro/PomodoroSettings";
 import { TaskPicker } from "@/components/pomodoro/TaskPicker";
+import { FocusLogging } from "@/components/pomodoro/FocusLogging";
 import { loadSettings, saveSettings } from "@/components/pomodoro/utils";
+import {
+  DEFAULT_PREFERENCE_SETTINGS,
+  fetchPreferences,
+  savePreferences,
+  type FocusPreferences,
+} from "@/lib/preferences";
 import { warmFetch } from "@/lib/prefetch";
 
 function PomodoroPageContent() {
@@ -20,6 +31,15 @@ function PomodoroPageContent() {
   const [todosError, setTodosError] = useState<string | null>(null);
   const [selectedTodo, setSelectedTodo] = useState<TodoItem | null>(null);
 
+  // Focus-to-time-entry logging, and the time categories it can target.
+  const [focus, setFocus] = useState<FocusPreferences>(
+    DEFAULT_PREFERENCE_SETTINGS.focus
+  );
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [focusLoading, setFocusLoading] = useState(true);
+  const [focusError, setFocusError] = useState<string | null>(null);
+  const [focusSaving, setFocusSaving] = useState(false);
+
   useEffect(() => {
     // Restoring persisted settings must happen after mount: reading
     // localStorage during render would cause an SSR hydration mismatch.
@@ -27,35 +47,93 @@ function PomodoroPageContent() {
     setSettings(loadSettings());
   }, []);
 
-  useEffect(() => {
-    async function fetchTodos() {
-      try {
-        const res = await warmFetch("/api/todo", { credentials: "include" });
-        if (!res.ok) throw new Error("Failed to load To Do items");
-        const data = await res.json();
-        const items = (data.items as TodoItem[]).filter(
-          (item) => item.status !== "completed"
-        );
-        setTodos(items);
+  const fetchTodos = useCallback(async () => {
+    try {
+      const res = await warmFetch("/api/todo", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load To Do items");
+      const data = await res.json();
+      const items = (data.items as TodoItem[]).filter(
+        (item) => item.status !== "completed"
+      );
+      setTodos(items);
+      return items;
+    } catch (err: unknown) {
+      setTodosError(
+        err instanceof Error ? err.message : "Failed to load To Do items"
+      );
+      return null;
+    } finally {
+      setTodosLoading(false);
+    }
+  }, []);
 
-        if (deepLinkTodoId) {
-          const match = items.find((item) => item.id === Number(deepLinkTodoId));
-          if (match) setSelectedTodo(match);
-        }
-      } catch (err: unknown) {
-        setTodosError(err instanceof Error ? err.message : "Failed to load To Do items");
-      } finally {
-        setTodosLoading(false);
+  useEffect(() => {
+    async function loadTodos() {
+      const items = await fetchTodos();
+      if (items && deepLinkTodoId) {
+        const match = items.find((item) => item.id === Number(deepLinkTodoId));
+        if (match) setSelectedTodo(match);
       }
     }
-    fetchTodos();
+    loadTodos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    async function loadFocus() {
+      try {
+        const [prefs, catRes] = await Promise.all([
+          fetchPreferences(),
+          warmFetch("/api/categories"),
+        ]);
+        if (!catRes.ok) throw new Error("Failed to load categories");
+        const catJson = await catRes.json();
+        setCategories(catJson.categories ?? []);
+        setFocus(prefs.settings.focus ?? DEFAULT_PREFERENCE_SETTINGS.focus);
+      } catch (err: unknown) {
+        setFocusError(
+          err instanceof Error ? err.message : "Failed to load focus settings"
+        );
+      } finally {
+        setFocusLoading(false);
+      }
+    }
+    loadFocus();
+  }, []);
+
+  // Optimistic: the control reflects the choice immediately and rolls back if
+  // the save fails, rather than lagging a round trip behind every click.
+  async function handleFocusChange(next: FocusPreferences) {
+    const previous = focus;
+    setFocus(next);
+    setFocusSaving(true);
+    setFocusError(null);
+    try {
+      await savePreferences({ settings: { focus: next } });
+    } catch (err: unknown) {
+      setFocus(previous);
+      setFocusError(
+        err instanceof Error ? err.message : "Failed to save focus settings"
+      );
+    } finally {
+      setFocusSaving(false);
+    }
+  }
 
   function handleSettingsChange(next: PomodoroSettingsType) {
     setSettings(next);
     saveSettings(next);
   }
+
+  // A session just moved its task to in_progress, or the user marked it done —
+  // either way the picker's copy is stale.
+  const handleTodosChanged = useCallback(async () => {
+    const items = await fetchTodos();
+    if (!items) return;
+    setSelectedTodo((current) =>
+      current ? items.find((item) => item.id === current.id) ?? null : null
+    );
+  }, [fetchTodos]);
 
   return (
     <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-6xl mx-auto space-y-6 text-primary">
@@ -85,6 +163,8 @@ function PomodoroPageContent() {
               settings={settings}
               selectedTodo={selectedTodo}
               onClearSelectedTodo={() => setSelectedTodo(null)}
+              logCategory={focus.logToTimeEntries ? focus.category : null}
+              onTodosChanged={handleTodosChanged}
             />
           )}
           {settings && (
@@ -99,6 +179,14 @@ function PomodoroPageContent() {
             error={todosError}
             selectedTodo={selectedTodo}
             onSelectTodo={setSelectedTodo}
+          />
+          <FocusLogging
+            focus={focus}
+            categories={categories}
+            loading={focusLoading}
+            error={focusError}
+            saving={focusSaving}
+            onChange={handleFocusChange}
           />
           <PomodoroStats />
         </div>
