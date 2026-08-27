@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BatchImportModal } from "@/components/BatchImportModal";
+import { ListToolbar, type SortOption } from "@/components/ListToolbar";
+import {
+  PAGE_SIZE,
+  emptyListQuery,
+  toSearchParams,
+  type ListQuery,
+  type PageMeta,
+} from "@/lib/list-query";
 import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
@@ -269,7 +277,7 @@ function EntryList({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-muted uppercase tracking-wide">
-          {loading ? "Loading…" : `${entries.length} Entries`}
+          {loading ? "Loading…" : "This page"}
         </h2>
         {entries.length > 0 && (
           <div className="flex items-center gap-3">
@@ -281,7 +289,7 @@ function EntryList({
                 onChange={onToggleAll}
                 className="cursor-pointer accent-current"
               />
-              Select all
+              Select all on this page
             </label>
             {checkedIds.size > 0 && (
               <button
@@ -720,11 +728,25 @@ function EditEntryPanel({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const SORT_OPTIONS: SortOption[] = [
+  { value: "purchase_date", label: "Purchase date" },
+  { value: "price", label: "Price" },
+  { value: "product_name", label: "Product" },
+  { value: "category", label: "Category" },
+  { value: "status", label: "Status" },
+];
+
 export default function FinanceManagePage() {
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Most recent first, as this screen has always shown — now ordered by MySQL.
+  const [query, setQuery] = useState<ListQuery>(() =>
+    emptyListQuery("purchase_date", "desc"),
+  );
+  const [page, setPage] = useState<PageMeta | null>(null);
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
@@ -789,17 +811,23 @@ export default function FinanceManagePage() {
     }
   }
 
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [entriesRes, catsRes] = await Promise.all([
-        warmFetch("/api/finance", { credentials: "include" }),
+        fetch(`/api/finance${toSearchParams(query, { limit: PAGE_SIZE })}`, {
+          credentials: "include",
+        }),
         warmFetch("/api/finance/categories"),
       ]);
-      if (!entriesRes.ok) throw new Error("Failed to fetch finance entries");
-      const { entries: e } = await entriesRes.json();
+      if (!entriesRes.ok) {
+        const body = await entriesRes.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to fetch finance entries");
+      }
+      const { entries: e, page: p } = await entriesRes.json();
       setEntries(e ?? []);
+      setPage(p ?? null);
       if (catsRes.ok) {
         const { categories: c } = await catsRes.json();
         setCategories(c ?? []);
@@ -809,11 +837,19 @@ export default function FinanceManagePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [query]);
 
   useEffect(() => {
-    fetchAll();
-  }, []);
+    void fetchAll();
+  }, [fetchAll]);
+
+  // A tick made on a page the user has since left is a tick they can no longer
+  // see. Carrying it into "Delete 3" would delete rows off-screen, so the
+  // selection is dropped as the visible set changes.
+  function handleQueryChange(next: ListQuery) {
+    setQuery(next);
+    setCheckedIds(new Set());
+  }
 
   const selectedEntry = entries.find((e) => e.id === selectedId) ?? null;
 
@@ -879,6 +915,16 @@ export default function FinanceManagePage() {
           onCreated={fetchAll}
         />
       )}
+
+      <ListToolbar
+        query={query}
+        onChange={handleQueryChange}
+        categories={categories.map((c) => c.name)}
+        sortOptions={SORT_OPTIONS}
+        page={page}
+        loading={loading}
+        noun="purchases"
+      />
 
       {/* Main Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

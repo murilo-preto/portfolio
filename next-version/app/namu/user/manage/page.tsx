@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BatchImportModal } from "@/components/BatchImportModal";
+import { ListToolbar, type SortOption } from "@/components/ListToolbar";
+import {
+  PAGE_SIZE,
+  emptyListQuery,
+  hasFilters,
+  toSearchParams,
+  type ListQuery,
+  type PageMeta,
+} from "@/lib/list-query";
 import { warmFetch } from "@/lib/prefetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -340,10 +349,6 @@ function EntryList({
 }) {
   return (
     <div className="space-y-2">
-      <h2 className="text-sm font-medium text-muted uppercase tracking-wide">
-        {loading ? "Loading…" : `${entries.length} Entries`}
-      </h2>
-
       {error && (
         <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
           {error}
@@ -685,32 +690,50 @@ function EditEntryPanel({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const SORT_OPTIONS: SortOption[] = [
+  { value: "start_time", label: "Start time" },
+  { value: "end_time", label: "End time" },
+  { value: "duration", label: "Duration" },
+  { value: "category", label: "Category" },
+  { value: "note", label: "Note" },
+];
+
 export default function ManagePage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Newest first is what this screen has always shown; it is now MySQL's job
+  // rather than a sort applied after downloading the whole table.
+  const [query, setQuery] = useState<ListQuery>(() =>
+    emptyListQuery("start_time", "desc"),
+  );
+  const [page, setPage] = useState<PageMeta | null>(null);
+  const [exporting, setExporting] = useState(false);
+
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showCatForm, setShowCatForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [entriesRes, catsRes] = await Promise.all([
-        warmFetch("/api/entry", { credentials: "include" }),
+        fetch(`/api/entry${toSearchParams(query, { limit: PAGE_SIZE })}`, {
+          credentials: "include",
+        }),
         warmFetch("/api/categories"),
       ]);
-      if (!entriesRes.ok) throw new Error("Failed to fetch entries");
-      const { entries: e } = await entriesRes.json();
-      const sorted = (e ?? []).sort(
-        (a: Entry, b: Entry) =>
-          new Date(b.start_time).getTime() - new Date(a.start_time).getTime(),
-      );
-      setEntries(sorted);
+      if (!entriesRes.ok) {
+        const body = await entriesRes.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to fetch entries");
+      }
+      const { entries: e, page: p } = await entriesRes.json();
+      setEntries(e ?? []);
+      setPage(p ?? null);
       if (catsRes.ok) {
         const { categories: c } = await catsRes.json();
         setCategories(c ?? []);
@@ -720,13 +743,34 @@ export default function ManagePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [query]);
 
   useEffect(() => {
-    void (async () => {
-      await fetchAll();
-    })();
-  }, []);
+    // fetchAll raises its own loading flag before awaiting, which the rule
+    // sees as a synchronous setState. That is what a fetching effect does;
+    // the alternative is a spinner that never appears on the first load.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchAll();
+  }, [fetchAll]);
+
+  // Export covers everything the filters match, not the page on screen —
+  // a CSV silently truncated to 50 rows would be worse than no CSV.
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await fetch(
+        `/api/entry${toSearchParams(query, { limit: null })}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("Failed to fetch entries for export");
+      const { entries: all } = await res.json();
+      exportToCSV(all ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const selectedEntry = entries.find((e) => e.id === selectedId) ?? null;
 
@@ -753,10 +797,15 @@ export default function ManagePage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => exportToCSV(entries)}
-            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
+            onClick={handleExport}
+            disabled={exporting}
+            className="text-sm px-3 py-2 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors disabled:opacity-60"
           >
-            Export CSV
+            {exporting
+              ? "Exporting…"
+              : hasFilters(query)
+                ? "Export matches"
+                : "Export CSV"}
           </button>
           <button
             onClick={() => setShowImportModal(true)}
@@ -787,6 +836,16 @@ export default function ManagePage() {
           onCreated={fetchAll}
         />
       )}
+
+      <ListToolbar
+        query={query}
+        onChange={setQuery}
+        categories={categories.map((c) => c.name)}
+        sortOptions={SORT_OPTIONS}
+        page={page}
+        loading={loading}
+        noun="entries"
+      />
 
       {/* Main Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

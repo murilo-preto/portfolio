@@ -17,6 +17,15 @@ from mysql.connector.pooling import MySQLConnectionPool
 from categories import normalize_category_name
 import category_admin
 from migrations import run_migrations
+from query_params import (
+    ListQuery,
+    QueryParamError,
+    build_filters,
+    build_order,
+    build_page,
+    page_meta,
+    parse_list_query,
+)
 from itau_pdf import (
     ItauPdfError,
     extract_statement_from_bytes,
@@ -188,7 +197,24 @@ def clean_entry_note(raw):
     return note
 
 
-def retrieve_entry_from_username(username):
+# What `?sort=` may name on /entry, and the SQL each name means. Callers never
+# supply column text; they pick a key from here.
+ENTRY_SORTABLE = {
+    "start_time": "te.start_time",
+    "end_time": "te.end_time",
+    "category": "c.name",
+    "duration": "TIMESTAMPDIFF(SECOND, te.start_time, te.end_time)",
+    "note": "te.note",
+}
+
+ENTRY_DEFAULT_ORDER = "te.start_time ASC"
+
+
+def retrieve_entry_from_username(username, query=None):
+    # An empty ListQuery *is* the unfiltered, unpaginated request, so callers
+    # outside a request context (and the tests) can keep passing a username
+    # alone and get the original behaviour.
+    query = query or ListQuery()
     try:
         with get_cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
@@ -197,8 +223,19 @@ def retrieve_entry_from_username(username):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
+            where, filter_params = build_filters(
+                query,
+                date_column="te.start_time",
+                category_column="c.name",
+                search_columns=("te.note", "c.name"),
+            )
+            order = build_order(
+                query, ENTRY_SORTABLE, ENTRY_DEFAULT_ORDER, "te.id"
+            )
+            page, page_params = build_page(query)
+
             cursor.execute(
-                """
+                f"""
                 SELECT
                     te.id,
                     c.name AS category,
@@ -208,14 +245,31 @@ def retrieve_entry_from_username(username):
                     TIMESTAMPDIFF(SECOND, te.start_time, te.end_time) AS duration_seconds
                 FROM time_entries te
                 JOIN category c ON te.category_id = c.id
-                WHERE te.user_id = %s
-                ORDER BY te.start_time ASC
+                WHERE te.user_id = %s{where}
+                {order}
+                {page}
                 """,
-                (user["id"],),
+                tuple([user["id"], *filter_params, *page_params]),
             )
             entries = cursor.fetchall()
 
-        return jsonify({"username": username, "entries": entries}), 200
+            body = {"username": username, "entries": entries}
+
+            # The count only matters to a caller paging through a window, and
+            # it costs a second scan, so unpaginated requests don't pay for it.
+            if query.paginated:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) AS total
+                    FROM time_entries te
+                    JOIN category c ON te.category_id = c.id
+                    WHERE te.user_id = %s{where}
+                    """,
+                    tuple([user["id"], *filter_params]),
+                )
+                body["page"] = page_meta(query, cursor.fetchone()["total"])
+
+        return jsonify(body), 200
 
     except Error as e:
         logger.error(f"Database error: {e}")
@@ -254,14 +308,30 @@ def refresh_expiring_jwts(response):
 @jwt_required()
 def myentries():
     """
-    Retrieves entries from a user from token username
+    Retrieves entries from a user from token username.
+
+    Optional query parameters (see query_params.py):
+        from, to       ISO date or datetime bounds on start_time
+        category       exact category name
+        q              substring of the note or the category name
+        sort           start_time | end_time | category | duration | note
+        direction      asc | desc
+        limit, offset  window; a windowed response also carries a "page" block
+
+    With none of them the response is exactly what it has always been: every
+    entry, oldest first, unpaginated.
     """
 
     username = get_jwt_identity()
     if not username:
         return jsonify({"error": "Username is required"}), 400
 
-    return retrieve_entry_from_username(username)
+    try:
+        query = parse_list_query(request.args, ENTRY_SORTABLE)
+    except QueryParamError as e:
+        return jsonify({"error": str(e)}), 400
+
+    return retrieve_entry_from_username(username, query)
 
 
 @app.route("/get/categories", methods=["GET"])
@@ -1358,7 +1428,19 @@ def update_user_preferences():
 # ─── Finance Routes ────────────────────────────────────────────────────────────
 
 
-def retrieve_finance_entries_from_username(username):
+FINANCE_SORTABLE = {
+    "purchase_date": "fe.purchase_date",
+    "price": "fe.price",
+    "product_name": "fe.product_name",
+    "category": "fc.name",
+    "status": "fe.status",
+}
+
+FINANCE_DEFAULT_ORDER = "fe.purchase_date DESC"
+
+
+def retrieve_finance_entries_from_username(username, query=None):
+    query = query or ListQuery()
     try:
         with get_cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
@@ -1367,8 +1449,19 @@ def retrieve_finance_entries_from_username(username):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
+            where, filter_params = build_filters(
+                query,
+                date_column="fe.purchase_date",
+                category_column="fc.name",
+                search_columns=("fe.product_name", "fc.name"),
+            )
+            order = build_order(
+                query, FINANCE_SORTABLE, FINANCE_DEFAULT_ORDER, "fe.id"
+            )
+            page, page_params = build_page(query)
+
             cursor.execute(
-                """
+                f"""
                 SELECT
                     fe.id,
                     fc.name AS category,
@@ -1378,10 +1471,11 @@ def retrieve_finance_entries_from_username(username):
                     fe.status
                 FROM finance_entries fe
                 JOIN finance_categories fc ON fe.category_id = fc.id
-                WHERE fe.user_id = %s
-                ORDER BY fe.purchase_date DESC
+                WHERE fe.user_id = %s{where}
+                {order}
+                {page}
                 """,
-                (user["id"],),
+                tuple([user["id"], *filter_params, *page_params]),
             )
             entries = cursor.fetchall()
 
@@ -1390,7 +1484,21 @@ def retrieve_finance_entries_from_username(username):
                 if entry["price"] is not None:
                     entry["price"] = float(entry["price"])
 
-        return jsonify({"username": username, "entries": entries}), 200
+            body = {"username": username, "entries": entries}
+
+            if query.paginated:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) AS total
+                    FROM finance_entries fe
+                    JOIN finance_categories fc ON fe.category_id = fc.id
+                    WHERE fe.user_id = %s{where}
+                    """,
+                    tuple([user["id"], *filter_params]),
+                )
+                body["page"] = page_meta(query, cursor.fetchone()["total"])
+
+        return jsonify(body), 200
 
     except Error as e:
         logger.error(f"Database error: {e}")
@@ -1401,13 +1509,28 @@ def retrieve_finance_entries_from_username(username):
 @jwt_required()
 def my_finance_entries():
     """
-    Retrieves finance entries from a user from token username
+    Retrieves finance entries from a user from token username.
+
+    Optional query parameters (see query_params.py):
+        from, to       ISO date or datetime bounds on purchase_date
+        category       exact category name
+        q              substring of the product name or the category name
+        sort           purchase_date | price | product_name | category | status
+        direction      asc | desc
+        limit, offset  window; a windowed response also carries a "page" block
+
+    With none of them the response is exactly what it has always been.
     """
     username = get_jwt_identity()
     if not username:
         return jsonify({"error": "Username is required"}), 400
 
-    return retrieve_finance_entries_from_username(username)
+    try:
+        query = parse_list_query(request.args, FINANCE_SORTABLE)
+    except QueryParamError as e:
+        return jsonify({"error": str(e)}), 400
+
+    return retrieve_finance_entries_from_username(username, query)
 
 
 @app.route("/finance/categories", methods=["GET"])
@@ -2476,8 +2599,67 @@ def _spawn_next_recurrence(cursor, item):
     _copy_todo_item_tags(cursor, item["id"], new_item_id)
 
 
-def retrieve_todo_items_from_username(username):
+# The priority ENUM sorts alphabetically (high, low, medium), which is not an
+# order anyone means. This expression is both the default ordering and what
+# `?sort=priority` maps to, so the two can never drift apart.
+TODO_PRIORITY_ORDER = (
+    "CASE ti.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END"
+)
+
+TODO_VALID_STATUSES = ("pending", "in_progress", "completed")
+TODO_VALID_PRIORITIES = ("low", "medium", "high")
+
+
+def parse_todo_extra_filters(args):
+    """Parse the two filters unique to /todo into a (sql, params) pair.
+
+    Returns a fragment beginning with " AND ", ready to append after the
+    shared filters, or ("", []) when neither parameter is present.
+    """
+    clauses = []
+    params = []
+
+    if "status" in args:
+        status = args["status"].strip()
+        if status not in TODO_VALID_STATUSES:
+            raise QueryParamError(
+                f"status must be one of: {', '.join(TODO_VALID_STATUSES)}"
+            )
+        clauses.append("ti.status = %s")
+        params.append(status)
+
+    if "priority" in args:
+        priority = args["priority"].strip()
+        if priority not in TODO_VALID_PRIORITIES:
+            raise QueryParamError(
+                f"priority must be one of: {', '.join(TODO_VALID_PRIORITIES)}"
+            )
+        clauses.append("ti.priority = %s")
+        params.append(priority)
+
+    if not clauses:
+        return "", []
+    return " AND " + " AND ".join(clauses), params
+
+
+TODO_SORTABLE = {
+    "due_date": "ti.due_date",
+    "priority": TODO_PRIORITY_ORDER,
+    "status": "ti.status",
+    "title": "ti.title",
+    "category": "fc.name",
+    "created_at": "ti.created_at",
+    "updated_at": "ti.updated_at",
+}
+
+TODO_DEFAULT_ORDER = (
+    f"{TODO_PRIORITY_ORDER}, ti.due_date ASC, ti.created_at DESC"
+)
+
+
+def retrieve_todo_items_from_username(username, query=None, extra_filters=None):
     """Helper function to fetch TODO items for a user."""
+    query = query or ListQuery()
     try:
         with get_cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
@@ -2486,8 +2668,24 @@ def retrieve_todo_items_from_username(username):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
+            where, filter_params = build_filters(
+                query,
+                date_column="ti.due_date",
+                category_column="fc.name",
+                search_columns=("ti.title", "ti.description", "fc.name"),
+            )
+            # status and priority are the axes the To Do screen is actually
+            # organised around, so they filter here rather than in the shared
+            # helper, which only knows the parameters all three lists share.
+            extra_sql, extra_params = extra_filters or ("", [])
+            where += extra_sql
+            filter_params.extend(extra_params)
+
+            order = build_order(query, TODO_SORTABLE, TODO_DEFAULT_ORDER, "ti.id")
+            page, page_params = build_page(query)
+
             cursor.execute(
-                """
+                f"""
                 SELECT
                     ti.id,
                     fc.name AS category,
@@ -2503,17 +2701,11 @@ def retrieve_todo_items_from_username(username):
                     ti.updated_at
                 FROM todo_items ti
                 JOIN todo_categories fc ON ti.category_id = fc.id
-                WHERE ti.user_id = %s
-                ORDER BY
-                    CASE ti.priority
-                        WHEN 'high' THEN 1
-                        WHEN 'medium' THEN 2
-                        WHEN 'low' THEN 3
-                    END,
-                    ti.due_date ASC,
-                    ti.created_at DESC
+                WHERE ti.user_id = %s{where}
+                {order}
+                {page}
                 """,
-                (user["id"],),
+                tuple([user["id"], *filter_params, *page_params]),
             )
             items = cursor.fetchall()
 
@@ -2571,7 +2763,21 @@ def retrieve_todo_items_from_username(username):
                 item["focus_sessions"] = sessions
                 item["focus_seconds"] = seconds
 
-        return jsonify({"username": username, "items": items}), 200
+            body = {"username": username, "items": items}
+
+            if query.paginated:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(*) AS total
+                    FROM todo_items ti
+                    JOIN todo_categories fc ON ti.category_id = fc.id
+                    WHERE ti.user_id = %s{where}
+                    """,
+                    tuple([user["id"], *filter_params]),
+                )
+                body["page"] = page_meta(query, cursor.fetchone()["total"])
+
+        return jsonify(body), 200
 
     except Error as e:
         logger.error(f"Database error: {e}")
@@ -2582,13 +2788,34 @@ def retrieve_todo_items_from_username(username):
 @jwt_required()
 def my_todo_items():
     """
-    Retrieves TODO items from a user from token username
+    Retrieves TODO items from a user from token username.
+
+    Optional query parameters (see query_params.py):
+        from, to       ISO date or datetime bounds on due_date; items with no
+                       due date are excluded by either bound, since an undated
+                       item is not in any date range
+        category       exact category name
+        q              substring of the title, description or category name
+        status         pending | in_progress | completed
+        priority       low | medium | high
+        sort           due_date | priority | status | title | category |
+                       created_at | updated_at
+        direction      asc | desc
+        limit, offset  window; a windowed response also carries a "page" block
+
+    With none of them the response is exactly what it has always been.
     """
     username = get_jwt_identity()
     if not username:
         return jsonify({"error": "Username is required"}), 400
 
-    return retrieve_todo_items_from_username(username)
+    try:
+        query = parse_list_query(request.args, TODO_SORTABLE)
+        extra_filters = parse_todo_extra_filters(request.args)
+    except QueryParamError as e:
+        return jsonify({"error": str(e)}), 400
+
+    return retrieve_todo_items_from_username(username, query, extra_filters)
 
 
 @app.route("/todo/categories", methods=["GET"])
