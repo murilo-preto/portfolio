@@ -6,14 +6,14 @@ import { CategoryChart } from "@/components/finance/CategoryChart";
 import { CategoryPieChart } from "@/components/finance/CategoryPieChart";
 import { EntriesTable } from "@/components/finance/EntriesTable";
 import { getMondayOf, addDays } from "@/components/finance/utils";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 import { SummaryCard } from "@/components/finance/SummaryCard";
 import { BatchImportModal } from "@/components/BatchImportModal";
 import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
-import { usePrefersDark } from "@/lib/use-media-query";
+import { useIsDark } from "@/lib/use-media-query";
 import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "month" | "all";
@@ -52,10 +52,11 @@ function exportToCSV(entries: FinanceEntry[]) {
 }
 
 export default function FinanceDashboard() {
+  const { formatPrice } = useCurrency();
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isDark = usePrefersDark();
+  const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [monthStart, setMonthStart] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");

@@ -10,7 +10,7 @@ import { PrefetchLink } from "@/components/PrefetchLink";
 import { formatDuration } from "@/components/entries/utils";
 import { formatDateTime, isOverdue } from "@/components/todo/utils";
 import { normalizeCategoryName } from "@/lib/categoryName";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 import { warmFetch } from "@/lib/prefetch";
 import type { ApiResponse as EntriesResponse } from "@/components/entries/types";
 import type {
@@ -216,6 +216,7 @@ function PanelLink({ href, label }: { href: string; label: string }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const { formatPrice } = useCurrency();
   const entries = useResource<EntriesResponse>("/api/entry");
   const todos = useResource<TodoApiResponse>("/api/todo");
   const finance = useResource<FinanceResponse>("/api/finance");

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FinanceEntry } from "@/components/finance/types";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 import { normalizeCategoryName } from "@/lib/categoryName";
 import { warmFetch } from "@/lib/prefetch";
 
@@ -47,6 +47,7 @@ export function EntriesTable({
   showAll = false,
   onEntryUpdated,
 }: EntriesTableProps) {
+  const { formatPrice } = useCurrency();
   const displayEntries = showAll ? entries : entries.slice(0, 10);
   const editable = Boolean(onEntryUpdated);
 

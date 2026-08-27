@@ -9,14 +9,14 @@ import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
 import { EntriesTable } from "@/components/entries/EntriesTable";
 import { getMondayOf, addDays } from "@/components/entries/utils";
 import { DEMO_DATA } from "./constants";
-import { usePrefersDark } from "@/lib/use-media-query";
+import { useIsDark } from "@/lib/use-media-query";
 
 type FilterMode = "today" | "week" | "all";
 
 export default function EntriesDemo() {
   const data = DEMO_DATA;
 
-  const isDark = usePrefersDark();
+  const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() =>
     getMondayOf(new Date("2026-02-18")),
   );

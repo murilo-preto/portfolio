@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 
 type BatchGenerateModalProps = {
   isOpen: boolean;
@@ -76,6 +76,7 @@ export function BatchGenerateModal({
   onClose,
   onSuccess,
 }: BatchGenerateModalProps) {
+  const { formatPrice } = useCurrency();
   const [categories, setCategories] = useState<Category[]>([]);
   const [frequency, setFrequency] = useState("monthly");
   const [day, setDay] = useState("1");

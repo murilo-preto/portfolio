@@ -3,6 +3,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
 import { PrefetchLink } from "@/components/PrefetchLink";
+import { ThemeScript } from "@/components/ThemeScript";
 import LogoutButton from "@/components/LogoutButton";
 import { useState, useEffect } from "react";
 
@@ -154,7 +155,10 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
+      <head>
+        <ThemeScript />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col
           bg-gray-50 text-gray-900

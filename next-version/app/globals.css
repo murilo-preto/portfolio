@@ -1,6 +1,36 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────
+   The `dark:` variant, retargeted at the theme preference
+   ─────────────────────────────────────────────────────────────────────────
+   Tailwind v4's stock `dark:` variant compiles to a bare
+   `@media (prefers-color-scheme: dark)`, so it follows the operating system
+   and cannot see [data-theme]. That left the theme toggle only half working:
+   the semantic tokens below switched, while the ~180 raw `dark:` utilities
+   still scattered through the components kept rendering whatever the OS said.
+   Choosing "Light" on a dark-mode machine produced a light page wearing dark
+   borders, rings and tints.
+
+   The predicate here is the same one the token blocks use, so the two can
+   never disagree: dark applies when the OS says dark and the user has not
+   explicitly asked for light, or when the user has explicitly asked for dark.
+
+   (`<html>` also carried a hardcoded `class="dark"`. Nothing ever matched it —
+   v4 generates no class-based selector — so it has been removed rather than
+   left to imply a mechanism that does not exist.)
+   ───────────────────────────────────────────────────────────────────────── */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme="dark"], :root[data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
    Semantic theme tokens
    ─────────────────────────────────────────────────────────────────────────
    Every themed color in the app resolves through one of the tokens below,

@@ -10,7 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { FinanceEntry } from "@/components/finance/types";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
 
 type CategoryChartProps = {
@@ -19,6 +19,7 @@ type CategoryChartProps = {
 };
 
 export function CategoryChart({ entries, isDark }: CategoryChartProps) {
+  const { formatPrice } = useCurrency();
   const palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
 
   const grouped: Record<string, number> = {};

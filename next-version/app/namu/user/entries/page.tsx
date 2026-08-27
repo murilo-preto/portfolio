@@ -15,7 +15,7 @@ import {
   formatDuration,
 } from "@/components/entries/utils";
 import type { ApiResponse } from "@/components/entries/types";
-import { usePrefersDark } from "@/lib/use-media-query";
+import { useIsDark } from "@/lib/use-media-query";
 import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "all";
@@ -24,7 +24,7 @@ export default function Entries() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isDark = usePrefersDark();
+  const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
 

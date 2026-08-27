@@ -5,6 +5,7 @@ Tests for verifying all services are running and healthy
 import pytest
 import requests
 import os
+import re
 import time
 from typing import Optional
 
@@ -322,6 +323,73 @@ class TestAuthenticatedProxyRoutes:
 
         if not seen_429:
             pytest.skip("Login limiter did not trip; nothing to assert on")
+
+
+class TestThemeVariantIsUserControlled:
+    """The `dark:` utilities must follow the theme preference, not the OS.
+
+    Tailwind v4's stock `dark:` variant compiles to a bare
+    `@media (prefers-color-scheme: dark)`. The semantic tokens in globals.css
+    were already keyed to [data-theme], so choosing Light on a dark-mode
+    machine produced a light page still wearing ~180 dark borders, rings and
+    tints. globals.css now redefines the variant; this pins that it stays
+    redefined, by reading the stylesheet the browser is actually served.
+    """
+
+    @pytest.fixture(autouse=True)
+    def skip_if_no_e2e_flag(self):
+        """Skip if E2E tests not enabled."""
+        if not os.getenv("RUN_E2E_TESTS"):
+            pytest.skip("E2E tests not enabled")
+
+    @pytest.fixture(scope="class")
+    def stylesheet(self):
+        """The compiled CSS bundle, fetched the way a browser would."""
+        page = requests.get(f"{NEXTJS_URL}/namu", timeout=15)
+        assert page.status_code == 200, page.status_code
+
+        hrefs = re.findall(r'href="(/_next/static/[^"]+\.css)"', page.text)
+        assert hrefs, "No stylesheet linked from the page"
+
+        css = requests.get(f"{NEXTJS_URL}{hrefs[0]}", timeout=15)
+        assert css.status_code == 200, css.status_code
+        return css.text
+
+    def test_dark_utilities_are_scoped_to_the_theme_attribute(self, stylesheet):
+        assert "[data-theme=dark]" in stylesheet or (
+            '[data-theme="dark"]' in stylesheet
+        ), "The dark variant is not keyed to [data-theme] at all"
+
+    def test_no_dark_utility_escapes_the_theme_scope(self, stylesheet):
+        """A utility with no :where(...) guard would follow the OS alone."""
+        unguarded = []
+        for match in re.finditer(r"\.dark\\:", stylesheet):
+            brace = stylesheet.find("{", match.start())
+            selector = stylesheet[match.start() : brace if brace != -1 else None]
+            if ":where(" not in selector:
+                unguarded.append(selector[:80])
+
+        assert not unguarded, f"Unscoped dark utilities: {unguarded[:5]}"
+
+    def test_an_explicit_light_choice_still_beats_a_dark_os(self, stylesheet):
+        """The OS-dark branch must exclude an explicit light preference."""
+        assert "[data-theme=light]" in stylesheet or (
+            '[data-theme="light"]' in stylesheet
+        ), "Nothing opts a light-preferring user out of the dark media query"
+
+    def test_the_inert_dark_class_is_gone_from_the_markup(self):
+        """<html class="dark"> matched no selector; it only implied one."""
+        page = requests.get(f"{NEXTJS_URL}/namu", timeout=15)
+        assert page.status_code == 200
+        assert not re.search(r"<html[^>]*class=\"[^\"]*\bdark\b", page.text)
+
+    def test_the_theme_is_applied_before_first_paint(self):
+        """Applying it from an effect flashes the OS theme on every load."""
+        page = requests.get(f"{NEXTJS_URL}/namu", timeout=15)
+        assert "themePreference" in page.text, (
+            "No pre-paint theme script in the served HTML"
+        )
+
 
 
 class TestServiceInterdependency:

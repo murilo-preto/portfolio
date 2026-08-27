@@ -10,7 +10,7 @@ import {
   PieLabelRenderProps,
 } from "recharts";
 import { FinanceEntry } from "@/components/finance/types";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
 import { ReactNode } from "react";
 
@@ -25,6 +25,7 @@ export function CategoryPieChart({
   isDark,
   height = 300,
 }: CategoryPieChartProps) {
+  const { formatPrice } = useCurrency();
   const palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
 
   const grouped: Record<string, number> = {};

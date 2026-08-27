@@ -1,11 +1,17 @@
 /**
- * Single source of truth for money formatting.
+ * Money formatting primitives.
  *
  * Namu's finance data originates from Brazilian Itaú card statements
- * (`flask-server/itau_pdf.py`), so stored amounts are BRL. Re-denominating the
- * whole app is a matter of changing the two constants below — every price in
- * the UI is formatted through `formatPrice`.
+ * (`flask-server/itau_pdf.py`), so BRL is the default an account starts with.
+ *
+ * Screens do not format money from here. They go through `useCurrency()` in
+ * `lib/use-currency.ts`, which resolves the account preference; this module
+ * only knows how to render an amount in a currency it is handed. There is
+ * deliberately no zero-argument `formatPrice` any more — one existed, it
+ * resolved the build-time CURRENCY_CODE, and every screen that used it
+ * silently ignored the user's choice.
  */
+/** The currency an account has before it expresses a preference. */
 export const CURRENCY_CODE = "BRL";
 export const CURRENCY_LOCALE = "pt-BR";
 
@@ -47,11 +53,7 @@ function formatterFor(code: string): Intl.NumberFormat {
   return formatter;
 }
 
-/** Format in an explicit currency — for previewing an account preference. */
+/** Format an amount in an explicit currency. */
 export function formatPriceIn(price: number, code: string): string {
   return formatterFor(code).format(price);
-}
-
-export function formatPrice(price: number): string {
-  return formatPriceIn(price, CURRENCY_CODE);
 }

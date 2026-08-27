@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { CURRENCY_CODE, formatPriceIn, SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { formatPriceIn, SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { applyCurrency } from "@/lib/use-currency";
 import {
   applyTheme,
   changePassword,
@@ -72,6 +73,7 @@ export default function SettingsPage() {
         setCurrency(data.currency);
         setPomodoro(data.settings.pomodoro);
         applyTheme(data.theme);
+        applyCurrency(data.currency);
       } catch (err: unknown) {
         setLoadError(
           err instanceof Error ? err.message : "Failed to load preferences",
@@ -112,6 +114,7 @@ export default function SettingsPage() {
       setPrefs(saved);
       setCurrency(saved.currency);
       setPomodoro(saved.settings.pomodoro);
+      applyCurrency(saved.currency);
       setPrefsFeedback({ kind: "success", message: "Preferences saved" });
     } catch (err: unknown) {
       setPrefsFeedback({
@@ -138,6 +141,7 @@ export default function SettingsPage() {
       setCurrency(saved.currency);
       setPomodoro(saved.settings.pomodoro);
       applyTheme(saved.theme);
+      applyCurrency(saved.currency);
       setPrefsFeedback({ kind: "success", message: "Preferences reset" });
     } catch (err: unknown) {
       setPrefsFeedback({
@@ -320,9 +324,9 @@ export default function SettingsPage() {
             ))}
           </select>
           <p className="text-xs text-dim">
-            Amounts will read as {formatPriceIn(PREVIEW_AMOUNT, currency)}. The
-            finance screens still show {formatPriceIn(PREVIEW_AMOUNT, CURRENCY_CODE)}{" "}
-            until they are switched over to this preference.
+            Amounts read as {formatPriceIn(PREVIEW_AMOUNT, currency)} everywhere
+            once saved. This changes how stored amounts are displayed; it does
+            not convert them.
           </p>
         </div>
 

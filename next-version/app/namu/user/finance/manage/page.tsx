@@ -16,7 +16,7 @@ import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { warmFetch } from "@/lib/prefetch";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -271,6 +271,7 @@ function EntryList({
   onDeleteChecked: () => void;
   deleting: boolean;
 }) {
+  const { formatPrice } = useCurrency();
   const allChecked = entries.length > 0 && checkedIds.size === entries.length;
 
   return (
@@ -533,6 +534,7 @@ function EditEntryPanel({
   onSaved: () => void;
   onDeleted: () => void;
 }) {
+  const { formatPrice } = useCurrency();
   const [productName, setProductName] = useState(entry.product_name);
   const [category, setCategory] = useState(entry.category);
   const [price, setPrice] = useState(entry.price.toString());

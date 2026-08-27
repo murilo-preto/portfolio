@@ -3,10 +3,10 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
 import { PrefetchLink } from "@/components/PrefetchLink";
+import { ThemeScript } from "@/components/ThemeScript";
 import LogoutButton from "@/components/LogoutButton";
 import { NavDropdown, type NavDropdownItem } from "@/components/NavDropdown";
 import { usePathname } from "next/navigation";
-import { applyTheme, readStoredTheme } from "@/lib/preferences";
 import { useState, useEffect } from "react";
 
 const geistSans = Geist({
@@ -108,12 +108,6 @@ function Header() {
     fetch("/api/token")
       .then((res) => setIsLoggedIn(res.ok))
       .catch(() => setIsLoggedIn(false));
-  }, []);
-
-  // The settings page writes the choice to localStorage; every other page
-  // needs it painted on mount or a hard reload falls back to the OS setting.
-  useEffect(() => {
-    applyTheme(readStoredTheme());
   }, []);
 
   return (
@@ -281,7 +275,10 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
+      <head>
+        <ThemeScript />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col
           bg-gray-50 text-gray-900

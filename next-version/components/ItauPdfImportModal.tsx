@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeCategoryName } from "@/lib/categoryName";
-import { formatPrice } from "@/lib/currency";
+import { useCurrency } from "@/lib/use-currency";
 
 type ItauPdfImportModalProps = {
   isOpen: boolean;
@@ -89,6 +89,7 @@ export function ItauPdfImportModal({
   onClose,
   onImportSuccess,
 }: ItauPdfImportModalProps) {
+  const { formatPrice } = useCurrency();
   const [statements, setStatements] = useState<StatementInfo[]>([]);
   const [failures, setFailures] = useState<Failure[]>([]);
   const [entries, setEntries] = useState<ParsedEntry[]>([]);
