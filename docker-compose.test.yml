@@ -26,6 +26,11 @@ services:
       - RUN_INTEGRATION_TESTS=true
       - RUN_E2E_TESTS=true
       - RATELIMIT_ENABLED=false
+      # pytest imports app.py in this container, which would start the daily
+      # sweep in a background thread and let it write underneath a test's
+      # fixtures. The flask service keeps its scheduler on, so the e2e tier
+      # still exercises the real boot path.
+      - SCHEDULER_ENABLED=false
 
 networks:
   backend:

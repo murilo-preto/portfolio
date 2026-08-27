@@ -30,6 +30,7 @@ import type {
 const RECENT_ENTRIES = 5;
 const OPEN_TASKS = 6;
 const RECENT_PURCHASES = 5;
+const UPCOMING_PAYMENTS = 3;
 const TODAY_SESSIONS = 5;
 
 // ─── Data loading ────────────────────────────────────────────────────────────
@@ -94,9 +95,21 @@ function startOfToday(): Date {
   return d;
 }
 
+function endOfToday(): Date {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 function startOfMonth(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
+/** Day 0 of next month is the last day of this one. */
+function endOfMonth(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -111,6 +124,12 @@ function clockTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function shortDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 // ─── Shared UI primitives ────────────────────────────────────────────────────
@@ -286,31 +305,55 @@ export default function Dashboard() {
   }, [todos.data]);
 
   // ── Money ──
+  // Every window is bounded at *both* ends. Entries are written far ahead of
+  // time — the bulk generator lays down a year of bills in one go — so an
+  // open-ended ">= start of month" was counting next December's rent as money
+  // already spent. Spending means completed spending; what is still only
+  // scheduled is reported separately rather than folded into the same number.
   const money = useMemo(() => {
+    const now = new Date();
     const dayStart = startOfToday();
+    const dayEnd = endOfToday();
     const monthStart = startOfMonth();
+    const monthEnd = endOfMonth();
     const all = finance.data?.entries ?? [];
 
     const sum = (list: FinanceEntry[]) =>
       list.reduce((acc, e) => acc + Number(e.price), 0);
 
-    const inMonth = all.filter(
-      (e) => new Date(e.purchase_date) >= monthStart,
+    const within = (entry: FinanceEntry, from: Date, to: Date) => {
+      const date = new Date(entry.purchase_date);
+      return date >= from && date <= to;
+    };
+
+    const spentToday = all.filter(
+      (e) => e.status === "done" && within(e, dayStart, dayEnd),
     );
-    const today = all.filter((e) => new Date(e.purchase_date) >= dayStart);
+    const thisMonth = all.filter((e) => within(e, monthStart, monthEnd));
 
     return {
-      today,
-      todayTotal: sum(today),
-      monthTotal: sum(inMonth),
-      monthPlanned: sum(inMonth.filter((e) => e.status === "planned")),
-      recent: [...all]
+      todayTotal: sum(spentToday),
+      monthSpent: sum(thisMonth.filter((e) => e.status === "done")),
+      monthPlanned: sum(thisMonth.filter((e) => e.status === "planned")),
+      // "done" is exactly what has already been bought: the backend completes a
+      // planned entry as soon as its date arrives.
+      recent: all
+        .filter((e) => e.status === "done")
         .sort(
           (a, b) =>
             new Date(b.purchase_date).getTime() -
             new Date(a.purchase_date).getTime(),
         )
         .slice(0, RECENT_PURCHASES),
+      // Soonest first — the point of this list is what lands next.
+      upcoming: all
+        .filter((e) => e.status === "planned" && new Date(e.purchase_date) > now)
+        .sort(
+          (a, b) =>
+            new Date(a.purchase_date).getTime() -
+            new Date(b.purchase_date).getTime(),
+        )
+        .slice(0, UPCOMING_PAYMENTS),
     };
   }, [finance.data]);
 
@@ -442,9 +485,10 @@ export default function Dashboard() {
         <SummaryCard
           title="Spent Today"
           value={cardValue(finance, () => formatPrice(money.todayTotal))}
-          subtitle={cardSubtitle(
-            finance,
-            () => `${formatPrice(money.monthTotal)} this month`,
+          subtitle={cardSubtitle(finance, () =>
+            money.monthPlanned > 0
+              ? `${formatPrice(money.monthSpent)} spent · ${formatPrice(money.monthPlanned)} planned this month`
+              : `${formatPrice(money.monthSpent)} spent this month`,
           )}
           accentColor="green"
           icon={
@@ -681,23 +725,23 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 rounded-lg bg-surface-inset">
-                      <p className="text-xs text-muted">Today</p>
+                      <p className="text-xs text-muted">Spent today</p>
                       <p className="text-lg font-semibold text-primary truncate">
                         {formatPrice(money.todayTotal)}
                       </p>
                     </div>
                     <div className="p-3 rounded-lg bg-surface-inset">
-                      <p className="text-xs text-muted">This month</p>
+                      <p className="text-xs text-muted">Spent this month</p>
                       <p className="text-lg font-semibold text-primary truncate">
-                        {formatPrice(money.monthTotal)}
+                        {formatPrice(money.monthSpent)}
                       </p>
                     </div>
                   </div>
 
                   {money.monthPlanned > 0 && (
                     <p className="text-xs text-dim">
-                      {formatPrice(money.monthPlanned)} of this month is still
-                      planned rather than spent.
+                      A further {formatPrice(money.monthPlanned)} is planned for
+                      later this month.
                     </p>
                   )}
 
@@ -705,27 +749,61 @@ export default function Dashboard() {
                     <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-3">
                       Latest purchases
                     </p>
-                    <ul className="divide-y divide-subtle">
-                      {money.recent.map((entry) => (
-                        <li
-                          key={entry.id}
-                          className="flex items-center justify-between gap-3 py-2 text-xs"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-secondary">
-                              {entry.product_name}
-                            </p>
-                            <p className="text-dim truncate">
-                              {normalizeCategoryName(entry.category)}
-                            </p>
-                          </div>
-                          <span className="flex-none tabular-nums text-primary font-medium">
-                            {formatPrice(Number(entry.price))}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    {money.recent.length === 0 ? (
+                      <p className="text-xs text-dim">Nothing bought yet.</p>
+                    ) : (
+                      <ul className="divide-y divide-subtle">
+                        {money.recent.map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="flex items-center justify-between gap-3 py-2 text-xs"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-secondary">
+                                {entry.product_name}
+                              </p>
+                              <p className="text-dim truncate">
+                                {normalizeCategoryName(entry.category)}
+                              </p>
+                            </div>
+                            <span className="flex-none tabular-nums text-primary font-medium">
+                              {formatPrice(Number(entry.price))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
+
+                  {/* What is still only scheduled, kept out of every total
+                      above so "spent" never means "will spend". */}
+                  {money.upcoming.length > 0 && (
+                    <div className="pt-3 border-t border-subtle">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+                        Coming up
+                      </p>
+                      <ul className="divide-y divide-subtle">
+                        {money.upcoming.map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="flex items-center justify-between gap-3 py-2 text-xs"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-secondary">
+                                {entry.product_name}
+                              </p>
+                              <p className="text-dim tabular-nums">
+                                {shortDate(entry.purchase_date)}
+                              </p>
+                            </div>
+                            <span className="flex-none tabular-nums text-muted">
+                              {formatPrice(Number(entry.price))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )
             }

@@ -9,31 +9,8 @@ import { warmFetch } from "@/lib/prefetch";
 /** Sentinel option value that opens the "new category" input. */
 const NEW_CATEGORY = "__new__";
 
-type FinanceCardProps = {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-};
-
-export function Card({ title, value, subtitle }: FinanceCardProps) {
-  return (
-    <div className="bg-surface p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
-      <h3 className="text-sm font-medium text-muted uppercase tracking-wide">
-        {title}
-      </h3>
-      <p className="text-2xl md:text-3xl font-bold mt-2">{value}</p>
-      {subtitle && (
-        <p className="text-xs text-dim mt-1">
-          {subtitle}
-        </p>
-      )}
-    </div>
-  );
-}
-
 type EntriesTableProps = {
   entries: FinanceEntry[];
-  showAll?: boolean;
   /**
    * When provided, the category cell becomes an inline editor. Called after a
    * category is saved so the page can refresh its totals and charts, which are
@@ -42,13 +19,17 @@ type EntriesTableProps = {
   onEntryUpdated?: () => void;
 };
 
-export function EntriesTable({
-  entries,
-  showAll = false,
-  onEntryUpdated,
-}: EntriesTableProps) {
+/**
+ * Every entry it is handed, in a panel that scrolls. It used to cut the list at
+ * ten rows unless the caller asked for all of them, which meant a month view
+ * headed "47 entries" showed ten of them with no way to reach the rest. The
+ * caller decides what belongs in the window; this renders the window.
+ *
+ * Chrome — the card, the heading, the count — belongs to the caller too, which
+ * already draws all three.
+ */
+export function EntriesTable({ entries, onEntryUpdated }: EntriesTableProps) {
   const { formatPrice } = useCurrency();
-  const displayEntries = showAll ? entries : entries.slice(0, 10);
   const editable = Boolean(onEntryUpdated);
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -162,18 +143,7 @@ export function EntriesTable({
   }
 
   return (
-    <div className="bg-surface p-4 md:p-6 rounded-xl shadow text-black dark:text-white">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">
-          {showAll ? "All Entries" : "Recent Entries"}
-        </h2>
-        {showAll && (
-          <span className="text-xs text-muted">
-            {entries.length} entries
-          </span>
-        )}
-      </div>
-
+    <div className="text-black dark:text-white">
       {error && (
         <p className="text-sm text-red-500 mb-3">{error}</p>
       )}
@@ -183,19 +153,26 @@ export function EntriesTable({
           No entries found.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        // A long month scrolls inside its own card rather than stretching the
+        // page past the charts beside it. The header stays put while it does.
+        <div className="overflow-x-auto overflow-y-auto max-h-[32rem]">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-muted border-b border-default">
-                <th className="pb-3 font-medium">Product</th>
-                <th className="pb-3 font-medium">Category</th>
-                <th className="pb-3 font-medium">Date</th>
-                <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 font-medium text-right">Price</th>
+            <thead className="sticky top-0 z-10 bg-surface">
+              {/* The rule lives on the cells, not the row: Tailwind collapses
+                  table borders, and a collapsed border on a sticky row is not
+                  painted as it scrolls. */}
+              <tr className="text-left text-muted">
+                <th className="py-3 font-medium border-b border-default">Product</th>
+                <th className="py-3 font-medium border-b border-default">Category</th>
+                <th className="py-3 font-medium border-b border-default">Date</th>
+                <th className="py-3 font-medium border-b border-default">Status</th>
+                <th className="py-3 font-medium border-b border-default text-right">
+                  Price
+                </th>
               </tr>
             </thead>
             <tbody>
-              {displayEntries.map((entry) => (
+              {entries.map((entry) => (
                 <tr
                   key={entry.id}
                   className="border-b border-subtle last:border-0"

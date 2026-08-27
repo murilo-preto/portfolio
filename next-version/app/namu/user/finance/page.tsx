@@ -130,7 +130,16 @@ export default function FinanceDashboard() {
     }
 
     if (filterMode === "week") {
-      const weekEndInclusive = addDays(weekEnd, 1);
+      // End of Sunday, not the start of Monday: the old bound pulled the first
+      // day of the next week into this one.
+      const weekEndInclusive = new Date(
+        weekEnd.getFullYear(),
+        weekEnd.getMonth(),
+        weekEnd.getDate(),
+        23,
+        59,
+        59,
+      );
       return data.entries.filter((entry) => {
         const date = new Date(entry.purchase_date);
         return date >= weekStart && date <= weekEndInclusive;
@@ -252,9 +261,9 @@ export default function FinanceDashboard() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
-          title="Total Spent"
+          title="Total"
           value={formatPrice(totalSpent)}
-          subtitle={`${entryCount} transactions`}
+          subtitle={`${entryCount} transactions (planned + done)`}
           accentColor="blue"
           icon={
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,11 +333,7 @@ export default function FinanceDashboard() {
                 {visibleEntries.length} entries
               </span>
             </div>
-            <EntriesTable
-              entries={visibleEntries}
-              showAll={filterMode === "all"}
-              onEntryUpdated={getEntries}
-            />
+            <EntriesTable entries={visibleEntries} onEntryUpdated={getEntries} />
           </div>
         </div>
 

@@ -16,6 +16,7 @@ pytestmark = pytest.mark.integration
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'flask-server'))
 
 from app import app, get_pool, get_cursor
+from finance_due import sweep_due_planned_entries
 
 
 @pytest.fixture(scope="module")
@@ -408,7 +409,12 @@ class TestBatchGenerateIntegration:
 
     @pytest.mark.integration
     def test_generation_inserts_planned_entries(self, registered_user, auth_token, client):
-        """A non-preview request must persist one entry per occurrence."""
+        """A non-preview request must persist one entry per occurrence.
+
+        Dated in the far future on purpose: reading /finance completes any
+        planned entry whose date has passed, so past occurrences would come
+        back "done" and say nothing about what the generator wrote.
+        """
         if not auth_token:
             pytest.skip("Authentication failed")
 
@@ -418,8 +424,8 @@ class TestBatchGenerateIntegration:
         payload = {
             "frequency": "monthly",
             "day": 1,
-            "start_date": "2024-03-01",
-            "end_date": "2024-05-01",
+            "start_date": "2099-03-01",
+            "end_date": "2099-05-01",
             "status": "planned",
             "entries": [
                 {"category": "Bills", "product_name": product_name, "price": 5.0}
@@ -445,7 +451,7 @@ class TestBatchGenerateIntegration:
             for e in generated
         )
         assert generated_dates == [
-            "2024-03-01", "2024-04-01", "2024-05-01",
+            "2099-03-01", "2099-04-01", "2099-05-01",
         ]
 
     @pytest.mark.integration
@@ -661,3 +667,177 @@ class TestTimeEntryNotes:
         entries = client.get("/entry", headers=headers).get_json()["entries"]
         assert entries, "expected at least one entry"
         assert all("note" in e for e in entries)
+
+
+class TestPlannedEntriesCompleteWhenDue:
+    """A planned entry is a bill you have not paid yet. Once its date arrives it
+    is money spent, and nothing used to say so — the row stayed "planned"
+    forever, so every planned total was really "planned, plus everything I
+    forgot to tick off".
+
+    Two things move it now, and both are exercised here: the per-user sweep on
+    the finance list read, and the global sweep the daily scheduler calls.
+    """
+
+    CATEGORY = "Bills"
+
+    def make_entry(self, client, headers, when, status="planned", name=None):
+        # /finance/create 404s on an unknown category, and finance_categories is
+        # global, so this is a no-op after the first call anywhere in the suite.
+        assert client.post(
+            "/finance/category", json={"name": self.CATEGORY}, headers=headers
+        ).status_code in (200, 201)
+
+        product_name = name or f"Due_{datetime.now().timestamp()}"
+        response = client.post("/finance/create", headers=headers, json={
+            "product_name": product_name,
+            "category": self.CATEGORY,
+            "price": 12.34,
+            "purchase_date": when.isoformat(),
+            "status": status,
+        })
+        assert response.status_code == 201, response.get_json()
+        return product_name
+
+    def find(self, client, headers, product_name):
+        listing = client.get("/finance", headers=headers)
+        assert listing.status_code == 200
+        matches = [
+            e for e in listing.get_json()["entries"]
+            if e["product_name"] == product_name
+        ]
+        assert len(matches) == 1, f"expected exactly one {product_name}"
+        return matches[0]
+
+    @pytest.mark.integration
+    def test_past_due_planned_entry_reads_back_as_done(
+        self, registered_user, auth_token, client
+    ):
+        if not auth_token:
+            pytest.skip("Authentication failed")
+        headers = {"Authorization": f"Bearer {auth_token}"}
+
+        name = self.make_entry(
+            client, headers, datetime.now(timezone.utc) - timedelta(days=3)
+        )
+
+        assert self.find(client, headers, name)["status"] == "done"
+
+    @pytest.mark.integration
+    def test_completing_is_idempotent(self, registered_user, auth_token, client):
+        """The sweep runs on every read, so a second one must be a no-op rather
+        than churning rows it already finished."""
+        if not auth_token:
+            pytest.skip("Authentication failed")
+        headers = {"Authorization": f"Bearer {auth_token}"}
+
+        name = self.make_entry(
+            client, headers, datetime.now(timezone.utc) - timedelta(days=1)
+        )
+
+        assert self.find(client, headers, name)["status"] == "done"
+        assert self.find(client, headers, name)["status"] == "done"
+
+    @pytest.mark.integration
+    def test_future_planned_entry_is_left_alone(
+        self, registered_user, auth_token, client
+    ):
+        if not auth_token:
+            pytest.skip("Authentication failed")
+        headers = {"Authorization": f"Bearer {auth_token}"}
+
+        name = self.make_entry(
+            client, headers, datetime.now(timezone.utc) + timedelta(days=30)
+        )
+
+        assert self.find(client, headers, name)["status"] == "planned"
+
+    @pytest.mark.integration
+    def test_a_future_done_entry_is_left_alone(
+        self, registered_user, auth_token, client
+    ):
+        """The sweep only ever moves planned → done, never the reverse."""
+        if not auth_token:
+            pytest.skip("Authentication failed")
+        headers = {"Authorization": f"Bearer {auth_token}"}
+
+        name = self.make_entry(
+            client,
+            headers,
+            datetime.now(timezone.utc) + timedelta(days=30),
+            status="done",
+        )
+
+        assert self.find(client, headers, name)["status"] == "done"
+
+    @pytest.mark.integration
+    def test_a_read_does_not_touch_another_users_entries(self, client):
+        """The read-path sweep is scoped to the reader. One person opening their
+        dashboard must not rewrite somebody else's ledger."""
+        owner = self.register(client)
+        stranger = self.register(client)
+
+        name = self.make_entry(
+            client,
+            {"Authorization": f"Bearer {owner['token']}"},
+            datetime.now(timezone.utc) - timedelta(days=2),
+        )
+
+        # The stranger reads; only their own rows are in scope.
+        assert client.get(
+            "/finance", headers={"Authorization": f"Bearer {stranger['token']}"}
+        ).status_code == 200
+
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT status FROM finance_entries WHERE product_name = %s",
+                (name,),
+            )
+            row = cursor.fetchone()
+        assert row is not None
+        assert row["status"] == "planned", (
+            "a stranger's read completed an entry it does not own"
+        )
+
+    @pytest.mark.integration
+    def test_scheduled_sweep_completes_every_users_entries(self, client):
+        """What the daily job does: one pass, no user predicate, both ledgers."""
+        first = self.register(client)
+        second = self.register(client)
+        past = datetime.now(timezone.utc) - timedelta(days=5)
+
+        names = [
+            self.make_entry(
+                client, {"Authorization": f"Bearer {user['token']}"}, past
+            )
+            for user in (first, second)
+        ]
+
+        changed = sweep_due_planned_entries(lambda: get_pool().get_connection())
+        assert changed is not None, "the advisory lock should have been free"
+
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT product_name, status FROM finance_entries "
+                "WHERE product_name IN (%s, %s)",
+                tuple(names),
+            )
+            rows = cursor.fetchall()
+        assert len(rows) == 2
+        assert all(row["status"] == "done" for row in rows)
+
+        # And a second pass finds nothing left to do.
+        assert sweep_due_planned_entries(lambda: get_pool().get_connection()) == 0
+
+    def register(self, client):
+        """A throwaway user with a token, for the multi-user cases."""
+        username = f"due_user_{datetime.now().timestamp()}"
+        password = "duepass123"
+        assert client.post(
+            "/register", json={"username": username, "password": password}
+        ).status_code == 201
+        login = client.post(
+            "/login", json={"username": username, "password": password}
+        )
+        assert login.status_code == 200
+        return {"username": username, "token": login.get_json()["access_token"]}

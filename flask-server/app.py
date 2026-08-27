@@ -17,6 +17,7 @@ from mysql.connector.pooling import MySQLConnectionPool
 from categories import normalize_category_name
 import category_admin
 from migrations import run_migrations
+import finance_due
 from query_params import (
     ListQuery,
     QueryParamError,
@@ -1467,6 +1468,13 @@ def retrieve_finance_entries_from_username(username, query=None):
 
             if not user:
                 return jsonify({"error": "User not found"}), 404
+
+            # A planned entry whose date has arrived is spent money, and this is
+            # the one read path every finance screen goes through. Same cursor,
+            # so it commits with the SELECT below and cannot be half-applied to
+            # the rows we are about to return. The daily sweep in finance_due
+            # covers users who are not currently looking.
+            finance_due.complete_due_planned_entries(cursor, user["id"])
 
             where, filter_params = build_filters(
                 query,
@@ -4045,6 +4053,10 @@ def pomodoro_stats():
 # here stops the worker booting.
 run_migrations(lambda: get_pool().get_connection())
 normalize_existing_finance_categories()
+
+# Daily sweep completing finance entries whose planned date has passed. Every
+# worker schedules it; a MySQL advisory lock means only one ever runs it.
+finance_due.start(lambda: get_pool().get_connection())
 
 
 if __name__ == "__main__":

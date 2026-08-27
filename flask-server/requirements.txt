@@ -4,3 +4,4 @@ bcrypt==4.1.2
 Flask-JWT-Extended==4.7.1
 flask-limiter==3.5.0
 gunicorn==21.2.0
+APScheduler==3.10.4
