@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { FLASK_BASE_URL } from "@/lib/constants";
+import { clientForwardingHeaders } from "@/lib/proxy-headers";
 
 /** What Flask's /login returns — the error field on the failure path. */
 type LoginResponse = {
@@ -21,7 +22,10 @@ export async function POST(req: Request) {
   try {
     res = await fetch(`${FLASK_BASE_URL}/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await clientForwardingHeaders()),
+      },
       body: JSON.stringify(body),
     });
   } catch (err) {

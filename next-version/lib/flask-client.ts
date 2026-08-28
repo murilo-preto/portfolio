@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { clientForwardingHeaders } from "@/lib/proxy-headers";
 
 /**
  * Fetches from Flask with the current access token and handles token refresh.
@@ -23,6 +24,7 @@ export async function fetchWithTokenRefresh(
     ...options,
     headers: {
       ...options.headers,
+      ...(await clientForwardingHeaders()),
       Authorization: `Bearer ${token}`,
     },
   });

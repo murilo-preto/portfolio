@@ -8,7 +8,6 @@ from flask_jwt_extended import (
     set_access_cookies,
 )
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
 import mysql.connector
 from mysql.connector import Error
@@ -31,6 +30,13 @@ from itau_pdf import (
     ItauPdfError,
     extract_statement_from_bytes,
     statement_to_finance_entries,
+)
+from rate_limit import (
+    address_key,
+    limiter_key,
+    login_key,
+    record_failed_login,
+    too_many_failed_logins,
 )
 
 from contextlib import contextmanager
@@ -71,15 +77,28 @@ MAX_BULK_DELETE_IDS = 500
 MAX_GENERATE_ROWS = 1000
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
-# Rate limiting — disabled when RATELIMIT_ENABLED=false (e.g. in tests)
+# Rate limiting — disabled when RATELIMIT_ENABLED=false (e.g. in tests).
+#
+# The key is the authenticated user where there is one, and the client address
+# otherwise; see rate_limit.py for why the stock get_remote_address cannot be
+# used behind the Next.js proxy.
 _ratelimit_enabled = os.getenv("RATELIMIT_ENABLED", "true").lower() != "false"
 limiter = Limiter(
     app=app,
-    key_func=get_remote_address,
+    key_func=limiter_key,
     default_limits=["100 per hour", "20 per minute"],
     storage_uri="memory://",
-    enabled=_ratelimit_enabled,
+    # Built enabled and switched off below, rather than constructed disabled.
+    # Flask-Limiter's init_app returns before it opens storage or registers its
+    # request hooks when it is disabled, leaving a half-built extension that
+    # cannot be turned back on later — Flask rejects a before_request hook once
+    # the app has served a request. A fully built limiter with `enabled` false
+    # exempts every limit just the same, and stays switchable in-process, which
+    # is what lets test_rate_limit.py cover limiting at all.
+    enabled=True,
 )
+limiter.enabled = _ratelimit_enabled
+app.config["RATELIMIT_ENABLED"] = _ratelimit_enabled
 
 
 
@@ -376,8 +395,13 @@ def list_categories():
 
 
 @app.route("/register", methods=["POST"])
-@limiter.limit("5 per minute")
-@limiter.limit("10 per hour")
+# Keyed by address, not by the submitted username: an attacker chooses that
+# field freely, so keying on it would hand out a fresh budget per attempt. The
+# caps are higher than the per-user limits elsewhere because this is the one
+# endpoint that stays a shared bucket while the browser reaches Flask through a
+# single container — see rate_limit.py.
+@limiter.limit("10 per minute", key_func=address_key)
+@limiter.limit("40 per hour", key_func=address_key)
 def register_user():
     """
     Register a new user.
@@ -436,8 +460,12 @@ def register_user():
 
 
 @app.route("/login", methods=["POST"])
-@limiter.limit("10 per minute")
-@limiter.limit("30 per hour")
+# A volume cap only, bounding the bcrypt work an unauthenticated caller can
+# demand. The throttle that stops password guessing is per account and lives in
+# the body of this function, because it may only refuse an attempt already known
+# to be wrong — see rate_limit.py.
+@limiter.limit("30 per minute", key_func=address_key)
+@limiter.limit("200 per hour", key_func=address_key)
 def login_user():
     """
     Login a user.
@@ -452,6 +480,7 @@ def login_user():
         200: Login successful (with user info)
         400: Missing fields
         401: Invalid credentials
+        429: Too many wrong guesses against this account
         500: Server error
     """
     data = request.get_json()
@@ -473,12 +502,12 @@ def login_user():
         logger.error(f"Database error: {e}")
         return jsonify({"error": "Login failed"}), 500
 
-    if not user:
-        return jsonify({"error": "Invalid username or password"}), 401
+    attempt_key = login_key()
 
-    stored_hash = bytes(user["pwd_hash"])
-
-    if bcrypt.checkpw(password.encode("utf-8"), stored_hash):
+    # A correct password is answered before the throttle is consulted, so a
+    # guessing run against someone's username can never shut them out of their
+    # own account. Everything below this point is a failed attempt.
+    if user and bcrypt.checkpw(password.encode("utf-8"), bytes(user["pwd_hash"])):
         access_token = create_access_token(identity=username)
         return jsonify(
             {
@@ -489,8 +518,18 @@ def login_user():
                 "access_token": access_token,
             }
         ), 200
-    else:
-        return jsonify({"error": "Invalid username or password"}), 401
+
+    if too_many_failed_logins(attempt_key):
+        # Already over budget, so this guess is not charged — the window should
+        # drain on its own rather than being extended by continued guessing.
+        return jsonify(
+            {"error": "Too many failed attempts for this account. Please wait."}
+        ), 429
+
+    record_failed_login(attempt_key)
+    # Unchanged wording whether the username or the password was wrong: saying
+    # which would turn this endpoint into a test for whether an account exists.
+    return jsonify({"error": "Invalid username or password"}), 401
 
 
 @app.route("/category", methods=["POST"])
@@ -1198,6 +1237,8 @@ def preferences_payload(row):
 
 @app.route("/user/password", methods=["POST"])
 @jwt_required()
+# The default key applies, which for a token-bearing request is the user — so
+# these caps are per account, as they always read as though they were.
 @limiter.limit("5 per minute")
 @limiter.limit("20 per hour")
 def change_password():

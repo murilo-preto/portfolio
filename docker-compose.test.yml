@@ -1,4 +1,14 @@
 services:
+  # The e2e tier crosses the network to Flask, so it is subject to whatever the
+  # flask service enforces — setting RATELIMIT_ENABLED on the test container
+  # alone (below) only ever covered the in-process unit and integration tiers.
+  # Registering a user per test tripped the shared cap partway through a run and
+  # read as flakiness. Limiting has its own coverage in test_rate_limit.py,
+  # which enables it deliberately rather than depending on the ambient service.
+  flask:
+    environment:
+      RATELIMIT_ENABLED: "false"
+
   test:
     build:
       context: .

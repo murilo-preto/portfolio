@@ -40,6 +40,7 @@ services:
       TOKEN_DURATION_HOURS: 48
       RATELIMIT_ENABLED: ${RATELIMIT_ENABLED:-true}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:-}
     depends_on:
       mysql:
         condition: service_healthy
@@ -59,6 +60,10 @@ services:
       - backend
     ports:
       - "5000:5000"
+    environment:
+      # Read at request time by the API route proxies, which relay the caller's
+      # address to Flask under this secret. See lib/proxy-headers.ts.
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:-}
     depends_on:
       - flask
     healthcheck:

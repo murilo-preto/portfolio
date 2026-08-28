@@ -27,6 +27,7 @@ jobs:
           TOKEN_DURATION_HOURS=48
           PORT=3000
           FLASK_DEBUG=false
+          INTERNAL_PROXY_SECRET=ci-internal-proxy-secret-for-forwarded-address-trust
           EOF
 
       - name: Run full test suite inside Docker

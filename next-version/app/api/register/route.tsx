@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { FLASK_BASE_URL } from "@/lib/constants";
+import { clientForwardingHeaders } from "@/lib/proxy-headers";
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -13,7 +14,10 @@ export async function POST(req: Request) {
   try {
     res = await fetch(`${FLASK_BASE_URL}/register`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await clientForwardingHeaders()),
+      },
       body: JSON.stringify(body),
     });
   } catch (err) {

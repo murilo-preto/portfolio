@@ -112,7 +112,6 @@ class TestRegisterUser:
         })
         assert response.status_code in [400, 429]
     
-    @pytest.mark.skip(reason="Rate limiting prevents reliable testing without DB")
     @patch('app.get_cursor')
     def test_register_success(self, mock_cursor_context, client):
         """Registration should succeed with valid data."""
@@ -131,7 +130,6 @@ class TestRegisterUser:
         assert "message" in data
         assert data["message"] == "User registered successfully"
     
-    @pytest.mark.skip(reason="Rate limiting prevents reliable testing without DB")
     @patch('app.get_cursor')
     def test_register_duplicate_username(self, mock_cursor_context, client):
         """Registration should fail with duplicate username."""

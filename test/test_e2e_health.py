@@ -301,28 +301,28 @@ class TestAuthenticatedProxyRoutes:
         assert response.status_code == 400, response.text
         assert "sort must be one of" in response.json()["error"]
 
-    def test_rate_limited_requests_stay_json(self):
-        """A throttled caller must get 429 and a readable reason, not a 500.
+    def test_repeated_bad_credentials_never_surface_as_500(self):
+        """The login proxy must keep answering 401, never a blank 500.
 
-        Flask-Limiter's stock 429 is an HTML page; the login and register
-        proxies parsed every response as JSON, so tripping the limit surfaced
-        in the browser as a blank 500 with nothing to act on.
+        This used to drive the limiter until it tripped and then assert the 429
+        came back as JSON. It cannot any more: limiting is off on the flask
+        service so the e2e tier is not throttled mid-run, and the test skipped
+        itself instead — silent coverage rather than coverage. Both halves moved
+        somewhere they are deterministic. The 429 passthrough belongs to the
+        proxy, not to Flask, and is covered by the Next.js route tests; the
+        keying and the JSON shape are covered in test_rate_limit.py.
+
+        What remains here is still worth an e2e check: the proxy's error path is
+        reached on every one of these and must stay a clean 401.
         """
-        seen_429 = False
         for _ in range(12):
             response = requests.post(
                 f"{NEXTJS_URL}/api/login",
                 json={"username": "definitely_not_a_user", "password": "nope"},
                 timeout=10,
             )
-            assert response.status_code != 500, response.text
-            if response.status_code == 429:
-                seen_429 = True
-                assert "error" in response.json()
-                break
-
-        if not seen_429:
-            pytest.skip("Login limiter did not trip; nothing to assert on")
+            assert response.status_code == 401, response.text
+            assert "error" in response.json()
 
 
 class TestThemeVariantIsUserControlled:
