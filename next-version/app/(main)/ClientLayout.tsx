@@ -2,9 +2,9 @@
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
-import { PrefetchLink } from "@/components/PrefetchLink";
 import { ThemeScript } from "@/components/ThemeScript";
 import LogoutButton from "@/components/LogoutButton";
+import { MenuToggle, NavLink, useActiveHref } from "@/components/NavLink";
 import { useState, useEffect } from "react";
 
 const geistSans = Geist({
@@ -17,27 +17,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-function NavLink({
-  href,
-  children,
-  onClick,
-}: {
-  href: string;
-  children: React.ReactNode;
-  onClick?: () => void;
-}) {
-  return (
-    <div className="bg-surface-deep p-1 rounded-md hover:cursor-pointer">
-      <PrefetchLink href={href} onClick={onClick}>
-        {children}
-      </PrefetchLink>
-    </div>
-  );
-}
+const PAGES = [
+  { label: "CV", href: "/cv" },
+  { label: "Namu", href: "/namu" },
+  { label: "Demo", href: "/demo" },
+];
 
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const activeHref = useActiveHref();
   const close = () => setMenuOpen(false);
 
   useEffect(() => {
@@ -46,105 +35,97 @@ function Header() {
       .catch(() => setIsLoggedIn(false));
   }, []);
 
+  // Escape closes the panel; a link tap already closes it via `onClick`.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
+
   return (
-    <header className="m-1 p-1 rounded-md bg-surface">
-      {/* ── Desktop nav (md+) ── */}
-      <nav className="hidden md:grid grid-cols-3 items-center p-1">
-        {/* Left */}
-        <div className="justify-self-start">
-          <NavLink href="/">Home</NavLink>
-        </div>
-
-        {/* Center */}
-        <div className="justify-self-center flex gap-2">
-          <NavLink href="/cv">CV</NavLink>
-          <NavLink href="/namu">Namu</NavLink>
-          <NavLink href="/demo">Demo</NavLink>
-        </div>
-
-        {/* Right */}
-        <div className="justify-self-end flex gap-2">
-          {isLoggedIn ? (
-            <LogoutButton />
-          ) : (
-            <NavLink href="/login">Login</NavLink>
-          )}
-        </div>
-      </nav>
-
-      {/* ── Mobile nav (< md) ── */}
-      <div className="md:hidden flex items-center justify-between p-1">
-        {/* Logo / Home */}
-        <NavLink href="/">Home</NavLink>
-
-        {/* Hamburger button */}
-        <button
-          onClick={() => setMenuOpen((prev) => !prev)}
-          className="bg-surface-deep p-2 rounded-md focus:outline-none"
-          aria-label="Toggle menu"
-        >
-          {menuOpen ? (
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          ) : (
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {/* ── Mobile dropdown ── */}
-      {menuOpen && (
-        <div className="md:hidden flex flex-col gap-2 p-2 mt-1 border-t border-default">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1">
-            Pages
-          </p>
-          <NavLink href="/cv" onClick={close}>
-            CV
-          </NavLink>
-          <NavLink href="/namu" onClick={close}>
-            Namu
-          </NavLink>
-          <NavLink href="/demo" onClick={close}>
-            Demo
-          </NavLink>
-
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1 mt-2">
-            Account
-          </p>
-          {isLoggedIn ? (
-            <div onClick={close}>
-              <LogoutButton />
-            </div>
-          ) : (
-            <NavLink href="/login" onClick={close}>
-              Login
+    <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-subtle">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        {/* ── Desktop nav (md+) ── */}
+        <nav className="hidden md:grid grid-cols-3 items-center h-14">
+          {/* Left */}
+          <div className="justify-self-start -ml-3">
+            <NavLink href="/" active={activeHref === "/"}>
+              Home
             </NavLink>
-          )}
+          </div>
+
+          {/* Center */}
+          <div className="justify-self-center flex items-center gap-1">
+            {PAGES.map((page) => (
+              <NavLink
+                key={page.href}
+                href={page.href}
+                active={page.href === activeHref}
+              >
+                {page.label}
+              </NavLink>
+            ))}
+          </div>
+
+          {/* Right */}
+          <div className="justify-self-end -mr-3">
+            {isLoggedIn ? (
+              <LogoutButton variant="icon" />
+            ) : (
+              <NavLink href="/login">Login</NavLink>
+            )}
+          </div>
+        </nav>
+
+        {/* ── Mobile nav (< md) ── */}
+        <div className="md:hidden flex items-center justify-between h-14">
+          <div className="-ml-3">
+            <NavLink href="/" active={activeHref === "/"}>
+              Home
+            </NavLink>
+          </div>
+          <MenuToggle
+            open={menuOpen}
+            onClick={() => setMenuOpen((prev) => !prev)}
+          />
         </div>
-      )}
+
+        {/* ── Mobile dropdown ── */}
+        {menuOpen && (
+          <div className="md:hidden flex flex-col gap-1 pb-3 -mx-1 border-t border-default animate-rise">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted px-3 pt-3 pb-1">
+              Pages
+            </p>
+            {PAGES.map((page) => (
+              <NavLink
+                key={page.href}
+                href={page.href}
+                variant="mobile"
+                active={page.href === activeHref}
+                onClick={close}
+              >
+                {page.label}
+              </NavLink>
+            ))}
+
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted px-3 pt-3 pb-1">
+              Account
+            </p>
+            {isLoggedIn ? (
+              <div onClick={close}>
+                <LogoutButton variant="mobile" />
+              </div>
+            ) : (
+              <NavLink href="/login" variant="mobile" onClick={close}>
+                Login
+              </NavLink>
+            )}
+          </div>
+        )}
+      </div>
     </header>
   );
 }
@@ -161,8 +142,7 @@ export default function ClientLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col
-          bg-gray-50 text-gray-900
-          dark:bg-gray-900 dark:text-gray-100`}
+          bg-background text-foreground`}
       >
         <Header />
         <main className="flex-1">{children}</main>

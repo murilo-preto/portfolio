@@ -5,8 +5,14 @@ import "@/app/globals.css";
 import { PrefetchLink } from "@/components/PrefetchLink";
 import { ThemeScript } from "@/components/ThemeScript";
 import LogoutButton from "@/components/LogoutButton";
+import {
+  MenuToggle,
+  NavLink,
+  navItemClass,
+  useActiveHref,
+} from "@/components/NavLink";
 import { NavDropdown, type NavDropdownItem } from "@/components/NavDropdown";
-import { usePathname } from "next/navigation";
+import { Settings } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const geistSans = Geist({
@@ -21,6 +27,8 @@ const geistMono = Geist_Mono({
 
 type NavGroup = { label: string; items: NavDropdownItem[] };
 type NavEntry = NavDropdownItem | NavGroup;
+
+const SETTINGS_HREF = "/namu/user/settings";
 
 /** Single source for the nav, shared by the desktop bar and the mobile panel.
  *  Entries with `items` become a dropdown; the rest are plain links. */
@@ -56,45 +64,11 @@ function isGroup(entry: NavEntry): entry is NavGroup {
   return "items" in entry;
 }
 
-/** The nav href the current page corresponds to, or null before hydration.
- *  Matching is exact everywhere: `/namu/user` is a page in its own right and
- *  must not stay lit for every route nested beneath it. */
-function useActiveHref(): string | null {
-  const pathname = usePathname();
-  if (!pathname) return null;
-  // A trailing slash only ever arrives from a hand-typed URL, but it would
-  // silently defeat the comparisons below.
-  return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-}
-
-function NavLink({
-  href,
-  children,
-  active = false,
-  onClick,
-}: {
-  href: string;
-  children: React.ReactNode;
-  /** Marks the page currently on screen. */
-  active?: boolean;
-  onClick?: () => void;
-}) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className={`p-1 rounded-md hover:cursor-pointer transition-colors ${
-        active
-          ? "bg-invert text-invert-fg font-semibold"
-          : "bg-surface-deep hover:bg-surface-hover"
-      }`}
-    >
-      <PrefetchLink
-        href={href}
-        onClick={onClick}
-        aria-current={active ? "page" : undefined}
-      >
-        {children}
-      </PrefetchLink>
-    </div>
+    <p className="text-xs font-semibold uppercase tracking-widest text-muted px-3 pt-3 pb-1">
+      {children}
+    </p>
   );
 }
 
@@ -110,161 +84,139 @@ function Header() {
       .catch(() => setIsLoggedIn(false));
   }, []);
 
+  // Escape closes the panel; a link tap already closes it via `onClick`.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
+
   return (
-    // `relative z-40` keeps the open dropdowns above page content that creates
-    // its own stacking context (the entries and finance toolbars do).
-    <header className="relative z-40 m-1 p-1 rounded-md bg-surface">
-      {/* ── Desktop nav (md+) ── */}
-      <nav className="hidden md:grid grid-cols-3 items-center p-1">
-        {/* Left */}
-        <div className="justify-self-start">
-          <NavLink href="/">Home</NavLink>
-        </div>
+    // `z-40` keeps the open dropdowns above page content that creates its own
+    // stacking context (the entries and finance toolbars do).
+    <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-subtle">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        {/* ── Desktop nav (md+) ── */}
+        <nav className="hidden md:grid grid-cols-3 items-center h-14">
+          {/* Left */}
+          <div className="justify-self-start -ml-3">
+            <NavLink href="/">Home</NavLink>
+          </div>
 
-        {/* Center */}
-        <div className="justify-self-center flex gap-2">
-          {NAV_ENTRIES.map((entry) =>
-            isGroup(entry) ? (
-              <NavDropdown
-                key={entry.label}
-                label={entry.label}
-                items={entry.items}
-                activeHref={activeHref}
-              />
-            ) : (
-              <NavLink
-                key={entry.href}
-                href={entry.href}
-                active={entry.href === activeHref}
-              >
-                {entry.label}
-              </NavLink>
-            ),
-          )}
-        </div>
-
-        {/* Right */}
-        <div className="justify-self-end flex gap-2">
-          {isLoggedIn ? (
-            <>
-              <NavLink
-                href="/namu/user/settings"
-                active={activeHref === "/namu/user/settings"}
-              >
-                Settings
-              </NavLink>
-              <LogoutButton />
-            </>
-          ) : (
-            <>
-              <NavLink href="/login">Login</NavLink>
-            </>
-          )}
-        </div>
-      </nav>
-
-      {/* ── Mobile nav (< md) ── */}
-      <div className="md:hidden flex items-center justify-between p-1">
-        {/* Logo / Home */}
-        <NavLink href="/">Home</NavLink>
-
-        {/* Hamburger button */}
-        <button
-          onClick={() => setMenuOpen((prev) => !prev)}
-          className="bg-surface-deep p-2 rounded-md focus:outline-none"
-          aria-label="Toggle menu"
-        >
-          {menuOpen ? (
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          ) : (
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {/* ── Mobile dropdown (account links) ── */}
-      {menuOpen && (
-        // Groups become labelled sections rather than hover menus — an
-        // accordion reads better on a narrow screen and needs no pointer.
-        <div className="md:hidden flex flex-col gap-2 p-2 mt-1 border-t border-default">
-          {NAV_ENTRIES.map((entry) =>
-            isGroup(entry) ? (
-              <div key={entry.label} className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1">
+          {/* Center */}
+          <div className="justify-self-center flex items-center gap-1">
+            {NAV_ENTRIES.map((entry) =>
+              isGroup(entry) ? (
+                <NavDropdown
+                  key={entry.label}
+                  label={entry.label}
+                  items={entry.items}
+                  activeHref={activeHref}
+                />
+              ) : (
+                <NavLink
+                  key={entry.href}
+                  href={entry.href}
+                  active={entry.href === activeHref}
+                >
                   {entry.label}
-                </p>
-                {entry.items.map((item) => (
-                  <NavLink
-                    key={item.href}
-                    href={item.href}
-                    active={item.href === activeHref}
-                    onClick={close}
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
-            ) : (
-              <NavLink
-                key={entry.href}
-                href={entry.href}
-                active={entry.href === activeHref}
-                onClick={close}
-              >
-                {entry.label}
-              </NavLink>
-            ),
-          )}
+                </NavLink>
+              ),
+            )}
+          </div>
 
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted px-1 mt-2">
-            Account
-          </p>
-          {isLoggedIn ? (
-            <>
-              <NavLink
-                href="/namu/user/settings"
-                active={activeHref === "/namu/user/settings"}
-                onClick={close}
-              >
-                Settings
-              </NavLink>
-              <div onClick={close}>
-                <LogoutButton />
-              </div>
-            </>
-          ) : (
-            <>
-              <NavLink href="/login" onClick={close}>
+          {/* Right */}
+          <div className="justify-self-end flex items-center gap-1 -mr-3">
+            {isLoggedIn ? (
+              <>
+                <PrefetchLink
+                  href={SETTINGS_HREF}
+                  aria-label="Settings"
+                  title="Settings"
+                  aria-current={activeHref === SETTINGS_HREF ? "page" : undefined}
+                  className={navItemClass(activeHref === SETTINGS_HREF)}
+                >
+                  <Settings className="w-5 h-5" aria-hidden="true" />
+                </PrefetchLink>
+                <LogoutButton variant="icon" />
+              </>
+            ) : (
+              <NavLink href="/login">Login</NavLink>
+            )}
+          </div>
+        </nav>
+
+        {/* ── Mobile nav (< md) ── */}
+        <div className="md:hidden flex items-center justify-between h-14">
+          <div className="-ml-3">
+            <NavLink href="/">Home</NavLink>
+          </div>
+          <MenuToggle
+            open={menuOpen}
+            onClick={() => setMenuOpen((prev) => !prev)}
+          />
+        </div>
+
+        {/* ── Mobile dropdown ── */}
+        {menuOpen && (
+          // Groups become labelled sections rather than hover menus — an
+          // accordion reads better on a narrow screen and needs no pointer.
+          <div className="md:hidden flex flex-col gap-1 pb-3 -mx-1 border-t border-default animate-rise">
+            {NAV_ENTRIES.map((entry) =>
+              isGroup(entry) ? (
+                <div key={entry.label} className="flex flex-col gap-1">
+                  <SectionLabel>{entry.label}</SectionLabel>
+                  {entry.items.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      href={item.href}
+                      variant="mobile"
+                      active={item.href === activeHref}
+                      onClick={close}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : (
+                <NavLink
+                  key={entry.href}
+                  href={entry.href}
+                  variant="mobile"
+                  active={entry.href === activeHref}
+                  onClick={close}
+                >
+                  {entry.label}
+                </NavLink>
+              ),
+            )}
+
+            <SectionLabel>Account</SectionLabel>
+            {isLoggedIn ? (
+              <>
+                <NavLink
+                  href={SETTINGS_HREF}
+                  variant="mobile"
+                  active={activeHref === SETTINGS_HREF}
+                  onClick={close}
+                >
+                  Settings
+                </NavLink>
+                <div onClick={close}>
+                  <LogoutButton variant="mobile" />
+                </div>
+              </>
+            ) : (
+              <NavLink href="/login" variant="mobile" onClick={close}>
                 Login
               </NavLink>
-            </>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
     </header>
   );
 }
@@ -281,8 +233,7 @@ export default function ClientLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col
-          bg-gray-50 text-gray-900
-          dark:bg-gray-900 dark:text-gray-100`}
+          bg-background text-foreground`}
       >
         <Header />
         <main className="flex-1">{children}</main>

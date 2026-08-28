@@ -1,6 +1,8 @@
 "use client";
 
 import { PrefetchLink } from "@/components/PrefetchLink";
+import { navItemClass } from "@/components/NavLink";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export type NavDropdownItem = { label: string; href: string };
@@ -79,27 +81,13 @@ export function NavDropdown({
         onKeyDown={(e) => {
           if (e.key === "Escape") close();
         }}
-        className={`p-1 rounded-md flex items-center gap-1 hover:cursor-pointer transition-colors ${
-          containsActive
-            ? "bg-invert text-invert-fg font-semibold"
-            : "bg-surface-deep hover:bg-surface-hover"
-        }`}
+        className={navItemClass(containsActive)}
       >
         {label}
-        <svg
-          className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+        <ChevronDown
+          className={`w-3.5 h-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`}
           aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+        />
       </button>
 
       {isOpen && (
@@ -107,12 +95,12 @@ export function NavDropdown({
         // so the offset below the trigger is still part of the menu's hover
         // area — a margin would leave a dead strip that closes the menu.
         <div
-          className="absolute left-1/2 -translate-x-1/2 top-full z-30 min-w-max pt-1"
+          className="absolute left-1/2 -translate-x-1/2 top-full z-30 min-w-max pt-2"
           onMouseEnter={open}
         >
           <div
             role="menu"
-            className="rounded-lg border border-default bg-surface shadow-xl overflow-hidden"
+            className="rounded-xl border border-subtle bg-surface shadow-lg overflow-hidden p-1 animate-rise"
           >
             {items.map((item) => {
               const active = item.href === activeHref;
@@ -126,11 +114,12 @@ export function NavDropdown({
                   onKeyDown={(e) => {
                     if (e.key === "Escape") close();
                   }}
-                  className={`block w-full px-4 py-2.5 text-left text-sm transition-colors ${
-                    active
-                      ? "bg-surface-hover text-primary font-semibold"
-                      : "text-secondary hover:bg-surface-hover"
-                  }`}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 ${
+                      active
+                        ? "bg-surface-hover text-primary font-semibold"
+                        : "text-secondary hover:text-primary hover:bg-surface-hover"
+                    }`}
                 >
                   {item.label}
                 </PrefetchLink>
