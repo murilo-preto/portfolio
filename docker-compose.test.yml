@@ -9,6 +9,18 @@ services:
     environment:
       RATELIMIT_ENABLED: "false"
 
+  # The Next.js route handlers and their server-side helpers. Nothing here talks
+  # to Flask or MySQL — fetch is mocked — so it has no depends_on and no network,
+  # and can run before the stack is up.
+  nextjs-test:
+    build:
+      context: ./next-version
+      target: test
+    # Behind a profile so `up` leaves it alone. It is a one-shot command, and
+    # the main run uses --abort-on-container-exit: a container that finishes
+    # immediately would tear the whole stack down before pytest had started.
+    profiles: ["frontend-tests"]
+
   test:
     build:
       context: .

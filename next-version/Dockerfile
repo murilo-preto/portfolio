@@ -14,6 +14,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
+# ---------- Test ----------
+# Inherits the builder's node_modules, which npm ci installs with devDependencies
+# included, so vitest is already here. Used by the `nextjs-test` service in
+# docker-compose.test.yml; not part of the image that ships.
+FROM builder AS test
+CMD ["npm", "test"]
+
 # ---------- Runner ----------
 FROM node:20-alpine AS runner
 WORKDIR /app

@@ -48,6 +48,18 @@ done
 
 trap 'docker compose -f docker-compose.yml -f docker-compose.test.yml down' EXIT
 
+# The frontend suite first: it mocks fetch, so it needs neither MySQL nor Flask,
+# and it finishes in seconds. A broken proxy is worth hearing about before
+# spending a minute standing the stack up.
+echo -e "${YELLOW}Running Next.js route tests...${NC}"
+docker compose -f docker-compose.yml -f docker-compose.test.yml build nextjs-test
+if ! docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm nextjs-test; then
+    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}      Next.js Route Tests Failed!       ${NC}"
+    echo -e "${RED}========================================${NC}"
+    exit 1
+fi
+
 echo -e "${YELLOW}Rebuilding all services and running full test suite inside Docker...${NC}"
 set +e
 docker compose -f docker-compose.yml -f docker-compose.test.yml \

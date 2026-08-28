@@ -1,9 +1,11 @@
 /**
  * TODO feature e2e tests (Playwright, browser-driven).
  *
- * Local development only, like test/test_nextjs_api.test.ts — not part of
- * ./run_tests.sh. Requires the full stack running (docker compose up
- * --build) and is run via:
+ * Local development only — not part of ./run_tests.sh, because it needs
+ * Playwright's browser download and a stack that is already up. The route-level
+ * suite in __tests__/ does run there; this is the browser-driven tier above it.
+ *
+ * Requires the full stack running (docker compose up --build), then:
  *
  *   cd next-version && npx playwright test
  */
