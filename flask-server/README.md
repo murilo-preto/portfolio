@@ -1,120 +1,45 @@
-# Flask API — Endpoints
+# Flask API
 
----
+The endpoint reference lives in the [root README](../README.md#api-endpoints).
+It used to be duplicated here, and the copy drifted: it documented `/users`,
+`/entries/<username>` and `/myentries`, none of which exist, and listed nine of
+the fifty routes. One list is easier to keep true than two.
 
-GET /health
-→ 200 OK
-{
-"status": "healthy"
-}
+## Layout
 
----
+| File | Holds |
+| ---- | ----- |
+| `app.py` | The Flask instance and everything shared — config, JWT manager and loaders, rate limiter, connection pool, boot-time migrations, blueprint registration |
+| `routes/` | One blueprint per domain: `auth`, `categories`, `entries`, `finance`, `health`, `pomodoro`, `settings`, `todo` |
+| `rate_limit.py` | Rate-limit keying, and the per-account throttle on failed logins |
+| `query_params.py` | Parsing and SQL building for `?from=&to=&category=&q=&sort=&direction=&limit=&offset=` |
+| `categories.py` | Category name normalization |
+| `category_admin.py` | Rename / delete / merge, written once for all three category namespaces |
+| `finance_due.py` | The daily sweep that completes finance entries whose planned date has passed |
+| `itau_pdf.py` | Extracting entries from Itaú statement PDFs |
+| `migrations.py`, `migrations/` | Forward-only schema migrations, applied at boot |
+| `seed.py` | Development data |
 
-POST /register
-Body:
-{
-"username": "string",
-"password": "string"
-}
+## How the route modules reach shared state
 
-→ 201 Created
-→ 400 Validation error
-→ 409 Username exists
+They `import app` and go through the module — `app.get_cursor()`, never
+`from app import get_cursor`.
 
----
+This is load-bearing rather than stylistic. A bound name is a private copy, so
+`patch("app.get_cursor")` would not reach it, and 42 tests patch exactly that.
+The failure would be silent: those tests would go on running against the real
+database and mostly still pass. Going through the module resolves the name when
+the view runs, so the patch applies. It also breaks the import cycle — `app.py`
+registers the blueprints at the bottom, once everything they reach for exists.
 
-POST /login
-Body:
-{
-"username": "string",
-"password": "string"
-}
+## Boot sequence
 
-→ 200 OK
-{
-"access_token": "JWT_TOKEN",
-"user_id": 1,
-"username": "string"
-}
+`app.py` runs these at import, so they happen under gunicorn too, where there is
+no `__main__`:
 
-→ 401 Invalid credentials
-
----
-
-Authorization Header (protected routes):
-Authorization: Bearer <JWT_TOKEN>
-
----
-
-GET /protected
-→ 200 OK
-{
-"message": "Access granted"
-}
-
-→ 401 Invalid or missing token
-
----
-
-GET /users
-→ 200 OK
-{
-"users": [
-{ "id": 1, "username": "string" }
-]
-}
-
----
-
-GET /entries/<username>
-→ 200 OK
-{
-"entries": [
-{
-"id": 1,
-"category": "string",
-"start_time": "YYYY-MM-DD HH:MM:SS",
-"end_time": "YYYY-MM-DD HH:MM:SS",
-"duration_seconds": 3600
-}
-]
-}
-
-→ 404 User not found
-
----
-
-GET /myentries
-(Requires JWT)
-
-→ 200 OK
-{
-"entries": [ ... ]
-}
-
----
-
-POST /entry
-Body:
-{
-"username": "string",
-"category": "string",
-"start_time": "YYYY-MM-DD HH:MM:SS",
-"end_time": "YYYY-MM-DD HH:MM:SS"
-}
-
-→ 201 Created
-{
-"id": 1
-}
-
----
-
-POST /category
-Body:
-{
-"name": "string"
-}
-
-→ 201 Created
-→ 200 Already exists
+1. `run_migrations` — raises rather than limping on, so a bad schema stops the
+   worker booting instead of failing later per request
+2. `normalize_existing_finance_categories` — idempotent tidy-up; never blocks startup
+3. `finance_due.start` — the daily sweep. Every worker schedules it and a MySQL
+   advisory lock means only one ever runs it. `SCHEDULER_ENABLED=false` turns it
+   off, as the test container does
