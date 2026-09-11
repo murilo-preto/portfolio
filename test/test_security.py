@@ -175,6 +175,12 @@ class TestAuthenticationBypass:
         ("GET",    "/pomodoro/sessions",         None),
         ("GET",    "/pomodoro/stats",            None),
         ("GET",    "/protected",                 None),
+        # The four lookup listings. They were public, over a port published to
+        # the host, against tables that held every user's rows.
+        ("GET",    "/get/categories",            None),
+        ("GET",    "/finance/categories",        None),
+        ("GET",    "/todo/categories",           None),
+        ("GET",    "/todo/tags",                 None),
     ]
 
     @pytest.mark.integration
@@ -694,15 +700,19 @@ class TestHorizontalPrivilegeEscalation:
 
 
 class TestUnauthenticatedEndpoints:
-    """
-    Several endpoints are intentionally public (categories, health) but two
-    routes that write data lack @jwt_required():
-      - POST /entry/create     — accepts a 'username' body parameter
-      - POST /category         — no auth
-      - POST /finance/category — no auth
-      - POST /todo/category    — no auth
+    """What an anonymous caller can still reach, and what it gets.
 
-    This section documents and tests that behaviour.
+    Only /health, /register and /login are public now. The four category and
+    tag listings used to be as well, against tables that were global — that is
+    what migrations 004-007 and the @jwt_required() on those routes closed, and
+    TestAuthenticationBypass covers them alongside every other guarded route.
+
+    The three category-creation tests below assert the refusal rather than the
+    behaviour: each of those routes has @jwt_required(), so an anonymous POST
+    is a 401 and nothing is written.
+
+    POST /entry/create still accepts a 'username' body parameter, which is its
+    own story and is documented on the test that covers it.
     """
 
     @pytest.mark.integration
@@ -743,37 +753,34 @@ class TestUnauthenticatedEndpoints:
 
     @pytest.mark.integration
     def test_unauthenticated_category_creation(self, client):
-        """
-        POST /category has no authentication.  An unauthenticated actor can
-        pollute the shared category table with arbitrary names.
-        This test documents the exposure; when fixed it should require a token.
+        """POST /category refuses an anonymous caller.
+
+        It once did not, and the table it wrote to was shared by everyone, so
+        anyone who could reach the port could add names to every user's picker.
+        The old assertion here was `status_code < 500`, which a 401 satisfies —
+        it went on passing after the hole was closed without ever checking that
+        it had been. It asserts the refusal now.
         """
         resp = client.post("/category", json={"name": "Unauthenticated Category Test"})
-        # If this succeeds (200 or 201) the endpoint is unprotected
-        if resp.status_code in (200, 201):
-            # Not necessarily wrong (public categories may be intentional),
-            # but worth flagging in a security review.
-            pass  # document: public endpoint, anyone can add categories
-        # In any case, the response must not be a server error
-        assert resp.status_code < 500
+        assert resp.status_code == 401
 
     @pytest.mark.integration
     def test_unauthenticated_finance_category_creation(self, client):
-        """POST /finance/category has no auth — any client can insert categories."""
+        """POST /finance/category refuses an anonymous caller."""
         resp = client.post(
             "/finance/category",
             json={"name": "Unauthenticated Finance Category"},
         )
-        assert resp.status_code < 500
+        assert resp.status_code == 401
 
     @pytest.mark.integration
     def test_unauthenticated_todo_category_creation(self, client):
-        """POST /todo/category has no auth — any client can insert categories."""
+        """POST /todo/category refuses an anonymous caller."""
         resp = client.post(
             "/todo/category",
             json={"name": "Unauthenticated Todo Category"},
         )
-        assert resp.status_code < 500
+        assert resp.status_code == 401
 
 
 # ─── SQL Injection ────────────────────────────────────────────────────────────
@@ -1456,10 +1463,12 @@ class TestInputValidation:
 
     @pytest.mark.integration
     def test_user_b_cannot_see_user_a_todo_via_tag_listing(self, client, user_a, user_b):
-        """
-        Tags are a global, shared list (like categories) — User B listing
-        /todo/tags should not expose User A's todo items themselves, only
-        tag names, which are not sensitive.
+        """User B must not see User A's tag names, nor anything about the items.
+
+        Tags were a global, shared list, and this test used to assert that was
+        fine because "tag names are not sensitive". They are: people name work
+        after the client, employer or condition it belongs to, and /todo/tags
+        was served without a token at all. The tables are per-user now.
         """
         _ensure_todo_category(client, "Work", user_a["token"])
         client.post(
@@ -1467,12 +1476,24 @@ class TestInputValidation:
             headers=auth(user_a["token"]),
             json={"title": "Private Todo", "category": "Work", "tags": ["secret-project"]},
         )
-        listing = client.get("/todo/tags")
+
+        assert client.get("/todo/tags").status_code == 401
+
+        listing = client.get("/todo/tags", headers=auth(user_b["token"]))
         assert listing.status_code == 200
-        # Tag names are visible (shared taxonomy), but this must never leak
-        # any todo item fields (title/description/owner) alongside them.
+        names = {tag["name"] for tag in listing.get_json()["tags"]}
+        assert "secret-project" not in names
+
+        # And the rows themselves still carry nothing but id and name.
         for tag in listing.get_json()["tags"]:
             assert set(tag.keys()) == {"id", "name"}
+
+        # The owner still sees their own.
+        owner_listing = client.get("/todo/tags", headers=auth(user_a["token"]))
+        assert owner_listing.status_code == 200
+        assert "secret-project" in {
+            tag["name"] for tag in owner_listing.get_json()["tags"]
+        }
 
     # ── Recurring TODOs ────────────────────────────────────────────────────
 
@@ -1726,3 +1747,169 @@ class TestTokenManipulation:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-m", "integration"])
+
+
+# ─── Lookup table isolation ───────────────────────────────────────────────────
+
+
+class TestLookupTableIsolation:
+    """One user's category and tag names must not reach another user.
+
+    The four lookup tables — `category`, `finance_categories`,
+    `todo_categories`, `todo_tags` — were global: id and name, no owner, names
+    UNIQUE across the whole installation. The four listing endpoints served
+    them without a token, over a port published to the host. Anyone who could
+    reach Flask could enumerate every account's names, and finance categories
+    are filled verbatim from bank statement PDFs by /finance/parse-itau-pdf.
+
+    Migrations 004-007 gave every row a `user_id` and made the unique index
+    `(user_id, name)`. These tests are the regression guard for the disclosure
+    itself; TestAuthenticationBypass separately covers the missing tokens.
+    """
+
+    # (create path, listing path, listing key)
+    NAMESPACES = [
+        ("/category", "/get/categories", "categories"),
+        ("/finance/category", "/finance/categories", "categories"),
+        ("/todo/category", "/todo/categories", "categories"),
+        ("/todo/tag", "/todo/tags", "tags"),
+    ]
+
+    @staticmethod
+    def _create(client, create_path, token, name):
+        resp = client.post(create_path, headers=auth(token), json={"name": name})
+        assert resp.status_code in (200, 201), resp.get_json()
+        key = "tag" if create_path.endswith("/tag") else "category"
+        return resp.get_json()[key]["id"]
+
+    @staticmethod
+    def _names(client, listing_path, listing_key, token):
+        resp = client.get(listing_path, headers=auth(token))
+        assert resp.status_code == 200
+        return {row["name"] for row in resp.get_json()[listing_key]}
+
+    @staticmethod
+    def _ids(client, listing_path, listing_key, token):
+        resp = client.get(listing_path, headers=auth(token))
+        assert resp.status_code == 200
+        return {row["id"] for row in resp.get_json()[listing_key]}
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("create_path,listing_path,listing_key", NAMESPACES)
+    def test_user_b_never_sees_user_a_names(
+        self, client, user_a, user_b, create_path, listing_path, listing_key
+    ):
+        """The disclosure itself: A's name must not appear in B's listing."""
+        name = f"a_private_{datetime.now().timestamp()}"
+        a_id = self._create(client, create_path, user_a["token"], name)
+
+        assert name in self._names(client, listing_path, listing_key, user_a["token"])
+        assert name not in self._names(
+            client, listing_path, listing_key, user_b["token"]
+        )
+        assert a_id not in self._ids(client, listing_path, listing_key, user_b["token"])
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("create_path,listing_path,listing_key", NAMESPACES)
+    def test_the_same_name_is_a_separate_row_per_user(
+        self, client, user_a, user_b, create_path, listing_path, listing_key
+    ):
+        """Proves UNIQUE(name) really was replaced by UNIQUE(user_id, name).
+
+        Under the old index B's create would have returned A's existing row
+        with "already exists" and the same id.
+        """
+        name = f"shared_name_{datetime.now().timestamp()}"
+        a_id = self._create(client, create_path, user_a["token"], name)
+        b_id = self._create(client, create_path, user_b["token"], name)
+
+        assert a_id != b_id
+        assert name in self._names(client, listing_path, listing_key, user_a["token"])
+        assert name in self._names(client, listing_path, listing_key, user_b["token"])
+
+    @pytest.mark.integration
+    def test_cannot_attach_an_entry_to_another_users_category(
+        self, client, user_a, user_b
+    ):
+        """A name only the other user has must not resolve on a write path."""
+        stamp = datetime.now().timestamp()
+        now = datetime.now(timezone.utc)
+
+        time_name = f"b_only_time_{stamp}"
+        _ensure_category(client, time_name, user_b["token"])
+        resp = client.post("/entry/create", headers=auth(user_a["token"]), json={
+            "category": time_name,
+            "start_time": now.isoformat(),
+            "end_time": (now + timedelta(hours=1)).isoformat(),
+        })
+        assert resp.status_code == 404
+
+        finance_name = f"b_only_finance_{stamp}"
+        _ensure_finance_category(client, finance_name, user_b["token"])
+        resp = client.post("/finance/create", headers=auth(user_a["token"]), json={
+            "product_name": "x",
+            "category": finance_name,
+            "price": 1,
+            "purchase_date": now.isoformat(),
+        })
+        assert resp.status_code == 404
+
+        todo_name = f"b_only_todo_{stamp}"
+        _ensure_todo_category(client, todo_name, user_b["token"])
+        resp = client.post("/todo/create", headers=auth(user_a["token"]), json={
+            "title": "x", "category": todo_name,
+        })
+        assert resp.status_code == 404
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("usage_path,create_path", [
+        ("/category/usage", "/category"),
+        ("/finance/category/usage", "/finance/category"),
+        ("/todo/category/usage", "/todo/category"),
+    ])
+    def test_usage_listing_never_mentions_another_users_ids(
+        self, client, user_a, user_b, usage_path, create_path
+    ):
+        name = f"b_usage_{datetime.now().timestamp()}"
+        b_id = self._create(client, create_path, user_b["token"], name)
+
+        resp = client.get(usage_path, headers=auth(user_a["token"]))
+        assert resp.status_code == 200
+        rows = resp.get_json()["categories"]
+        assert b_id not in {row["id"] for row in rows}
+        assert name not in {row["name"] for row in rows}
+        # `others` is unreachable now that a category has exactly one owner.
+        assert all(row["others"] == 0 for row in rows)
+
+    @pytest.mark.integration
+    def test_deleting_a_user_who_owns_categories_and_entries_succeeds(self, client):
+        """Guards the cascade decision migrations 004-007 had to make.
+
+        `category.user_id` carries no foreign key to `users`. It cannot: a
+        cascade from `users` reaches both `category` and `time_entries`, InnoDB
+        picks the order, and it takes `category` first — so the ON DELETE
+        RESTRICT from the not-yet-deleted entries aborts the delete with errno
+        1451 and the account can never be removed. Measured on MySQL 8.0.46
+        before the migrations were written.
+
+        The consequence is that lookup rows outlive their owner. Nothing in the
+        app deletes users today; whatever adds that has to clear these tables
+        itself, and this test is here to fail loudly if the FK is ever added
+        back without solving the ordering problem.
+        """
+        username, _, token = _register_and_login(client, "cascade_probe")
+        _create_time_entry_for(client, token, category="Work")
+
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user_id = cursor.fetchone()["id"]
+            cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+            cursor.execute(
+                "SELECT COUNT(*) AS n FROM time_entries WHERE user_id = %s", (user_id,)
+            )
+            assert cursor.fetchone()["n"] == 0
+
+            # Categories are deliberately left behind; see the docstring.
+            cursor.execute("DELETE FROM category WHERE user_id = %s", (user_id,))
+            cursor.execute("DELETE FROM todo_categories WHERE user_id = %s", (user_id,))

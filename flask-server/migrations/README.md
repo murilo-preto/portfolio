@@ -19,9 +19,47 @@ Numbered, forward-only SQL files applied once each at Flask boot by
   back, so a multi-statement file that fails halfway leaves a partial change
   behind and is not recorded as applied — the next boot retries it from the
   top.
+
+  `004`-`007` break this rule on purpose. Each takes a lookup table from global
+  to per-user, and the steps are mutually dependent: dropping the old unique
+  index without adding the new one, or deleting the shared rows before entries
+  have been repointed at their owner's copy, leaves the database worse than it
+  started. Splitting them would manufacture intermediate states that look
+  resumable and are not. Each file says so in its header.
+
+- **No trailing comments, ever.** `split_statements` strips a line only when
+  the line *starts* with `--` or `#`, then splits what remains on `;`. A
+  comment after code on the same line therefore survives: the `;` before it
+  ends the statement, and the comment text becomes the head of the next one.
+  Block comments are not handled at all, and a `;` inside a string literal
+  splits the statement in two. `test_migrations.py` guards all three.
 - **`../../mysql/schema.sql` is the frozen baseline.** Do not edit it to
   reflect a migration. A fresh volume runs schema.sql and then every migration;
   an existing volume runs only what it is missing. Both end up identical.
+
+## When one fails halfway
+
+A migration that raises is not recorded, so the next boot retries it from the
+top — and the first statement of a retry usually fails too, because MySQL 8 has
+no `ADD COLUMN IF NOT EXISTS`. Flask then refuses to start, by design
+(`migrations.py` raises rather than serving against a schema it could not
+bring up to date), and gunicorn crash-loops. Take a dump before deploying one.
+
+To recover, inspect what actually landed and finish it by hand:
+
+```bash
+docker compose exec mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+  -e "SELECT * FROM $MYSQL_DATABASE.schema_migrations"
+docker compose exec mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+  -e "SHOW CREATE TABLE $MYSQL_DATABASE.<table>"
+```
+
+Apply the remaining statements manually, then record the file as done so the
+runner stops retrying it:
+
+```sql
+INSERT INTO schema_migrations (version) VALUES ('NNN_slug.sql');
+```
 
 ## Verifying
 

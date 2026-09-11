@@ -7,6 +7,7 @@ import requests
 import os
 import re
 import time
+from datetime import datetime
 from typing import Optional
 
 # Mark all tests in this module as e2e
@@ -121,15 +122,29 @@ class TestDatabaseConnectivity:
         if not os.getenv("RUN_E2E_TESTS"):
             pytest.skip("E2E tests not enabled")
     
-    def test_categories_endpoint_requires_db(self):
-        """Categories endpoint should work if DB is connected."""
-        response = requests.get(f"{FLASK_URL}/get/categories", timeout=10)
-        # Should return 200 with categories or 500 if DB issue
-        assert response.status_code in [200, 500]
-        
-        if response.status_code == 200:
-            data = response.json()
-            assert "categories" in data
+    def test_anonymous_endpoint_reaches_the_db(self):
+        """An unauthenticated request that must hit MySQL still gets an answer.
+
+        This used to probe GET /get/categories, which was public and read a
+        table. It is authenticated now, so a 401 would prove nothing about the
+        database — the token is rejected before any query runs. /login is the
+        remaining anonymous endpoint that cannot answer without MySQL: a wrong
+        password is a 401 only if the user lookup actually ran, and a database
+        that is down surfaces as a 500 instead.
+
+        The username is unique per run so the per-account throttle on failed
+        guesses can never accumulate across runs and turn this into a 429.
+        """
+        username = f"e2e_db_probe_{datetime.now().timestamp()}"
+        response = requests.post(
+            f"{FLASK_URL}/login",
+            json={"username": username, "password": "definitely-not-right"},
+            timeout=10,
+        )
+        assert response.status_code in [401, 500]
+
+        if response.status_code == 401:
+            assert "error" in response.json()
 
 
 class TestFullAuthFlow:
@@ -194,10 +209,24 @@ class TestAPIIntegration:
         response = requests.get(f"{FLASK_URL}/entry", timeout=10)
         assert response.status_code in [401, 403]
     
-    def test_categories_public(self):
-        """Categories endpoint should be publicly accessible."""
-        response = requests.get(f"{FLASK_URL}/get/categories", timeout=10)
-        assert response.status_code == 200
+    def test_categories_requires_auth(self):
+        """The category listings are not public.
+
+        All four lookup tables were global and served without a token, so any
+        caller who could reach Flask's published port could enumerate every
+        user's category and tag names — finance categories included, which
+        /finance/parse-itau-pdf fills straight from bank statement PDFs.
+        """
+        for path in (
+            "/get/categories",
+            "/finance/categories",
+            "/todo/categories",
+            "/todo/tags",
+        ):
+            response = requests.get(f"{FLASK_URL}{path}", timeout=10)
+            assert response.status_code in [401, 403], (
+                f"{path} answered {response.status_code} without a token"
+            )
 
 
 class TestAuthenticatedProxyRoutes:

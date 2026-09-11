@@ -17,6 +17,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from mysql.connector import Error
 
 import category_admin
+from users import resolve_user_id
 from query_params import (
     ListQuery,
     QueryParamError,
@@ -54,17 +55,23 @@ def _next_recurrence_date(dt, rule):
     return dt
 
 
-def _resolve_or_create_tag_ids(cursor, tag_names):
-    """Get-or-create each tag name and return their ids."""
+def _resolve_or_create_tag_ids(cursor, user_id, tag_names):
+    """Get-or-create each tag name within one owner and return their ids."""
     tag_ids = []
     for raw_name in tag_names:
         name = (raw_name or "").strip()
         if not name or len(name) > 50:
             continue
-        cursor.execute("SELECT id FROM todo_tags WHERE name = %s", (name,))
+        cursor.execute(
+            "SELECT id FROM todo_tags WHERE user_id = %s AND name = %s",
+            (user_id, name),
+        )
         tag = cursor.fetchone()
         if not tag:
-            cursor.execute("INSERT INTO todo_tags (name) VALUES (%s)", (name,))
+            cursor.execute(
+                "INSERT INTO todo_tags (user_id, name) VALUES (%s, %s)",
+                (user_id, name),
+            )
             tag_id = cursor.lastrowid
         else:
             tag_id = tag["id"]
@@ -352,18 +359,32 @@ def my_todo_items():
     return retrieve_todo_items_from_username(username, query, extra_filters)
 
 
+# Exempt from the default limits; see the note above list_categories in
+# routes/categories.py. The todo screen fetches this and the tag list together
+# on every mount.
 @todo_bp.route("/todo/categories", methods=["GET"])
+@app.limiter.exempt
+@jwt_required()
 def list_todo_categories():
     """
-    List all TODO categories.
+    List the caller's TODO categories.
 
     Returns:
         200: List of categories
+        404: User not found
         500: Server error
     """
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM todo_categories ORDER BY name")
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id, name FROM todo_categories"
+                " WHERE user_id = %s ORDER BY name",
+                (user_id,),
+            )
             categories = cursor.fetchall()
 
         return jsonify({"categories": categories}), 200
@@ -404,8 +425,14 @@ def create_todo_category():
 
     try:
         with app.get_cursor() as cursor:
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
             cursor.execute(
-                "SELECT id, name FROM todo_categories WHERE name = %s", (name,)
+                "SELECT id, name FROM todo_categories"
+                " WHERE user_id = %s AND name = %s",
+                (user_id, name),
             )
             existing = cursor.fetchone()
 
@@ -415,7 +442,8 @@ def create_todo_category():
                 ), 200
 
             cursor.execute(
-                "INSERT INTO todo_categories (name) VALUES (%s)", (name,)
+                "INSERT INTO todo_categories (user_id, name) VALUES (%s, %s)",
+                (user_id, name),
             )
             category_id = cursor.lastrowid
 
@@ -509,18 +537,30 @@ def merge_todo_category(category_id):
     return _category_merge(category_admin.TODO, category_id)
 
 
+# Exempt from the default limits; see the note above list_categories in
+# routes/categories.py. TagInput fetches this on mount for autocomplete.
 @todo_bp.route("/todo/tags", methods=["GET"])
+@app.limiter.exempt
+@jwt_required()
 def list_todo_tags():
     """
-    List all TODO tags.
+    List the caller's TODO tags.
 
     Returns:
         200: List of tags
+        404: User not found
         500: Server error
     """
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM todo_tags ORDER BY name")
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id, name FROM todo_tags WHERE user_id = %s ORDER BY name",
+                (user_id,),
+            )
             tags = cursor.fetchall()
 
         return jsonify({"tags": tags}), 200
@@ -561,13 +601,23 @@ def create_todo_tag():
 
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM todo_tags WHERE name = %s", (name,))
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id, name FROM todo_tags WHERE user_id = %s AND name = %s",
+                (user_id, name),
+            )
             existing = cursor.fetchone()
 
             if existing:
                 return jsonify({"message": "Tag already exists", "tag": existing}), 200
 
-            cursor.execute("INSERT INTO todo_tags (name) VALUES (%s)", (name,))
+            cursor.execute(
+                "INSERT INTO todo_tags (user_id, name) VALUES (%s, %s)",
+                (user_id, name),
+            )
             tag_id = cursor.lastrowid
 
         return jsonify(
@@ -663,7 +713,8 @@ def create_todo_item():
                 return jsonify({"error": "User not found"}), 404
 
             cursor.execute(
-                "SELECT id FROM todo_categories WHERE name = %s", (category_name,)
+                "SELECT id FROM todo_categories WHERE user_id = %s AND name = %s",
+                (user["id"], category_name),
             )
             category = cursor.fetchone()
 
@@ -688,11 +739,15 @@ def create_todo_item():
             )
             item_id = cursor.lastrowid
 
-            tag_ids = _resolve_or_create_tag_ids(cursor, tag_names)
+            tag_ids = _resolve_or_create_tag_ids(cursor, user["id"], tag_names)
             _set_todo_item_tags(cursor, item_id, tag_ids)
 
             created_tags = []
             if tag_ids:
+                # No user_id predicate, deliberately: these ids came out of
+                # _resolve_or_create_tag_ids for this user one statement ago, so
+                # they are already the caller's. Adding one could only ever drop
+                # a tag from the response that was genuinely just written.
                 placeholders = ", ".join(["%s"] * len(tag_ids))
                 cursor.execute(
                     f"SELECT id, name FROM todo_tags WHERE id IN ({placeholders}) ORDER BY name",
@@ -816,7 +871,9 @@ def update_todo_item(item_id):
             category_id = None
             if category_name:
                 cursor.execute(
-                    "SELECT id FROM todo_categories WHERE name = %s", (category_name,)
+                    "SELECT id FROM todo_categories"
+                    " WHERE user_id = %s AND name = %s",
+                    (item["user_id"], category_name),
                 )
                 category = cursor.fetchone()
 
@@ -864,7 +921,9 @@ def update_todo_item(item_id):
                 cursor.execute(query, values)
 
             if tag_names is not None:
-                tag_ids = _resolve_or_create_tag_ids(cursor, tag_names)
+                tag_ids = _resolve_or_create_tag_ids(
+                    cursor, item["user_id"], tag_names
+                )
                 _set_todo_item_tags(cursor, item_id, tag_ids)
 
             # Spawn the next occurrence only on a genuine pending/in_progress

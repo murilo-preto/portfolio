@@ -19,6 +19,7 @@ from mysql.connector import Error
 import category_admin
 import finance_due
 from categories import normalize_category_name
+from users import resolve_user_id
 from itau_pdf import (
     ItauPdfError,
     extract_statement_from_bytes,
@@ -159,18 +160,32 @@ def my_finance_entries():
     return retrieve_finance_entries_from_username(username, query)
 
 
+# Exempt from the default limits, for the reason given above list_categories in
+# routes/categories.py: the finance screens and the two import modals all fetch
+# this on mount, and it is a single indexed read of the caller's own rows.
 @finance_bp.route("/finance/categories", methods=["GET"])
+@app.limiter.exempt
+@jwt_required()
 def list_finance_categories():
     """
-    List all finance categories.
+    List the caller's finance categories.
 
     Returns:
         200: List of categories
+        404: User not found
         500: Server error
     """
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM finance_categories ORDER BY name")
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id, name FROM finance_categories"
+                " WHERE user_id = %s ORDER BY name",
+                (user_id,),
+            )
             categories = cursor.fetchall()
 
         return jsonify({"categories": categories}), 200
@@ -211,8 +226,14 @@ def create_finance_category():
 
     try:
         with app.get_cursor() as cursor:
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
             cursor.execute(
-                "SELECT id, name FROM finance_categories WHERE name = %s", (name,)
+                "SELECT id, name FROM finance_categories"
+                " WHERE user_id = %s AND name = %s",
+                (user_id, name),
             )
             existing = cursor.fetchone()
 
@@ -222,7 +243,8 @@ def create_finance_category():
                 ), 200
 
             cursor.execute(
-                "INSERT INTO finance_categories (name) VALUES (%s)", (name,)
+                "INSERT INTO finance_categories (user_id, name) VALUES (%s, %s)",
+                (user_id, name),
             )
             category_id = cursor.lastrowid
 
@@ -391,7 +413,8 @@ def create_finance_entry():
                 return jsonify({"error": "User not found"}), 404
 
             cursor.execute(
-                "SELECT id FROM finance_categories WHERE name = %s", (category_name,)
+                "SELECT id FROM finance_categories WHERE user_id = %s AND name = %s",
+                (user["id"], category_name),
             )
             category = cursor.fetchone()
 
@@ -492,7 +515,7 @@ def update_finance_entry(entry_id):
             # Verify entry belongs to this user
             cursor.execute(
                 """
-                SELECT fe.id FROM finance_entries fe
+                SELECT fe.id, fe.user_id FROM finance_entries fe
                 JOIN users u ON fe.user_id = u.id
                 WHERE fe.id = %s AND u.username = %s
                 """,
@@ -503,22 +526,26 @@ def update_finance_entry(entry_id):
             if not entry:
                 return jsonify({"error": "Entry not found or access denied"}), 404
 
-            # Resolve category
+            # Resolve the category within the owner, so a name the caller does
+            # not have cannot attach their entry to someone else's row.
             cursor.execute(
-                "SELECT id FROM finance_categories WHERE name = %s", (category_name,)
+                "SELECT id FROM finance_categories WHERE user_id = %s AND name = %s",
+                (entry["user_id"], category_name),
             )
             category = cursor.fetchone()
 
             if not category:
                 return jsonify({"error": "Category not found"}), 404
 
+            # user_id repeats the guard above rather than trusting it, the same
+            # defense in depth _move_entries uses in category_admin.py.
             cursor.execute(
                 """
                 UPDATE finance_entries
                 SET category_id = %s, product_name = %s, price = %s, purchase_date = %s, status = %s
-                WHERE id = %s
+                WHERE id = %s AND user_id = %s
                 """,
-                (category["id"], product_name, price_value, purchase_date, status, entry_id),
+                (category["id"], product_name, price_value, purchase_date, status, entry_id, entry["user_id"]),
             )
 
         return jsonify({"message": "Finance entry updated successfully", "id": entry_id}), 200
@@ -677,35 +704,38 @@ def batch_import_finance_entries():
 
     results = {"success": 0, "failed": 0, "errors": []}
 
-    # First, get or create all finance categories. The cache is keyed by
-    # casefolded name because finance_categories.name is uniquely indexed with
-    # a case-insensitive collation — looking up case-sensitively would miss an
-    # existing "Food" for an incoming "FOOD" and then fail on a duplicate key.
-    category_cache = {}
-    try:
-        with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM finance_categories")
-            existing_categories = cursor.fetchall()
-            for cat in existing_categories:
-                category_cache[cat["name"].casefold()] = cat["id"]
-    except Error as e:
-        logger.error(f"Database error fetching categories: {e}")
-        return jsonify({"error": "Failed to fetch categories"}), 500
-
-    # Get user ID once
+    # The caller is resolved before the categories, because the cache below is
+    # scoped to them.
     user_id = None
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
-            user = cursor.fetchone()
-            if user:
-                user_id = user["id"]
+            user_id = resolve_user_id(cursor, current_user)
     except Error as e:
         logger.error(f"Database error fetching user: {e}")
         return jsonify({"error": "Failed to fetch user"}), 500
 
     if not user_id:
         return jsonify({"error": "User not found"}), 404
+
+    # Get or create the caller's finance categories. The cache is keyed by
+    # casefolded name because the name is uniquely indexed with a
+    # case-insensitive collation — looking up case-sensitively would miss an
+    # existing "Food" for an incoming "FOOD" and then fail on a duplicate key.
+    # That index is (user_id, name) now, so the collation argument holds within
+    # one owner, which is the only scope this cache ever covers.
+    category_cache = {}
+    try:
+        with app.get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id, name FROM finance_categories WHERE user_id = %s",
+                (user_id,),
+            )
+            existing_categories = cursor.fetchall()
+            for cat in existing_categories:
+                category_cache[cat["name"].casefold()] = cat["id"]
+    except Error as e:
+        logger.error(f"Database error fetching categories: {e}")
+        return jsonify({"error": "Failed to fetch categories"}), 500
 
     for i, entry in enumerate(entries):
         try:
@@ -740,8 +770,9 @@ def batch_import_finance_entries():
             if category_key not in category_cache:
                 with app.get_cursor() as cursor:
                     cursor.execute(
-                        "INSERT INTO finance_categories (name) VALUES (%s)",
-                        (normalize_category_name(category_name),)
+                        "INSERT INTO finance_categories (user_id, name)"
+                        " VALUES (%s, %s)",
+                        (user_id, normalize_category_name(category_name)),
                     )
                     category_cache[category_key] = cursor.lastrowid
 
@@ -944,33 +975,35 @@ def batch_generate_finance_entries():
             ],
         }), 200
 
-    # Get or create all finance categories. The cache is keyed by casefolded
-    # name because finance_categories.name is uniquely indexed with a
-    # case-insensitive collation (see /finance/batch-import).
-    category_cache = {}
-    try:
-        with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM finance_categories")
-            existing_categories = cursor.fetchall()
-            for cat in existing_categories:
-                category_cache[cat["name"].casefold()] = cat["id"]
-    except Error as e:
-        logger.error(f"Database error fetching categories: {e}")
-        return jsonify({"error": "Failed to fetch categories"}), 500
-
+    # The caller is resolved before the categories, because the cache below is
+    # scoped to them.
     user_id = None
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
-            user = cursor.fetchone()
-            if user:
-                user_id = user["id"]
+            user_id = resolve_user_id(cursor, current_user)
     except Error as e:
         logger.error(f"Database error fetching user: {e}")
         return jsonify({"error": "Failed to fetch user"}), 500
 
     if not user_id:
         return jsonify({"error": "User not found"}), 404
+
+    # Get or create the caller's finance categories. The cache is keyed by
+    # casefolded name because the name is uniquely indexed with a
+    # case-insensitive collation (see /finance/batch-import).
+    category_cache = {}
+    try:
+        with app.get_cursor() as cursor:
+            cursor.execute(
+                "SELECT id, name FROM finance_categories WHERE user_id = %s",
+                (user_id,),
+            )
+            existing_categories = cursor.fetchall()
+            for cat in existing_categories:
+                category_cache[cat["name"].casefold()] = cat["id"]
+    except Error as e:
+        logger.error(f"Database error fetching categories: {e}")
+        return jsonify({"error": "Failed to fetch categories"}), 500
 
     results = {"success": 0, "failed": 0, "errors": []}
 
@@ -980,8 +1013,9 @@ def batch_generate_finance_entries():
             if category_key not in category_cache:
                 with app.get_cursor() as cursor:
                     cursor.execute(
-                        "INSERT INTO finance_categories (name) VALUES (%s)",
-                        (normalize_category_name(row["category"]),)
+                        "INSERT INTO finance_categories (user_id, name)"
+                        " VALUES (%s, %s)",
+                        (user_id, normalize_category_name(row["category"])),
                     )
                     category_cache[category_key] = cursor.lastrowid
 

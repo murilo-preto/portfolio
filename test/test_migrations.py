@@ -8,6 +8,7 @@ These are unit tests — the runner is driven against a fake connection, so no
 MySQL is required and they run in the default tier.
 """
 import pytest
+import re
 import sys
 import os
 
@@ -318,6 +319,49 @@ class TestShippedMigrations:
             statements = split_statements(path.read_text(encoding="utf-8"))
             assert statements, f"{path.name} contains no statements"
 
+    def test_no_migration_uses_a_construct_the_splitter_cannot_handle(self):
+        """split_statements has two documented blind spots. Guard against both.
+
+        It strips a line only when the line *starts* with `--` or `#`, then
+        splits the rest on `;`. So a trailing comment on a code line is not
+        removed: the `;` before it ends the statement and the comment text
+        becomes the head of the next one, which then fails to parse as SQL.
+        Block comments are not handled at all.
+
+        Both produce a migration that looks fine in review and breaks at boot,
+        where a failure is not recorded as applied and the next boot retries it
+        from the top. Cheaper to catch here.
+        """
+        offenders = []
+        for path in discover_migrations():
+            for lineno, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), start=1
+            ):
+                if "/*" in line or "*/" in line:
+                    offenders.append(f"{path.name}:{lineno} block comment")
+                    continue
+                stripped = line.strip()
+                if stripped.startswith("--") or stripped.startswith("#"):
+                    continue
+                marker = line.find("--")
+                if marker > 0 and line[:marker].strip():
+                    offenders.append(f"{path.name}:{lineno} trailing comment")
+        assert not offenders, "; ".join(offenders)
+
+    def test_every_shipped_migration_statement_ends_cleanly(self):
+        """No statement may contain a quoted semicolon.
+
+        The splitter has no notion of string literals, so a `;` inside one
+        would cut the statement in half.
+        """
+        for path in discover_migrations():
+            for stmt in split_statements(path.read_text(encoding="utf-8")):
+                quoted = re.findall(r"'([^']*)'", stmt)
+                for literal in quoted:
+                    assert ";" not in literal, (
+                        f"{path.name}: semicolon inside the literal {literal!r}"
+                    )
+
 
 @pytest.mark.integration
 class TestAgainstRealMySQL:
@@ -419,3 +463,108 @@ class TestAgainstRealMySQL:
         free = cursor.fetchone()[0]
         cursor.close()
         assert free == 1, "runner left the advisory lock held"
+
+    # ── Shape of the four scoped lookup tables ────────────────────────────────
+    #
+    # Migrations 004-007 are the security fix: they took `category`,
+    # `finance_categories`, `todo_categories` and `todo_tags` from global —
+    # id and name, UNIQUE on the name alone, served to anonymous callers — to
+    # per-user. These assert the end state against the live schema rather than
+    # against the SQL that was meant to produce it.
+
+    SCOPED_LOOKUPS = [
+        ("category", "uk_category_name", "uk_category_user_name"),
+        (
+            "finance_categories",
+            "uk_finance_category_name",
+            "uk_finance_category_user_name",
+        ),
+        ("todo_categories", "uk_todo_category_name", "uk_todo_category_user_name"),
+        ("todo_tags", "uk_todo_tags_name", "uk_todo_tags_user_name"),
+    ]
+
+    @staticmethod
+    def _unique_indexes(verifier, table):
+        """{index_name: [columns in order]} for the table's UNIQUE indexes."""
+        cursor = verifier.cursor()
+        cursor.execute(
+            """
+            SELECT INDEX_NAME, COLUMN_NAME
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND NON_UNIQUE = 0
+            ORDER BY INDEX_NAME, SEQ_IN_INDEX
+            """,
+            (table,),
+        )
+        indexes = {}
+        for index_name, column in cursor.fetchall():
+            indexes.setdefault(index_name, []).append(column)
+        cursor.close()
+        return indexes
+
+    @pytest.mark.parametrize("table,old_index,new_index", SCOPED_LOOKUPS)
+    def test_lookup_table_is_scoped_to_a_user(self, db, table, old_index, new_index):
+        connect, verifier = db
+        run_migrations(connect)
+
+        cursor = verifier.cursor()
+        cursor.execute(
+            """
+            SELECT IS_NULLABLE FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+              AND COLUMN_NAME = 'user_id'
+            """,
+            (table,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        assert row is not None, f"{table} has no user_id column"
+        assert row[0] == "NO", f"{table}.user_id is still nullable"
+
+        indexes = self._unique_indexes(verifier, table)
+        assert old_index not in indexes, (
+            f"{table} still carries {old_index}; a name is still unique across "
+            f"every user, so two accounts cannot both have it"
+        )
+        assert indexes.get(new_index) == ["user_id", "name"], (
+            f"{table} is missing {new_index} on (user_id, name); got {indexes}"
+        )
+
+    @pytest.mark.parametrize("table", [t for t, _, _ in SCOPED_LOOKUPS])
+    def test_no_lookup_row_is_left_without_an_owner(self, db, table):
+        connect, verifier = db
+        run_migrations(connect)
+
+        cursor = verifier.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE user_id IS NULL")
+        orphans = cursor.fetchone()[0]
+        cursor.close()
+        assert orphans == 0, f"{table} has {orphans} row(s) with no owner"
+
+    @pytest.mark.parametrize("lookup,entries", [
+        ("category", "time_entries"),
+        ("finance_categories", "finance_entries"),
+        ("todo_categories", "todo_items"),
+    ])
+    def test_no_entry_references_another_users_category(self, db, lookup, entries):
+        """The backfill repointed every entry at its own owner's copy.
+
+        If this fails, the migration matched rows across users and the data is
+        wrong in a way no amount of route-level scoping can hide.
+        """
+        connect, verifier = db
+        run_migrations(connect)
+
+        cursor = verifier.cursor()
+        cursor.execute(
+            f"""
+            SELECT COUNT(*) FROM {entries} e
+            JOIN {lookup} c ON c.id = e.category_id
+            WHERE c.user_id <> e.user_id
+            """
+        )
+        mismatched = cursor.fetchone()[0]
+        cursor.close()
+        assert mismatched == 0, (
+            f"{mismatched} {entries} row(s) point at another user's {lookup}"
+        )

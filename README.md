@@ -37,9 +37,17 @@ Next.js API routes act as thin proxies: they attach credentials, handle cookie-b
 
 ## API Endpoints
 
-All 50 routes Flask serves. Seven are unauthenticated — `/health`, `/register`,
-`/login`, and the four category/tag listings; the rest need a JWT, which the
-Next.js proxy attaches from the httpOnly cookie.
+All 50 routes Flask serves. Three are unauthenticated — `/health`, `/register`
+and `/login`; the rest need a JWT, which the Next.js proxy attaches from the
+httpOnly cookie.
+
+The four category and tag listings used to be public as well. They read lookup
+tables that were global — one row per name for the whole installation — so an
+anonymous caller on Flask's published port could enumerate every user's
+category and tag names, finance categories included, which
+`/finance/parse-itau-pdf` fills verbatim from bank statement PDFs. Migrations
+004-007 gave those tables a `user_id`, and each listing now returns only the
+caller's own rows.
 
 ### Health & Auth
 
@@ -90,18 +98,21 @@ Next.js proxy attaches from the httpOnly cookie.
 | PUT    | `/todo/<id>`         | JWT  | Update item (completing a recurring one spawns the next) |
 | POST   | `/todo/delete`       | JWT  | Delete item                                   |
 | POST   | `/todo/bulk-update`  | JWT  | Bulk status update                            |
-| GET    | `/todo/tags`         | No   | List tags                                     |
+| GET    | `/todo/tags`         | JWT  | List your tags                                |
 | POST   | `/todo/tag`          | JWT  | Create tag                                    |
 
 ### Categories
 
 Three independent namespaces — time, finance and todo — with the same shape.
+Each is scoped to its owner: names are unique per `(user_id, name)`, so two
+accounts can both have a "Work" category without sharing a row, and one user's
+categories are invisible to another.
 
 | Method | Route                                  | Auth | Description                    |
 | ------ | -------------------------------------- | ---- | ------------------------------ |
-| GET    | `/get/categories`                      | No   | List time categories           |
-| GET    | `/finance/categories`                  | No   | List finance categories        |
-| GET    | `/todo/categories`                     | No   | List todo categories           |
+| GET    | `/get/categories`                      | JWT  | List your time categories      |
+| GET    | `/finance/categories`                  | JWT  | List your finance categories   |
+| GET    | `/todo/categories`                     | JWT  | List your todo categories      |
 | POST   | `/category`, `/finance/category`, `/todo/category` | JWT | Create           |
 | GET    | `/…/category/usage`                    | JWT  | Entry count per category       |
 | PUT    | `/…/category/<id>`                     | JWT  | Rename                         |
@@ -207,7 +218,7 @@ setup required:
 
 It runs the Next.js route tests first (Vitest; `fetch` is mocked, so it needs
 neither MySQL nor Flask), then the Python tiers against the full stack. Expect
-**649 Python tests and 23 frontend tests, no skips**.
+**707 Python tests and 43 frontend tests, no skips**.
 
 Browser-driven Playwright specs are separate — they need a browser download and
 a running stack:

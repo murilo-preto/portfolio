@@ -203,22 +203,30 @@ class TestCategories:
     """Tests for categories endpoint."""
     
     @patch('app.get_cursor')
-    def test_list_categories(self, mock_cursor_context, client):
-        """Should return list of categories."""
+    def test_list_categories(self, mock_cursor_context, client, sample_jwt_token):
+        """Should return the caller's categories."""
         mock_cursor = MagicMock()
         mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
         mock_cursor.__exit__ = MagicMock(return_value=False)
+        # The first fetchone resolves the token identity to a user id; the
+        # listing is then scoped to it.
+        mock_cursor.fetchone.return_value = {"id": 7}
         mock_cursor.fetchall.return_value = [
             {"id": 1, "name": "Reading"},
             {"id": 2, "name": "Work"}
         ]
         mock_cursor_context.return_value = mock_cursor
-        
-        response = client.get("/get/categories")
+
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.get("/get/categories", headers=headers)
         assert response.status_code == 200
         data = response.get_json()
         assert "categories" in data
         assert len(data["categories"]) == 2
+
+    def test_list_categories_requires_a_token(self, client):
+        """The listing is no longer public: it exposed every user's names."""
+        assert client.get("/get/categories").status_code == 401
 
 
 class TestCreateCategory:
@@ -255,7 +263,8 @@ class TestCreateCategory:
         mock_cursor = MagicMock()
         mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
         mock_cursor.__exit__ = MagicMock(return_value=False)
-        mock_cursor.fetchone.side_effect = [None, {"id": 1, "name": "New"}]
+        # User lookup first, then the scoped existence check finding nothing.
+        mock_cursor.fetchone.side_effect = [{"id": 7}, None]
         mock_cursor.lastrowid = 1
         mock_cursor_context.return_value = mock_cursor
 
@@ -373,18 +382,26 @@ class TestListTodoCategories:
     """Tests for the TODO categories listing endpoint."""
 
     @patch('app.get_cursor')
-    def test_list_todo_categories_success(self, mock_cursor_context, client):
-        """Should return list of TODO categories."""
+    def test_list_todo_categories_success(
+        self, mock_cursor_context, client, sample_jwt_token
+    ):
+        """Should return the caller's TODO categories."""
         mock_cursor = _mock_cursor(mock_cursor_context)
+        mock_cursor.fetchone.return_value = {"id": 7}
         mock_cursor.fetchall.return_value = [
             {"id": 1, "name": "Work"},
             {"id": 2, "name": "Personal"},
         ]
 
-        response = client.get("/todo/categories")
+        headers = {"Authorization": f"Bearer {sample_jwt_token}"}
+        response = client.get("/todo/categories", headers=headers)
         assert response.status_code == 200
         data = response.get_json()
         assert len(data["categories"]) == 2
+
+    def test_list_todo_categories_requires_a_token(self, client):
+        """The listing is no longer public."""
+        assert client.get("/todo/categories").status_code == 401
 
 
 class TestCreateTodoCategory:
@@ -428,7 +445,8 @@ class TestCreateTodoCategory:
     def test_create_todo_category_success(self, mock_cursor_context, client, sample_jwt_token):
         """Should create a new TODO category."""
         mock_cursor = _mock_cursor(mock_cursor_context)
-        mock_cursor.fetchone.return_value = None
+        # User lookup first, then the scoped existence check finding nothing.
+        mock_cursor.fetchone.side_effect = [{"id": 7}, None]
         mock_cursor.lastrowid = 5
 
         headers = {"Authorization": f"Bearer {sample_jwt_token}"}

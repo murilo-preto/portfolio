@@ -145,7 +145,9 @@ def log_focus_session_as_time_entry(
     if not name:
         return None, "No category selected for time logging"
 
-    cursor.execute("SELECT id FROM category WHERE name = %s", (name,))
+    cursor.execute(
+        "SELECT id FROM category WHERE user_id = %s AND name = %s", (user_id, name)
+    )
     category = cursor.fetchone()
     if not category:
         return None, f"Category {name!r} no longer exists"

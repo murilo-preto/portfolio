@@ -165,6 +165,13 @@ def normalize_existing_finance_categories():
     do, and finance_entries reference categories by id, so renaming only
     changes the displayed name. Runs per gunicorn worker, hence the
     tolerance for a concurrent worker having renamed a row first.
+
+    Since migration 005 the table is scoped per user, which changes nothing
+    here -- rows are selected and renamed by id either way -- except the
+    arithmetic in the log line. One shouted name shared by N accounts was one
+    row before and is N rows now, so the first boot after that migration
+    reports a count around N times what the same data would have reported
+    before. Nothing is wrong when that number looks large.
     """
     try:
         with get_cursor() as cursor:
@@ -184,7 +191,10 @@ def normalize_existing_finance_categories():
                     renamed += 1
                 except Error as e:
                     # Only reachable if normalizing collapses two names onto
-                    # one another; leave both alone rather than merging.
+                    # one another within a single account -- the UNIQUE is
+                    # (user_id, name) -- so two users owning names that
+                    # normalize alike do not collide. Leave both alone rather
+                    # than merging.
                     logger.warning(
                         f"Skipped renaming category {row['name']!r}: {e}"
                     )

@@ -3,6 +3,7 @@ Flask Backend Integration Tests
 Tests for the Flask API endpoints with database integration
 """
 import pytest
+import re
 import sys
 import os
 from datetime import datetime, timezone, timedelta
@@ -158,14 +159,21 @@ class TestCategoryIntegration:
     """Integration tests for categories."""
     
     @pytest.mark.integration
-    def test_list_categories_from_db(self, client):
-        """Should retrieve categories from database."""
-        response = client.get("/get/categories")
-        
+    def test_list_categories_from_db(self, client, auth_token):
+        """Should retrieve the caller's categories from the database."""
+        response = client.get(
+            "/get/categories", headers={"Authorization": f"Bearer {auth_token}"}
+        )
+
         assert response.status_code == 200
         data = response.get_json()
         assert "categories" in data
         assert isinstance(data["categories"], list)
+
+    @pytest.mark.integration
+    def test_list_categories_requires_a_token(self, client):
+        """Anonymous callers used to get every user's category names."""
+        assert client.get("/get/categories").status_code == 401
     
     @pytest.mark.integration
     def test_create_new_category(self, client, auth_token):
@@ -293,13 +301,20 @@ class TestFinanceEntryIntegration:
     """Integration tests for finance entries."""
     
     @pytest.mark.integration
-    def test_list_finance_categories(self, client):
-        """Should retrieve finance categories from database."""
-        response = client.get("/finance/categories")
-        
+    def test_list_finance_categories(self, client, auth_token):
+        """Should retrieve the caller's finance categories."""
+        response = client.get(
+            "/finance/categories", headers={"Authorization": f"Bearer {auth_token}"}
+        )
+
         assert response.status_code == 200
         data = response.get_json()
         assert "categories" in data
+
+    @pytest.mark.integration
+    def test_list_finance_categories_requires_a_token(self, client):
+        """These names come out of statement PDFs; they were public."""
+        assert client.get("/finance/categories").status_code == 401
     
     @pytest.mark.integration
     def test_create_finance_category(self, client, auth_token):
@@ -841,3 +856,90 @@ class TestPlannedEntriesCompleteWhenDue:
         )
         assert login.status_code == 200
         return {"username": username, "token": login.get_json()["access_token"]}
+
+
+class TestRegistrationSeedsDefaultCategories:
+    """A new account starts with its own copy of the default categories.
+
+    The lookup tables are scoped per user since migrations 004-007, so nothing
+    is shared and a fresh account would otherwise open every picker empty.
+    mysql/schema.sql still seeds the installation-wide rows at :26 and :111 —
+    those are unowned, the migrations delete them, and this is what replaces
+    them going forward.
+    """
+
+    @pytest.mark.integration
+    def test_new_user_gets_the_time_defaults(self, client):
+        from categories import DEFAULT_TIME_CATEGORIES
+
+        username = f"seeded_{datetime.now().timestamp()}"
+        client.post("/register", json={"username": username, "password": "testpass123"})
+        token = client.post(
+            "/login", json={"username": username, "password": "testpass123"}
+        ).get_json()["access_token"]
+
+        response = client.get(
+            "/get/categories", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        names = {c["name"] for c in response.get_json()["categories"]}
+        assert names == set(DEFAULT_TIME_CATEGORIES)
+
+    @pytest.mark.integration
+    def test_new_user_gets_the_todo_defaults(self, client):
+        from categories import DEFAULT_TODO_CATEGORIES
+
+        username = f"seeded_todo_{datetime.now().timestamp()}"
+        client.post("/register", json={"username": username, "password": "testpass123"})
+        token = client.post(
+            "/login", json={"username": username, "password": "testpass123"}
+        ).get_json()["access_token"]
+
+        response = client.get(
+            "/todo/categories", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        names = {c["name"] for c in response.get_json()["categories"]}
+        assert names == set(DEFAULT_TODO_CATEGORIES)
+
+    @pytest.mark.integration
+    def test_finance_and_tags_start_empty(self, client):
+        """Neither gets defaults: schema.sql seeds none, finance names come out
+        of statement PDFs, and an unattached tag has no meaning."""
+        username = f"seeded_empty_{datetime.now().timestamp()}"
+        client.post("/register", json={"username": username, "password": "testpass123"})
+        token = client.post(
+            "/login", json={"username": username, "password": "testpass123"}
+        ).get_json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        assert client.get("/finance/categories", headers=headers).get_json()[
+            "categories"
+        ] == []
+        assert client.get("/todo/tags", headers=headers).get_json()["tags"] == []
+
+    def test_defaults_match_the_frozen_baseline(self):
+        """The two lists in categories.py must keep saying what schema.sql seeds.
+
+        schema.sql is frozen and cannot be edited to follow the code, so the
+        only thing keeping them in step is this assertion.
+        """
+        from pathlib import Path
+
+        from categories import DEFAULT_TIME_CATEGORIES, DEFAULT_TODO_CATEGORIES
+
+        schema = Path(__file__).resolve().parents[1] / "mysql" / "schema.sql"
+        sql = schema.read_text()
+
+        for table, expected in (
+            ("category", DEFAULT_TIME_CATEGORIES),
+            ("todo_categories", DEFAULT_TODO_CATEGORIES),
+        ):
+            marker = f"INSERT INTO {table} (name) VALUES"
+            assert marker in sql, f"{table} seed block moved or was renamed"
+            block = sql.split(marker, 1)[1].split(";", 1)[0]
+            seeded = set(re.findall(r"'([^']+)'", block))
+            assert seeded == set(expected), (
+                f"{table}: schema.sql seeds {seeded}, categories.py says "
+                f"{set(expected)}"
+            )

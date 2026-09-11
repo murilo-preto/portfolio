@@ -226,7 +226,10 @@ def create_time_entry():
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            cursor.execute("SELECT id FROM category WHERE name = %s", (category_name,))
+            cursor.execute(
+                "SELECT id FROM category WHERE user_id = %s AND name = %s",
+                (user["id"], category_name),
+            )
             category = cursor.fetchone()
 
             if not category:
@@ -328,7 +331,7 @@ def update_time_entry(entry_id):
             # Verify entry belongs to this user
             cursor.execute(
                 """
-                SELECT te.id FROM time_entries te
+                SELECT te.id, te.user_id FROM time_entries te
                 JOIN users u ON te.user_id = u.id
                 WHERE te.id = %s AND u.username = %s
                 """,
@@ -339,8 +342,12 @@ def update_time_entry(entry_id):
             if not entry:
                 return jsonify({"error": "Entry not found or access denied"}), 404
 
-            # Resolve category
-            cursor.execute("SELECT id FROM category WHERE name = %s", (category_name,))
+            # Resolve the category within the owner, so a name the caller does
+            # not have cannot attach their entry to someone else's row.
+            cursor.execute(
+                "SELECT id FROM category WHERE user_id = %s AND name = %s",
+                (entry["user_id"], category_name),
+            )
             category = cursor.fetchone()
 
             if not category:
@@ -352,9 +359,13 @@ def update_time_entry(entry_id):
                 assignments.append("note = %s")
                 values.append(note)
             values.append(entry_id)
+            values.append(entry["user_id"])
 
+            # user_id repeats the guard above rather than trusting it, the same
+            # defense in depth _move_entries uses in category_admin.py.
             cursor.execute(
-                f"UPDATE time_entries SET {', '.join(assignments)} WHERE id = %s",
+                f"UPDATE time_entries SET {', '.join(assignments)}"
+                " WHERE id = %s AND user_id = %s",
                 tuple(values),
             )
 
@@ -462,11 +473,13 @@ def batch_import_time_entries():
         logger.error(f"Database error fetching user: {e}")
         return jsonify({"error": "Failed to fetch user"}), 500
 
-    # First, get or create all categories
+    # Get or create the caller's categories.
     category_cache = {}
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM category")
+            cursor.execute(
+                "SELECT id, name FROM category WHERE user_id = %s", (user_id,)
+            )
             existing_categories = cursor.fetchall()
             for cat in existing_categories:
                 category_cache[cat["name"]] = cat["id"]
@@ -502,8 +515,8 @@ def batch_import_time_entries():
             if category_name not in category_cache:
                 with app.get_cursor() as cursor:
                     cursor.execute(
-                        "INSERT INTO category (name) VALUES (%s)",
-                        (category_name,)
+                        "INSERT INTO category (user_id, name) VALUES (%s, %s)",
+                        (user_id, category_name),
                     )
                     category_cache[category_name] = cursor.lastrowid
 

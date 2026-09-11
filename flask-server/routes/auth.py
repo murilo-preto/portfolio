@@ -22,6 +22,8 @@ from rate_limit import (
     too_many_failed_logins,
 )
 
+from categories import DEFAULT_TIME_CATEGORIES, DEFAULT_TODO_CATEGORIES
+
 import app
 
 logger = logging.getLogger(__name__)
@@ -77,6 +79,25 @@ def register_user():
                 (username, pwd_hash),
             )
             user_id = cursor.lastrowid
+
+            # The category tables are scoped per user, so a new account owns
+            # nothing and would open every picker empty. Seeding runs on the
+            # same cursor, inside the one transaction get_cursor() opened, so a
+            # seed that fails takes the half-made account down with it rather
+            # than leaving one that can never categorize anything.
+            #
+            # Neither insert can raise IntegrityError: the id is fresh, so
+            # nothing can already occupy (user_id, name). That matters because
+            # the handler below answers IntegrityError with "Username already
+            # exists", which would be a lie about a seed failure.
+            cursor.executemany(
+                "INSERT INTO category (user_id, name) VALUES (%s, %s)",
+                [(user_id, name) for name in DEFAULT_TIME_CATEGORIES],
+            )
+            cursor.executemany(
+                "INSERT INTO todo_categories (user_id, name) VALUES (%s, %s)",
+                [(user_id, name) for name in DEFAULT_TODO_CATEGORIES],
+            )
 
         return jsonify(
             {

@@ -4,7 +4,7 @@ What the suite proves, tier by tier. For how to run it, see
 [`test/README.md`](test/README.md); the short version is `./run_tests.sh`,
 which runs everything inside Docker.
 
-**649 Python tests and 23 frontend tests, no skips.** A skip is a real problem
+**707 Python tests and 43 frontend tests, no skips.** A skip is a real problem
 here, not background noise — the two that used to be permanent were stale
 (they predated rate limiting being disabled for tests) and are gone.
 
@@ -42,6 +42,9 @@ SQL.
 **Security.** Every resource is checked for IDOR — one user reaching another's
 rows. Auth bypass covers a missing token, an expired one, a tampered payload
 and `alg:none`. SQL injection is attempted through every user-controlled field.
+`TestLookupTableIsolation` covers the category and tag tables specifically:
+they were global and served without a token, so one user's names reached
+everyone, and the four listings are now both authenticated and scoped.
 
 **E2E.** Each service answers; the network path from the browser through
 Next.js to Flask to MySQL works end to end; a full register→login flow

@@ -227,18 +227,35 @@ class TestCategoryUsage:
         row = _usage_for(client, owner, category_id)
         assert row["mine"] == 1
 
-    def test_other_users_entries_count_as_others(self, client, owner, intruder):
+    def test_the_same_name_gives_each_user_their_own_category(
+        self, client, owner, intruder
+    ):
+        """A name used by two people is two rows now, not one shared one.
+
+        This test used to assert the opposite — that the intruder's entry
+        showed up in the owner's usage view as `others == 1` — because the
+        lookup tables were global and a name belonged to the installation.
+        Since migrations 004-007 a category belongs to one account, so the two
+        users get distinct ids and neither appears in the other's view at all.
+        """
         name = _unique("Shared")
-        category_id = _create_category(client, owner, name)
+        owner_category_id = _create_category(client, owner, name)
+        intruder_category_id = _create_category(client, intruder, name)
+        assert owner_category_id != intruder_category_id
+
         _create_time_entry(client, intruder, name)
 
-        mine_view = _usage_for(client, owner, category_id)
+        mine_view = _usage_for(client, owner, owner_category_id)
         assert mine_view["mine"] == 0
-        assert mine_view["others"] == 1
+        assert mine_view["others"] == 0
 
-        their_view = _usage_for(client, intruder, category_id)
+        their_view = _usage_for(client, intruder, intruder_category_id)
         assert their_view["mine"] == 1
         assert their_view["others"] == 0
+
+        # Neither user's usage listing mentions the other's row.
+        assert _usage_for(client, owner, intruder_category_id) is None
+        assert _usage_for(client, intruder, owner_category_id) is None
 
     def test_finance_and_todo_usage_endpoints_answer(self, client, owner):
         for path in ("/finance/category/usage", "/todo/category/usage"):
@@ -444,84 +461,106 @@ class TestMergeCategory:
 
 @pytest.mark.integration
 class TestCategoryOwnership:
-    """The lookup tables have no user_id, so every operation has to check that
-    nobody else's entries are riding on the category first."""
+    """Another user's category is not refused — it is not found.
 
-    def test_cannot_delete_a_category_another_user_is_using(
+    These tests used to assert 409s. The lookup tables were global: a category
+    was one row for the whole installation, two people could have entries in
+    the same row, and the guard's job was to stop one of them renaming or
+    deleting it out from under the other. It answered 409 and reported how many
+    entries the stranger had, which was itself a disclosure about their data.
+
+    Since migrations 004-007 a category belongs to one account. `_load` is
+    scoped to the caller, so someone else's id does not resolve at all and the
+    answer is 404. That is strictly stronger: it leaks neither the row's
+    existence nor anyone's usage of it. The 409 path still exists in
+    category_admin as an invariant check and is documented there as
+    unreachable.
+    """
+
+    def test_another_users_category_cannot_be_deleted(self, client, owner, intruder):
+        name = _unique("Theirs")
+        theirs_id = _create_category(client, intruder, name)
+        _create_time_entry(client, intruder, name)
+
+        response = client.delete(f"/category/{theirs_id}", headers=owner)
+
+        assert response.status_code == 404
+        # Their category and their entry are both untouched.
+        assert _usage_for(client, intruder, theirs_id)["mine"] == 1
+
+    def test_reassigning_to_another_users_category_is_not_found(
         self, client, owner, intruder
     ):
-        name = _unique("Theirs")
-        category_id = _create_category(client, owner, name)
-        _create_time_entry(client, intruder, name)
-
-        response = client.delete(f"/category/{category_id}", headers=owner)
-
-        assert response.status_code == 409
-        assert response.get_json()["usage"]["others"] == 1
-        # And the other user's entry is untouched.
-        assert _usage_for(client, intruder, category_id)["mine"] == 1
-
-    def test_cannot_reassign_around_the_guard(self, client, owner, intruder):
-        """Naming a replacement must not become a way to move someone else's
-        entries out from under them."""
-        name = _unique("TheirsToo")
-        category_id = _create_category(client, owner, name)
-        elsewhere_id = _create_category(client, owner, _unique("Elsewhere"))
-        _create_time_entry(client, intruder, name)
+        """Naming a replacement must not become a way to reach another user's
+        rows, nor to move the caller's entries into a category they do not own."""
+        mine_name = _unique("Mine")
+        mine_id = _create_category(client, owner, mine_name)
+        _create_time_entry(client, owner, mine_name)
+        theirs_id = _create_category(client, intruder, _unique("Elsewhere"))
 
         response = client.delete(
-            f"/category/{category_id}",
+            f"/category/{mine_id}",
             headers=owner,
-            json={"reassign_to": elsewhere_id},
+            json={"reassign_to": theirs_id},
         )
 
-        assert response.status_code == 409
-        assert _usage_for(client, intruder, category_id)["mine"] == 1
-        assert _usage_for(client, intruder, elsewhere_id)["mine"] == 0
+        assert response.status_code == 404
+        # The caller's own category and entry survive the refusal.
+        assert _usage_for(client, owner, mine_id)["mine"] == 1
+        assert _usage_for(client, intruder, theirs_id)["mine"] == 0
 
-    def test_cannot_merge_a_category_another_user_is_using(
+    def test_merging_into_another_users_category_is_not_found(
         self, client, owner, intruder
     ):
-        name = _unique("TheirsMerge")
-        source_id = _create_category(client, owner, name)
-        target_id = _create_category(client, owner, _unique("MergeTarget"))
-        _create_time_entry(client, intruder, name)
+        source_name = _unique("MineMerge")
+        source_id = _create_category(client, owner, source_name)
+        _create_time_entry(client, owner, source_name)
+        theirs_id = _create_category(client, intruder, _unique("TheirTarget"))
 
         response = client.post(
-            f"/category/{source_id}/merge", headers=owner, json={"into": target_id}
+            f"/category/{source_id}/merge", headers=owner, json={"into": theirs_id}
         )
 
-        assert response.status_code == 409
-        assert _usage_for(client, intruder, source_id)["mine"] == 1
+        assert response.status_code == 404
+        assert _usage_for(client, owner, source_id)["mine"] == 1
+        assert _usage_for(client, intruder, theirs_id)["mine"] == 0
 
-    def test_cannot_rename_a_category_another_user_is_using(
-        self, client, owner, intruder
-    ):
+    def test_another_users_category_cannot_be_renamed(self, client, owner, intruder):
         name = _unique("TheirsRename")
-        category_id = _create_category(client, owner, name)
-        _create_time_entry(client, intruder, name)
+        theirs_id = _create_category(client, intruder, name)
 
         response = client.put(
-            f"/category/{category_id}", headers=owner, json={"name": _unique("Hijack")}
+            f"/category/{theirs_id}", headers=owner, json={"name": _unique("Hijack")}
         )
 
-        assert response.status_code == 409
-        assert _usage_for(client, intruder, category_id)["name"] == name
+        assert response.status_code == 404
+        assert _usage_for(client, intruder, theirs_id)["name"] == name
 
-    def test_merge_only_moves_the_callers_entries(self, client, owner, intruder):
-        """The owner's merge of a category they share the *target* of must not
-        disturb the other user's rows in that target."""
+    def test_operations_on_a_shared_name_leave_the_other_user_alone(
+        self, client, owner, intruder
+    ):
+        """Both users own a category with the same name. The owner merging
+        theirs away must not disturb the intruder's identically-named row."""
+        shared_name = _unique("SharedName")
         source_name = _unique("MineOnly")
-        target_name = _unique("SharedTarget")
+
+        owner_target_id = _create_category(client, owner, shared_name)
+        intruder_target_id = _create_category(client, intruder, shared_name)
+        assert owner_target_id != intruder_target_id
+
         source_id = _create_category(client, owner, source_name)
-        target_id = _create_category(client, owner, target_name)
         _create_time_entry(client, owner, source_name)
-        _create_time_entry(client, intruder, target_name)
+        _create_time_entry(client, intruder, shared_name)
 
         response = client.post(
-            f"/category/{source_id}/merge", headers=owner, json={"into": target_id}
+            f"/category/{source_id}/merge",
+            headers=owner,
+            json={"into": owner_target_id},
         )
 
         assert response.status_code == 200
-        assert _usage_for(client, owner, target_id)["mine"] == 1
-        assert _usage_for(client, intruder, target_id)["mine"] == 1
+        assert _usage_for(client, owner, owner_target_id)["mine"] == 1
+        # The intruder's row with the same name is untouched, and the owner's
+        # merge never appeared in their listing at all.
+        assert _usage_for(client, intruder, intruder_target_id)["mine"] == 1
+        assert _usage_for(client, intruder, owner_target_id) is None

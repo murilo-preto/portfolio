@@ -3,14 +3,21 @@ import { fetchWithTokenRefresh } from "@/lib/flask-client";
 import { FLASK_BASE_URL } from "@/lib/constants";
 
 /**
- * Shared plumbing for the category rename/delete/merge proxies.
+ * Shared plumbing for the category and tag proxies.
  *
- * There are three category namespaces (time, finance, TODO) and four routes
- * each, all of them the same thin forward: take the JSON body if there is one,
- * attach the access token, hand Flask's answer back untouched so the UI sees
- * the real 400/404/409 and the message that came with it.
+ * Three category namespaces (time, finance, TODO) with four admin routes each,
+ * plus the four listings those namespaces are read through — all of them the
+ * same thin forward: take the JSON body if there is one, attach the access
+ * token, hand Flask's answer back untouched so the UI sees the real
+ * 400/401/404/409 and the message that came with it.
+ *
+ * Handing the answer back untouched is the point. The four listings used to
+ * hand-roll their own fetch and replace Flask's body with a flat
+ * `{ error: "Failed to fetch categories" }`, which would now turn a 401 —
+ * session expired, log in again — into something the UI cannot tell apart
+ * from a server fault.
  */
-export async function proxyCategoryAdmin(
+export async function proxyFlaskJson(
   flaskPath: string,
   method: "GET" | "PUT" | "POST" | "DELETE",
   req?: Request,

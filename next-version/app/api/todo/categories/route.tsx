@@ -1,25 +1,7 @@
-import { FLASK_BASE_URL } from "@/lib/constants";
+import { proxyFlaskJson } from "@/lib/category-proxy";
 
+// Authenticated since the lookup tables were scoped per user: this listing
+// returns only the caller's rows, so it needs their token to know who that is.
 export async function GET() {
-  let flaskRes: Response;
-
-  try {
-    flaskRes = await fetch(`${FLASK_BASE_URL}/todo/categories`);
-  } catch (err) {
-    console.error("Failed to reach Flask:", err);
-    return Response.json(
-      { error: "Could not reach Flask service" },
-      { status: 502 },
-    );
-  }
-
-  if (!flaskRes.ok) {
-    return Response.json(
-      { error: "Failed to fetch TODO categories" },
-      { status: flaskRes.status },
-    );
-  }
-
-  const data = await flaskRes.json();
-  return Response.json(data);
+  return proxyFlaskJson("/todo/categories", "GET");
 }

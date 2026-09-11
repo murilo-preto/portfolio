@@ -7,16 +7,27 @@ the logic lives here once and app.py wires three thin route trios onto it.
 
 Ownership
 ---------
-The lookup tables are global — no `user_id` column, and names are UNIQUE across
-every user. Renaming or deleting a row therefore changes what *everyone* sees,
-so every operation here first counts how many entries reference the category and
-who owns them:
+The lookup tables carry a `user_id` and names are UNIQUE per `(user_id, name)`,
+so a category belongs to exactly one person and renaming or deleting it changes
+only what its owner sees. `_load` is scoped to the caller, which means another
+user's category id is a 404 here — not found, rather than found and refused.
 
-* rows owned by other users  -> the operation is refused (409). This is the
-  ownership guard: a user can never rename away, delete, or relocate a category
-  another user's entries depend on.
-* rows owned by the caller   -> see below.
-* no rows at all             -> free to rename or delete.
+They were global until migrations 004-007: one row per name for the whole
+installation, served to anonymous callers by the four listing endpoints. Two
+things survive from that arrangement and are worth understanding before editing
+this module.
+
+The first is `_usage`, which still counts entries by owner and still refuses
+with 409 when `others` is non-zero. That branch is now unreachable: `_load`
+hands back only the caller's rows, and every write path resolves a category by
+`(user_id, name)`, so no entry can reference a category belonging to someone
+else. It is kept because that is an invariant rather than a guarantee — the same
+reason `_move_entries` keeps a `user_id` predicate the callers have already
+made redundant. `others` is therefore always 0, and `list_with_usage` still
+reports it.
+
+The second is that none of this is what stops cross-user access any more. The
+routes scope by owner; this module's guards are the second line, not the first.
 
 The RESTRICT foreign key
 ------------------------
@@ -103,9 +114,17 @@ def coerce_id(value):
     return parsed if parsed > 0 else None
 
 
-def _load(cursor, namespace, category_id):
+def _load(cursor, namespace, category_id, user_id):
+    """The caller's category with this id, or None.
+
+    Scoped to the owner, so another user's id is simply not found. That is a
+    stronger answer than the 409 this used to reach: the 409 confirmed the row
+    existed and reported how many entries strangers had in it, which is an
+    existence oracle over other people's data.
+    """
     cursor.execute(
-        f"SELECT id, name FROM {namespace.table} WHERE id = %s", (category_id,)
+        f"SELECT id, name FROM {namespace.table} WHERE id = %s AND user_id = %s",
+        (category_id, user_id),
     )
     return cursor.fetchone()
 
@@ -127,12 +146,21 @@ def _usage(cursor, namespace, category_id, user_id):
 
 
 def _shared_error(namespace, category, others):
-    """The 409 returned when someone else's entries are in the way."""
+    """The 409 returned when someone else's entries are in the way.
+
+    Unreachable by construction now that the tables are per-user: _load only
+    returns the caller's rows, and every write path resolves a category by
+    (user_id, name), so nothing can point an entry at another user's category.
+    It is kept rather than deleted because that is an invariant, not a
+    guarantee -- the same reasoning _move_entries states for its own redundant
+    user_id predicate. Reaching this means something upstream is wrong, so it
+    says so instead of describing a normal outcome.
+    """
     return {
         "error": (
-            f'"{category["name"]}" is shared: {others} '
-            f"{'entry' if others == 1 else 'entries'} belonging to other users "
-            f"use it, so it cannot be renamed, deleted, or merged."
+            f'"{category["name"]}" cannot be renamed, deleted, or merged: '
+            f"{others} {'entry' if others == 1 else 'entries'} belonging to "
+            f"other users reference it, which should not be possible."
         ),
         "usage": {"others": others},
     }, 409
@@ -169,10 +197,11 @@ def list_with_usage(cursor, namespace, user_id):
                COALESCE(SUM(e.user_id <> %s), 0) AS others
         FROM {namespace.table} c
         LEFT JOIN {namespace.entry_table} e ON e.category_id = c.id
+        WHERE c.user_id = %s
         GROUP BY c.id, c.name
         ORDER BY c.name
         """,
-        (user_id, user_id),
+        (user_id, user_id, user_id),
     )
     return [
         {
@@ -187,7 +216,7 @@ def list_with_usage(cursor, namespace, user_id):
 
 def rename(cursor, namespace, category_id, raw_name, user_id):
     """Rename a category. (payload, status)."""
-    category = _load(cursor, namespace, category_id)
+    category = _load(cursor, namespace, category_id, user_id)
     if not category:
         return {"error": f"{namespace.label} not found"}, 404
 
@@ -209,11 +238,14 @@ def rename(cursor, namespace, category_id, raw_name, user_id):
             "category": {"id": category_id, "name": name},
         }, 200
 
-    # Names are UNIQUE per table. Checking first turns what would otherwise
-    # surface as a 500 from the constraint into a 409 the UI can explain.
+    # Names are UNIQUE per (user_id, name). Checking first turns what would
+    # otherwise surface as a 500 from the constraint into a 409 the UI can
+    # explain, and scoping it means a rename can only ever collide with one of
+    # the caller's own names.
     cursor.execute(
-        f"SELECT id FROM {namespace.table} WHERE name = %s AND id <> %s",
-        (name, category_id),
+        f"SELECT id FROM {namespace.table}"
+        " WHERE user_id = %s AND name = %s AND id <> %s",
+        (user_id, name, category_id),
     )
     if cursor.fetchone():
         return {
@@ -224,7 +256,8 @@ def rename(cursor, namespace, category_id, raw_name, user_id):
         }, 409
 
     cursor.execute(
-        f"UPDATE {namespace.table} SET name = %s WHERE id = %s", (name, category_id)
+        f"UPDATE {namespace.table} SET name = %s WHERE id = %s AND user_id = %s",
+        (name, category_id, user_id),
     )
 
     return {
@@ -237,7 +270,7 @@ def rename(cursor, namespace, category_id, raw_name, user_id):
 def delete(cursor, namespace, category_id, reassign_to, user_id):
     """Delete a category, optionally moving the caller's entries to
     `reassign_to` first. See the module docstring on the RESTRICT FK."""
-    category = _load(cursor, namespace, category_id)
+    category = _load(cursor, namespace, category_id, user_id)
     if not category:
         return {"error": f"{namespace.label} not found"}, 404
 
@@ -260,13 +293,16 @@ def delete(cursor, namespace, category_id, reassign_to, user_id):
         if reassign_to == category_id:
             return {"error": "Cannot reassign a category to itself"}, 400
 
-        target = _load(cursor, namespace, reassign_to)
+        target = _load(cursor, namespace, reassign_to, user_id)
         if not target:
             return {"error": "Replacement category not found"}, 404
 
         moved = _move_entries(cursor, namespace, category_id, reassign_to, user_id)
 
-    cursor.execute(f"DELETE FROM {namespace.table} WHERE id = %s", (category_id,))
+    cursor.execute(
+        f"DELETE FROM {namespace.table} WHERE id = %s AND user_id = %s",
+        (category_id, user_id),
+    )
 
     return {
         "message": "Category deleted successfully",
@@ -285,11 +321,11 @@ def merge(cursor, namespace, source_id, target_id, user_id):
     if target_id == source_id:
         return {"error": "Cannot merge a category into itself"}, 400
 
-    source = _load(cursor, namespace, source_id)
+    source = _load(cursor, namespace, source_id, user_id)
     if not source:
         return {"error": f"{namespace.label} not found"}, 404
 
-    target = _load(cursor, namespace, target_id)
+    target = _load(cursor, namespace, target_id, user_id)
     if not target:
         return {"error": "Target category not found"}, 404
 
@@ -298,7 +334,10 @@ def merge(cursor, namespace, source_id, target_id, user_id):
         return _shared_error(namespace, source, others)
 
     moved = _move_entries(cursor, namespace, source_id, target_id, user_id)
-    cursor.execute(f"DELETE FROM {namespace.table} WHERE id = %s", (source_id,))
+    cursor.execute(
+        f"DELETE FROM {namespace.table} WHERE id = %s AND user_id = %s",
+        (source_id, user_id),
+    )
 
     return {
         "message": "Categories merged successfully",

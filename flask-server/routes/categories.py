@@ -16,6 +16,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from mysql.connector import Error
 
 import category_admin
+from users import resolve_user_id
 
 import app
 
@@ -24,18 +25,33 @@ logger = logging.getLogger(__name__)
 categories_bp = Blueprint("categories", __name__)
 
 
+# Exempt from the default limits. The pickers on the entries, timer, pomodoro
+# and manage screens each fetch this on mount and lib/prefetch.ts warms it again
+# on hover, so a working session reaches 100/hour without trying. It is a single
+# indexed read of the caller's own rows, and it is no longer anonymous, so there
+# is nothing here worth rationing.
 @categories_bp.route("/get/categories", methods=["GET"])
+@app.limiter.exempt
+@jwt_required()
 def list_categories():
     """
-    List all categories.
+    List the caller's categories.
 
     Returns:
         200: List of categories
+        404: User not found
         500: Server error
     """
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM category ORDER BY name")
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id, name FROM category WHERE user_id = %s ORDER BY name",
+                (user_id,),
+            )
             categories = cursor.fetchall()
 
         return jsonify({"categories": categories}), 200
@@ -76,7 +92,14 @@ def create_category():
 
     try:
         with app.get_cursor() as cursor:
-            cursor.execute("SELECT id, name FROM category WHERE name = %s", (name,))
+            user_id = resolve_user_id(cursor, get_jwt_identity())
+            if user_id is None:
+                return jsonify({"error": "User not found"}), 404
+
+            cursor.execute(
+                "SELECT id, name FROM category WHERE user_id = %s AND name = %s",
+                (user_id, name),
+            )
             existing = cursor.fetchone()
 
             if existing:
@@ -84,7 +107,10 @@ def create_category():
                     {"message": "Category already exists", "category": existing}
                 ), 200
 
-            cursor.execute("INSERT INTO category (name) VALUES (%s)", (name,))
+            cursor.execute(
+                "INSERT INTO category (user_id, name) VALUES (%s, %s)",
+                (user_id, name),
+            )
             category_id = cursor.lastrowid
 
         return jsonify(
@@ -106,12 +132,6 @@ def create_category():
 # hand it a cursor, so the whole operation runs in one transaction.
 
 
-def _resolve_user_id(cursor, username):
-    cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
-    row = cursor.fetchone()
-    return row["id"] if row else None
-
-
 def _run_category_admin(namespace, operation):
     """Open one transaction, resolve the caller, and run `operation` in it.
 
@@ -121,7 +141,7 @@ def _run_category_admin(namespace, operation):
     """
     try:
         with app.get_cursor() as cursor:
-            user_id = _resolve_user_id(cursor, get_jwt_identity())
+            user_id = resolve_user_id(cursor, get_jwt_identity())
             if user_id is None:
                 return jsonify({"error": "User not found"}), 404
 

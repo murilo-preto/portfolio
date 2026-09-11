@@ -384,3 +384,103 @@ describe("client address forwarding", () => {
     expect(sent.Authorization).toBe("Bearer stored-token");
   });
 });
+
+describe("category and tag listing proxies", () => {
+  /**
+   * These four routes hand-rolled a bare `fetch()` with no token, because the
+   * Flask endpoints behind them were public. They are not any more: the lookup
+   * tables carry a `user_id` and the listings return only the caller's rows, so
+   * a proxy that forgets the credential now returns an empty picker with no
+   * explanation rather than someone else's data.
+   *
+   * That is the same failure this file's own comment records shipping once
+   * before, on POST /api/category — a bare fetch in a route handler carries
+   * none of the browser's cookies, and nothing noticed for months.
+   */
+  const LISTINGS = [
+    { route: "@/app/api/categories/route", flask: "/get/categories" },
+    { route: "@/app/api/finance/categories/route", flask: "/finance/categories" },
+    { route: "@/app/api/todo/categories/route", flask: "/todo/categories" },
+    { route: "@/app/api/todo/tags/route", flask: "/todo/tags" },
+  ];
+
+  it.each(LISTINGS)(
+    "$flask refuses without a cookie, and never reaches Flask",
+    async ({ route }) => {
+      const { GET } = await import(route);
+      const response = await GET();
+
+      expect(response.status).toBe(401);
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(LISTINGS)("$flask forwards the bearer token", async ({ route, flask }) => {
+    cookieJar.set("access_token", "stored-token");
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      flaskJson(200, { categories: [], tags: [] }),
+    );
+
+    const { GET } = await import(route);
+    await GET();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe(`${FLASK}${flask}`);
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      "Bearer stored-token",
+    );
+  });
+
+  it.each(LISTINGS)(
+    "$flask relays Flask's own error body rather than replacing it",
+    async ({ route }) => {
+      cookieJar.set("access_token", "expired-token");
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        flaskJson(401, { error: "Token has expired" }),
+      );
+
+      const { GET } = await import(route);
+      const response = await GET();
+
+      expect(response.status).toBe(401);
+      // The old handlers answered `{ error: "Failed to fetch categories" }`
+      // here, losing the reason and making an expired session look like a
+      // server fault.
+      expect(await response.json()).toEqual({ error: "Token has expired" });
+    },
+  );
+
+  it.each(LISTINGS)("$flask relays the client address when configured", async ({
+    route,
+  }) => {
+    process.env.INTERNAL_PROXY_SECRET = "shared-secret";
+    incomingHeaders.set("x-forwarded-for", "203.0.113.7");
+    cookieJar.set("access_token", "stored-token");
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      flaskJson(200, { categories: [] }),
+    );
+
+    const { GET } = await import(route);
+    await GET();
+
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["X-Proxy-Auth"]).toBe("shared-secret");
+    expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
+  });
+
+  it.each(LISTINGS)("$flask answers 502 when Flask is unreachable", async ({
+    route,
+  }) => {
+    cookieJar.set("access_token", "stored-token");
+    (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new TypeError("fetch failed"),
+    );
+
+    const { GET } = await import(route);
+    const response = await GET();
+
+    expect(response.status).toBe(502);
+  });
+});

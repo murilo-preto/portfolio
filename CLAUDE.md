@@ -35,7 +35,7 @@ One command covers both tiers:
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **649 Python tests and 23
+integration, e2e — against the full stack. Expect **707 Python tests and 43
 frontend tests, with no skips**; anything skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -109,6 +109,30 @@ Next.js API routes are thin proxies: they attach credentials, handle cookie-base
 - `lib/flask-client.ts` (`fetchWithTokenRefresh`) transparently refreshes expired access tokens before retrying requests
 - Flask endpoints are protected with `@jwt_required()` decorator
 
+### Category and tag tables are per user
+
+`category`, `finance_categories`, `todo_categories` and `todo_tags` each carry a
+`user_id`, with `UNIQUE (user_id, name)`. They were global until migrations
+004-007 — one row per name for the whole installation, and the four listing
+endpoints served them with no token at all, so any caller who could reach
+Flask's published port could enumerate every user's names.
+
+Consequences worth knowing before writing a query against them:
+
+- **Every read and write must carry a `user_id` predicate.** Resolving a
+  category by name alone will attach one user's entry to another's row
+- `category_admin.py`'s 409 "shared" branch is now unreachable by construction.
+  It is kept as an invariant check, not an expected outcome; another user's
+  category id is a 404, not a 409
+- `user_id` carries **no** foreign key to `users`, deliberately. A cascade from
+  `users` reaches both the lookup table and the entry table, InnoDB picks the
+  order, and it takes the lookup table first — so the `ON DELETE RESTRICT` from
+  the not-yet-deleted entries aborts the delete with errno 1451 and the account
+  becomes undeletable. Measured, not assumed; `test_security.py` pins it. The
+  cost is that lookup rows outlive their owner
+- New accounts are seeded with defaults in `routes/auth.py`, in the same
+  transaction as the user insert
+
 ### Rate limiting
 Keyed per caller, not per connection — see `flask-server/rate_limit.py` for why the stock `get_remote_address` cannot be used here (every browser request reaches Flask from the one Next.js container, so it returned the same value for every user).
 
@@ -120,6 +144,13 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 - `flask-server/app.py` — application core (~300 lines): Flask instance, config, JWT manager and loaders, limiter, connection pool, boot-time migrations, blueprint registration
 - `flask-server/routes/` — one blueprint per domain (`auth`, `categories`, `entries`, `finance`, `health`, `pomodoro`, `settings`, `todo`). These reach shared state via `import app` and call `app.get_cursor()` — resolved at call time, which is what keeps `patch("app.get_cursor")` working in the 42 tests that use it. Do not change these to `from app import get_cursor`: the patches would silently stop applying and several tests would pass against the real database
 - `flask-server/rate_limit.py` — rate-limit keying and the failed-login throttle
+- `flask-server/users.py` — `resolve_user_id(cursor, username)`. The JWT carries
+  a username, not an id, so anything touching a user-scoped table needs this
+  first. Takes a cursor so the lookup shares the caller's transaction
+- `flask-server/category_admin.py` — namespace-agnostic rename/delete/merge
+- `flask-server/categories.py` — name normalizing, and the default categories
+  seeded at registration. Those two lists must match what `mysql/schema.sql`
+  seeds; a test asserts it, because the baseline is frozen and cannot follow
 - `flask-server/query_params.py` — shared parsing/SQL for `?from=&to=&category=&q=&sort=&direction=&limit=&offset=`
 - `next-version/lib/types.ts` — TypeScript interfaces shared across the frontend (`User`, `TimeEntry`, `FinanceEntry`, `Category`, etc.)
 - `next-version/lib/constants.ts` — API endpoint constants

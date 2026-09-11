@@ -1,5 +1,5 @@
-import { proxyCategoryAdmin } from "@/lib/category-proxy";
+import { proxyFlaskJson } from "@/lib/category-proxy";
 
 export async function GET() {
-  return proxyCategoryAdmin("/finance/category/usage", "GET");
+  return proxyFlaskJson("/finance/category/usage", "GET");
 }
