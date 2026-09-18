@@ -35,7 +35,7 @@ const SETTINGS_HREF = "/namu/user/settings";
 const NAV_ENTRIES: NavEntry[] = [
   { label: "Dashboard", href: "/namu/user" },
   {
-    label: "Time management",
+    label: "Time",
     items: [
       { label: "Entries", href: "/namu/user/entries" },
       { label: "Stopwatch", href: "/namu/user/timer" },
@@ -44,7 +44,7 @@ const NAV_ENTRIES: NavEntry[] = [
     ],
   },
   {
-    label: "Task management",
+    label: "Task",
     items: [
       { label: "To Do", href: "/namu/user/todo" },
       { label: "Pomodoro", href: "/namu/user/pomodoro" },
