@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { WeekNavigator } from "@/components/entries/WeekNavigator";
 import { CategoryChart } from "@/components/entries/CategoryChart";
 import { CategoryPieChart } from "@/components/entries/CategoryPieChart";
 import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
 import { EntriesTable } from "@/components/entries/EntriesTable";
 import { Panel } from "@/components/entries/Panel";
+import { QuickEntryDialog } from "@/components/entries/QuickEntryDialog";
+import type { SlotRange } from "@/components/entries/calendarSelection";
 import { SummaryCard } from "@/components/finance/SummaryCard";
 import {
   getMondayOf,
@@ -15,10 +17,27 @@ import {
   formatDuration,
 } from "@/components/entries/utils";
 import type { ApiResponse } from "@/components/entries/types";
+import type { Category } from "@/lib/types";
 import { useIsDark } from "@/lib/use-media-query";
 import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "all";
+
+async function fetchEntries(
+  fetcher: (url: string, init?: RequestInit) => Promise<Response>,
+): Promise<ApiResponse> {
+  const res = await fetcher("/api/entry", {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to fetch entries");
+  }
+
+  return res.json();
+}
 
 export default function Entries() {
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -27,22 +46,13 @@ export default function Entries() {
   const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [pendingRange, setPendingRange] = useState<SlotRange | null>(null);
 
   useEffect(() => {
     async function get_entries() {
       try {
-        const res = await warmFetch("/api/entry", {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.message || "Failed to fetch entries");
-        }
-
-        const json = await res.json();
-        setData(json);
+        setData(await fetchEntries(warmFetch));
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -50,8 +60,39 @@ export default function Entries() {
       }
     }
 
+    // Only the quick-entry dialog needs these; a failure leaves it offering
+    // a link to create one rather than taking the dashboard down.
+    async function get_categories() {
+      try {
+        const res = await warmFetch("/api/categories");
+        if (!res.ok) return;
+        const { categories: c } = await res.json();
+        setCategories(c ?? []);
+      } catch {
+        // Keep the empty list.
+      }
+    }
+
     get_entries();
+    get_categories();
   }, []);
+
+  // A straight network read: whatever was warmed on hover predates the entry
+  // that was just saved.
+  const handleEntryCreated = useCallback(async () => {
+    try {
+      setData(await fetchEntries(fetch));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
+    setPendingRange(null);
+  }, []);
+
+  // The most recently created entry's category is the likeliest next one.
+  const lastCategory = useMemo(() => {
+    if (!data || data.entries.length === 0) return undefined;
+    return data.entries.reduce((a, b) => (b.id > a.id ? b : a)).category;
+  }, [data]);
 
   const weekEnd = addDays(weekStart, 6);
 
@@ -240,6 +281,8 @@ export default function Entries() {
               weekStart={calendarStart}
               entries={filteredEntries}
               isDark={isDark}
+              onSelectRange={setPendingRange}
+              pendingRange={pendingRange}
             />
           )}
         </div>
@@ -247,6 +290,17 @@ export default function Entries() {
 
       {/* Detail — omitted in "all time", where it occupies the focus slot */}
       {!showAll && <EntriesTable entries={visibleEntries} />}
+
+      {pendingRange && (
+        <QuickEntryDialog
+          range={pendingRange}
+          categories={categories}
+          defaultCategory={lastCategory}
+          onRangeChange={setPendingRange}
+          onCancel={() => setPendingRange(null)}
+          onCreated={handleEntryCreated}
+        />
+      )}
     </main>
   );
 }

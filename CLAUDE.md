@@ -35,7 +35,7 @@ One command covers both tiers:
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **707 Python tests and 43
+integration, e2e — against the full stack. Expect **707 Python tests and 58
 frontend tests, with no skips**; anything skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -169,7 +169,7 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
   - `user/csv/` — CSV batch import
 - `app/api/` — Next.js API routes proxying to Flask
 - `components/` — shared UI components (`BatchImportModal`, `BatchGenerateModal`, `ImageCarousel`, `LogoutButton`)
-- `__tests__/` — Vitest suite for the route handlers and server-side helpers
+- `__tests__/` — Vitest suite for the route handlers, server-side helpers and DOM-free frontend logic (e.g. `calendarSelection.ts`)
 - `e2e/` — Playwright specs (local only)
 
 ### Theming

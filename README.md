@@ -218,7 +218,7 @@ setup required:
 
 It runs the Next.js route tests first (Vitest; `fetch` is mocked, so it needs
 neither MySQL nor Flask), then the Python tiers against the full stack. Expect
-**707 Python tests and 43 frontend tests, no skips**.
+**707 Python tests and 58 frontend tests, no skips**.
 
 Browser-driven Playwright specs are separate — they need a browser download and
 a running stack:

@@ -9,7 +9,7 @@ Comprehensive test suite for the Portfolio time-tracking application. All Python
 ```
 
 This runs the Next.js route tests, then rebuilds all Docker services and runs
-the unit, integration and E2E tiers. Expect **707 Python tests and 43 frontend
+the unit, integration and E2E tiers. Expect **707 Python tests and 58 frontend
 tests, with no skips** — anything skipping is a real problem, not background
 noise.
 

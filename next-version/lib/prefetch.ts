@@ -20,7 +20,7 @@ const ROUTE_DATA: Record<string, readonly string[]> = {
     "/api/pomodoro/stats",
     "/api/pomodoro/sessions",
   ],
-  "/namu/user/entries": ["/api/entry"],
+  "/namu/user/entries": ["/api/entry", "/api/categories"],
   "/namu/user/timer": ["/api/entry", "/api/categories"],
   "/namu/user/manage": ["/api/entry", "/api/categories"],
   "/namu/user/todo": ["/api/todo", "/api/todo/categories", "/api/todo/tags"],

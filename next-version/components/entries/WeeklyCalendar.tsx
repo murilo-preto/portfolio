@@ -1,7 +1,16 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, type PointerEvent } from "react";
 import { Entry } from "@/components/entries/types";
 import { stripTime, formatDuration } from "@/components/entries/utils";
 import { getDarkEventColor } from "@/components/entries/colors";
+import {
+  DRAG_THRESHOLD_PX,
+  MINUTES_PER_DAY,
+  formatClock,
+  rangeFromClick,
+  rangeFromDrag,
+  yToMinutes,
+  type SlotRange,
+} from "@/components/entries/calendarSelection";
 
 type Segment = {
   segStart: Date;
@@ -87,11 +96,31 @@ function assignColumns(dayEntries: Entry[], dayStart: Date): PackedEvent[] {
   return packed;
 }
 
+/** A press in progress on one day column. */
+type DragState = {
+  dayIdx: number;
+  anchorMin: number;
+  currentMin: number;
+  startY: number;
+  moved: boolean;
+};
+
+function dragRange(drag: DragState) {
+  return drag.moved
+    ? rangeFromDrag(drag.anchorMin, drag.currentMin)
+    : rangeFromClick(drag.anchorMin);
+}
+
 type WeeklyCalendarProps = {
   weekStart: Date;
   entries: Entry[];
   isDark?: boolean;
   maxHeight?: number;
+  /** Makes empty space selectable: a click reports a 30-minute slot, a drag
+   *  the range it covered. Omit it and the calendar is display-only. */
+  onSelectRange?: (range: SlotRange) => void;
+  /** A selection awaiting confirmation, kept on screen as a ghost block. */
+  pendingRange?: SlotRange | null;
 };
 
 export const WeeklyCalendar = memo(function WeeklyCalendar({
@@ -99,7 +128,11 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
   entries,
   isDark = false,
   maxHeight,
+  onSelectRange,
+  pendingRange = null,
 }: WeeklyCalendarProps) {
+  const [drag, setDrag] = useState<DragState | null>(null);
+
   const days = useMemo(
     () =>
       Array.from({ length: 7 }, (_, i) => {
@@ -138,6 +171,56 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
   // Fixed 24h scale
   const hours = useMemo(() => Array.from({ length: 24 }, (_, h) => h), []);
+
+  // The ghost follows the live drag; once released it tracks the pending
+  // selection instead, which the dialog may have edited since.
+  const ghost = useMemo(() => {
+    if (drag) return { dayIdx: drag.dayIdx, ...dragRange(drag) };
+    if (!pendingRange || pendingRange.endMin <= pendingRange.startMin) {
+      return null;
+    }
+    const dayIdx = days.findIndex(
+      (d) => d.getTime() === pendingRange.day.getTime(),
+    );
+    if (dayIdx === -1) return null;
+    return { dayIdx, ...pendingRange };
+  }, [drag, pendingRange, days]);
+
+  function handlePointerDown(e: PointerEvent<HTMLDivElement>, dayIdx: number) {
+    if (!onSelectRange || !e.isPrimary || e.button !== 0) return;
+    // Existing entries are not a place to start a new one.
+    if ((e.target as Element).closest("[data-entry]")) return;
+
+    // Capture keeps the moves and the release coming here even when the
+    // pointer leaves the column. On touch, a swipe that turns into a scroll
+    // still ends in pointercancel, so the page scrolls as it always did.
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const min = yToMinutes(e.clientY, e.currentTarget.getBoundingClientRect());
+    setDrag({
+      dayIdx,
+      anchorMin: min,
+      currentMin: min,
+      startY: e.clientY,
+      moved: false,
+    });
+  }
+
+  function handlePointerMove(e: PointerEvent<HTMLDivElement>, dayIdx: number) {
+    if (!drag || drag.dayIdx !== dayIdx) return;
+    const currentMin = yToMinutes(
+      e.clientY,
+      e.currentTarget.getBoundingClientRect(),
+    );
+    const moved =
+      drag.moved || Math.abs(e.clientY - drag.startY) >= DRAG_THRESHOLD_PX;
+    setDrag({ ...drag, currentMin, moved });
+  }
+
+  function handlePointerUp(dayIdx: number) {
+    if (!drag || drag.dayIdx !== dayIdx) return;
+    setDrag(null);
+    onSelectRange?.({ day: days[dayIdx], ...dragRange(drag) });
+  }
 
   return (
     <div
@@ -200,7 +283,14 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
             {days.map((_, dayIdx) => {
               const packed = packedByDay[dayIdx];
               return (
-                <div key={dayIdx} className="relative">
+                <div
+                  key={dayIdx}
+                  className={`relative ${onSelectRange ? "cursor-crosshair select-none" : ""}`}
+                  onPointerDown={(e) => handlePointerDown(e, dayIdx)}
+                  onPointerMove={(e) => handlePointerMove(e, dayIdx)}
+                  onPointerUp={() => handlePointerUp(dayIdx)}
+                  onPointerCancel={() => setDrag(null)}
+                >
                   {hours.map((h) => (
                     <div
                       key={h}
@@ -231,7 +321,8 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
                         return (
                           <div
                             key={ev.id}
-                            className={`absolute rounded-md shadow-sm text-white text-xs p-1 content-center-safe ${
+                            data-entry
+                            className={`cursor-default absolute rounded-md shadow-sm text-white text-xs p-1 content-center-safe ${
                               isDark
                                 ? darkColorClass
                                 : "bg-green-600 border-green-800/40"
@@ -264,6 +355,24 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
                           </div>
                         );
                       })}
+
+                    {ghost && ghost.dayIdx === dayIdx && (
+                      <div
+                        className="absolute left-[4%] right-[4%] rounded-md border-2 border-dashed border-strong bg-surface-hover/70 text-primary text-[10px] leading-tight px-1 pointer-events-none overflow-hidden shadow-sm"
+                        style={{
+                          top: `${(ghost.startMin / MINUTES_PER_DAY) * 100}%`,
+                          height: `${((ghost.endMin - ghost.startMin) / MINUTES_PER_DAY) * 100}%`,
+                        }}
+                      >
+                        <div className="font-semibold truncate">
+                          {formatClock(ghost.startMin)}–
+                          {formatClock(ghost.endMin)}
+                        </div>
+                        <div className="opacity-80 truncate">
+                          {formatDuration((ghost.endMin - ghost.startMin) * 60)}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
