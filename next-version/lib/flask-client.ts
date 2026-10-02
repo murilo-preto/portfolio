@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { accessTokenCookie } from "@/lib/auth-cookie";
 import { clientForwardingHeaders } from "@/lib/proxy-headers";
 
 /**
@@ -43,15 +44,7 @@ export async function fetchWithTokenRefresh(
   if (setCookie) {
     const match = setCookie.match(/access_token=([^;]+)/);
     if (match && match[1]) {
-      response.cookies.set({
-        name: "access_token",
-        value: match[1],
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 48,
-      });
+      response.cookies.set(accessTokenCookie(match[1]));
     }
   }
 

@@ -35,7 +35,7 @@ One command covers both tiers:
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **707 Python tests and 58
+integration, e2e — against the full stack. Expect **707 Python tests and 60
 frontend tests, with no skips**; anything skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -68,6 +68,23 @@ cd next-version && npx playwright test
 curl http://localhost:3000/health   # Flask
 curl http://localhost:5000/api/health  # Next.js
 ```
+
+### Public deployment (HTTPS)
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+curl https://murilopreto.com.br/api/health
+```
+
+Production is `murilopreto.com.br`: nginx 1.22 on the host itself handles TLS
+(certbot) and proxies to Next.js. `docker-compose.prod.yml` publishes Next.js
+on `127.0.0.1:5000` only and Flask not at all. It requires
+`INTERNAL_PROXY_SECRET` and sets `COOKIE_SECURE=true` (see
+`lib/auth-cookie.ts`). `deploy/nginx-site.conf.example` is the reference site.
+It must set `X-Forwarded-For` to `$remote_addr`, not
+`$proxy_add_x_forwarded_for`, which would let a caller choose their own
+rate-limit bucket. It must use 1.22 syntax (`listen 443 ssl http2`, not
+`http2 on`). To try the overlay locally, give it its own project name (`-p`)
+so it doesn't share the dev MySQL volume.
 
 ## Pre-Deployment Checklist
 
@@ -137,7 +154,7 @@ Consequences worth knowing before writing a query against them:
 Keyed per caller, not per connection — see `flask-server/rate_limit.py` for why the stock `get_remote_address` cannot be used here (every browser request reaches Flask from the one Next.js container, so it returned the same value for every user).
 
 - Authenticated requests key on the JWT identity, so the default 20/minute is per account
-- Anonymous requests key on the client address; the proxy relays `X-Forwarded-For` under `INTERNAL_PROXY_SECRET` and Flask honours it only with that secret. In the current topology the browser reaches the Next.js container directly, so there is usually no address to relay — this matters once a reverse proxy sits in front
+- Anonymous requests key on the client address; the proxy relays `X-Forwarded-For` under `INTERNAL_PROXY_SECRET` and Flask honours it only with that secret. In local development the browser reaches the Next.js container directly, so there is no address to relay. In production, nginx sets `X-Forwarded-For` to the connecting address (`deploy/nginx-site.conf.example`), so the relayed address is the real caller
 - `/login` guessing is throttled per account **inside the view**, after the password is known to be wrong. A `@limiter.limit(deduct_when=...)` decorator cannot express this: the check runs before the view, so an emptied bucket would refuse the account owner's correct password too
 
 ### Key files
@@ -180,7 +197,7 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 - **Before suggesting a commit**, always run the full test suite (`./run_tests.sh`) and confirm all tests pass. Do not consider work done until tests are green. This rebuilds all Docker services and runs every test tier (unit, integration, e2e) inside Docker where all dependencies are available.
 - **Never add Claude as a co-author** in commit messages. The user owns all features and the technical debt they may entail.
 - **Never open a PR (`gh pr create`) without being explicitly told to.** Commit and push the branch as usual, but stop there and wait for the user to say when to stage the PR.
-- Environment variables come from `.env` (copy from `env.example.txt`); `JWT_SECRET_KEY` must be ≥64 chars, and `INTERNAL_PROXY_SECRET` should be a long random string (empty disables address forwarding).
+- Environment variables come from `.env` (copy from `env.example.txt`); `JWT_SECRET_KEY` must be ≥64 chars, and `INTERNAL_PROXY_SECRET` should be a long random string (empty disables address forwarding; the public deployment refuses to start without it).
 - See `test/README.md` for detailed test documentation and `README.md` for the endpoint reference.
 
 ## Branch: Panopto (location-driven time entries)
@@ -194,9 +211,14 @@ automatically. For example, arriving at work starts counting, and leaving stops
 it, with no manual stopwatch.
 
 ### Status
-Branch created, no code yet. Nothing in this section describes code that
-exists. Update it as decisions are made, and don't let it claim more than the
-code does.
+Phase 0 (public HTTPS) is in the repo: `docker-compose.prod.yml`, the Secure
+cookie flag and `deploy/nginx-site.conf.example`, verified locally. It is **not
+yet confirmed on the server**: the live nginx's `X-Forwarded-For` line, and
+whether `INTERNAL_PROXY_SECRET` is set there, are unchecked, and the stack there
+still runs without the overlay. Next is phase 1, the migrations for places,
+devices and running timers. Nothing else in
+this section exists as code yet. Update it as phases land, and don't let it
+claim more than the code does.
 
 ### Decisions
 - **Event source: a companion Android app.** It's Expo (React Native +
@@ -215,9 +237,9 @@ code does.
   since it's an existing commercial product. The branch name is fine
 - **The phone reaches the server over public HTTPS.** Plain HTTP stays blocked
   in the app (Android's default). Only Next.js should be reachable from the
-  internet, behind a reverse proxy that handles TLS. Flask's published port 3000
-  must not be. Once a proxy is in front, the address relaying under
-  `INTERNAL_PROXY_SECRET` (see **Rate limiting**) starts to matter, and the
+  internet, behind the host's nginx (see **Public deployment**). Flask must not
+  be. The address relaying under `INTERNAL_PROXY_SECRET` (see **Rate
+  limiting**) matters there, and the
   pairing endpoint, which takes a password, needs the same per-account throttle
   as `/login`
 - **Stays are logged automatically.** Leaving a place writes a normal

@@ -16,9 +16,13 @@ import { headers } from "next/headers";
  * Both headers are sent or neither is. Sending the secret with no address to go
  * with it asserts nothing and only widens where the secret travels.
  *
- * Note that in the current topology the browser connects to this container
- * directly, so there is usually no incoming address to relay and this returns
- * nothing. It starts mattering when a reverse proxy sits in front.
+ * In local development the browser connects to this container directly, so
+ * there is no incoming address to relay and this returns nothing. In the public
+ * deployment nginx sits in front and sets X-Forwarded-For to the connecting
+ * address, discarding any the client sent (deploy/nginx-site.conf.example).
+ * That deployment also publishes this container's port on loopback only
+ * (docker-compose.prod.yml), which matters: a caller reaching it directly
+ * could set the header themselves.
  */
 export async function clientForwardingHeaders(): Promise<Record<string, string>> {
   const secret = process.env.INTERNAL_PROXY_SECRET;

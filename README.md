@@ -201,6 +201,18 @@ docker compose up --build
 - Flask API: <http://localhost:3000>
 - Next.js frontend: <http://localhost:5000>
 
+### Public deployment (HTTPS)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The site is served by nginx on the host, which handles TLS and proxies to
+Next.js. This overlay publishes Next.js on `127.0.0.1:5000` only and Flask not
+at all, so the app is reachable only through nginx. It requires
+`INTERNAL_PROXY_SECRET` in `.env`. `deploy/nginx-site.conf.example` is the
+reference nginx site; its `X-Forwarded-For` line matters for rate limiting.
+
 ### Stopping
 
 ```bash
@@ -218,7 +230,7 @@ setup required:
 
 It runs the Next.js route tests first (Vitest; `fetch` is mocked, so it needs
 neither MySQL nor Flask), then the Python tiers against the full stack. Expect
-**707 Python tests and 58 frontend tests, no skips**.
+**707 Python tests and 60 frontend tests, no skips**.
 
 Browser-driven Playwright specs are separate — they need a browser download and
 a running stack:

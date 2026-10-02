@@ -1,0 +1,39 @@
+# Example nginx site for the public deployment (docker-compose.prod.yml).
+#
+# A reference for checking the live config against, not a drop-in file:
+# certificate paths are where certbot puts them, and the live server may
+# already have its own variant of these blocks.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name murilopreto.com.br www.murilopreto.com.br;
+    return 301 https://murilopreto.com.br$request_uri;
+}
+
+server {
+    # The server runs nginx 1.22, which predates the separate `http2 on;`
+    # directive (1.25.1); there http2 is a flag on `listen`.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name murilopreto.com.br www.murilopreto.com.br;
+
+    ssl_certificate     /etc/letsencrypt/live/murilopreto.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/murilopreto.com.br/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+
+        # $remote_addr, not $proxy_add_x_forwarded_for. The latter appends to
+        # whatever X-Forwarded-For the client sent, and Flask keys anonymous
+        # rate limits on the leftmost entry (flask-server/rate_limit.py), so
+        # a caller could pick their own bucket by sending the header.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

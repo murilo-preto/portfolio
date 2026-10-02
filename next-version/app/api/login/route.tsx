@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accessTokenCookie } from "@/lib/auth-cookie";
 import { FLASK_BASE_URL } from "@/lib/constants";
 import { clientForwardingHeaders } from "@/lib/proxy-headers";
 
@@ -65,15 +66,7 @@ export async function POST(req: Request) {
     { status: 200 },
   );
 
-  response.cookies.set({
-    name: "access_token",
-    value: data.access_token,
-    httpOnly: true,
-    secure: false, // Allow cookie over HTTP in development/Docker
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 48, // 48 hours to match TOKEN_DURATION_HOURS
-  });
+  response.cookies.set(accessTokenCookie(data.access_token));
 
   return response;
 }

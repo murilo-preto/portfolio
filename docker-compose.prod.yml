@@ -1,0 +1,25 @@
+# Public deployment, behind the host's nginx (deploy/nginx-site.conf.example):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# nginx runs on the host itself, terminates TLS and proxies to Next.js on
+# loopback. Nothing in this stack is published beyond that one loopback port, so
+# the app is reachable from outside only through nginx, whatever the firewall
+# or router happens to allow. The proxy routes stay the one way into Flask.
+services:
+  flask:
+    ports: !reset []
+    environment:
+      # Required here, not optional: behind nginx every anonymous caller would
+      # otherwise share one rate-limit bucket. See flask-server/rate_limit.py.
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:?set INTERNAL_PROXY_SECRET in .env}
+
+  nextjs:
+    # Loopback only. Published on every interface, a caller who could reach the
+    # port directly would skip nginx and could set X-Forwarded-For themselves.
+    ports: !override
+      - "127.0.0.1:5000:5000"
+    environment:
+      INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:?set INTERNAL_PROXY_SECRET in .env}
+      # The session cookie is only ever sent back over HTTPS. See lib/auth-cookie.ts.
+      COOKIE_SECURE: "true"

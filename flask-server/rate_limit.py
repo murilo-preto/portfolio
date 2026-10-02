@@ -29,12 +29,13 @@ inside the view rather than as a decorator; the long comment above
 `FAILED_LOGIN_LIMITS` explains why the decorator form cannot work without
 handing out an account-lockout DoS.
 
-Worth being plain about the current deployment: the browser connects straight to
-the Next.js container, so there is no upstream `X-Forwarded-For` for the proxy
-to relay and an anonymous caller's real address is genuinely unknowable. This
-resolves correctly the day something sits in front; today it falls back to
-`remote_addr`, and the anonymous buckets stay shared. The identity keying and
-the failed-login throttle are what change behaviour now.
+Worth being plain about the two deployments. In local development the browser
+connects straight to the Next.js container, so there is no upstream
+`X-Forwarded-For` to relay; this falls back to `remote_addr`, and the anonymous
+buckets stay shared. In production, nginx sits in front and sets
+`X-Forwarded-For` to the connecting address, discarding whatever the client sent
+(deploy/nginx-site.conf.example), so there the relayed address is the real
+caller.
 """
 
 import hmac

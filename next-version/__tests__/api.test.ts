@@ -64,6 +64,7 @@ beforeEach(() => {
   incomingHeaders = new Headers();
   cookiesSet.length = 0;
   delete process.env.INTERNAL_PROXY_SECRET;
+  delete process.env.COOKIE_SECURE;
   vi.resetModules();
   global.fetch = vi.fn() as unknown as typeof fetch;
 });
@@ -104,6 +105,23 @@ describe("login proxy", () => {
     const cookie = response.cookies.get("access_token");
     expect(cookie?.value).toBe("a-real-token");
     expect(cookie?.httpOnly).toBe(true);
+    // Local development and the test stack are plain HTTP, where a Secure
+    // cookie would never come back.
+    expect(cookie?.secure).toBe(false);
+  });
+
+  it("marks the cookie Secure when COOKIE_SECURE is set", async () => {
+    process.env.COOKIE_SECURE = "true";
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { access_token: "a-real-token", user_id: 7, username: "alice" }) as unknown as Response,
+    );
+
+    const { POST } = await import("@/app/api/login/route");
+    const response = await POST(
+      jsonRequest(`${FLASK}/login`, { username: "alice", password: "pw" }),
+    );
+
+    expect(response.cookies.get("access_token")?.secure).toBe(true);
   });
 
   it("passes a 401 through with its message", async () => {
@@ -281,6 +299,24 @@ describe("fetchWithTokenRefresh", () => {
     // became script-readable on renewal would undo the httpOnly guarantee for
     // every session that stayed open long enough to be refreshed.
     expect(refreshed?.httpOnly).toBe(true);
+    expect(refreshed?.secure).toBe(false);
+  });
+
+  it("keeps a refreshed token Secure when COOKIE_SECURE is set", async () => {
+    // Behind HTTPS, a renewal that dropped the flag would put every long-lived
+    // session's token back on plain HTTP.
+    process.env.COOKIE_SECURE = "true";
+    cookieJar.set("access_token", "old-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { ok: true }, {
+        "Set-Cookie": "access_token=refreshed-token; Path=/; HttpOnly",
+      }) as unknown as Response,
+    );
+
+    const { fetchWithTokenRefresh } = await import("@/lib/flask-client");
+    const { response } = await fetchWithTokenRefresh(`${FLASK}/entry`);
+
+    expect(response.cookies.get("access_token")?.secure).toBe(true);
   });
 
   it("preserves the status when Flask's body is not JSON", async () => {
