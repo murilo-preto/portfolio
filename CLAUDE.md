@@ -35,7 +35,7 @@ One command covers both tiers:
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **728 Python tests and 60
+integration, e2e — against the full stack. Expect **758 Python tests and 67
 frontend tests, with no skips**; anything skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -125,6 +125,12 @@ Next.js API routes are thin proxies: they attach credentials, handle cookie-base
 - Flask issues JWT access tokens + refresh tokens stored in httpOnly cookies
 - `lib/flask-client.ts` (`fetchWithTokenRefresh`) transparently refreshes expired access tokens before retrying requests
 - Flask endpoints are protected with `@jwt_required()` decorator
+- The Namu Android app uses **device tokens** instead: paired once with a
+  password at `/devices/pair`, then sent as `Authorization: Device <token>` and
+  checked by `@device_required` (`routes/devices.py`). The scheme is `Device`,
+  not `Bearer`, so `limiter_key` never tries to decode one as a JWT. Only the
+  token's SHA-256 is stored. `/devices/pair` shares `/login`'s per-account
+  failed-guess budget through `routes.auth.authenticate`
 
 ### Category and tag tables are per user
 
@@ -154,13 +160,15 @@ Consequences worth knowing before writing a query against them:
 Keyed per caller, not per connection — see `flask-server/rate_limit.py` for why the stock `get_remote_address` cannot be used here (every browser request reaches Flask from the one Next.js container, so it returned the same value for every user).
 
 - Authenticated requests key on the JWT identity, so the default 20/minute is per account
+- Device requests key on the hash of their device token, checked before the view without a DB lookup. A made-up token is therefore a fresh bucket, so every device route also carries an address-keyed cap (`DEVICE_ADDRESS_LIMIT` in `routes/devices.py`)
 - Anonymous requests key on the client address; the proxy relays `X-Forwarded-For` under `INTERNAL_PROXY_SECRET` and Flask honours it only with that secret. In local development the browser reaches the Next.js container directly, so there is no address to relay. In production, nginx sets `X-Forwarded-For` to the connecting address (`deploy/nginx-site.conf.example`), so the relayed address is the real caller
 - `/login` guessing is throttled per account **inside the view**, after the password is known to be wrong. A `@limiter.limit(deduct_when=...)` decorator cannot express this: the check runs before the view, so an emptied bucket would refuse the account owner's correct password too
 
 ### Key files
 - `flask-server/app.py` — application core (~300 lines): Flask instance, config, JWT manager and loaders, limiter, connection pool, boot-time migrations, blueprint registration
-- `flask-server/routes/` — one blueprint per domain (`auth`, `categories`, `entries`, `finance`, `health`, `pomodoro`, `settings`, `todo`). These reach shared state via `import app` and call `app.get_cursor()` — resolved at call time, which is what keeps `patch("app.get_cursor")` working in the 42 tests that use it. Do not change these to `from app import get_cursor`: the patches would silently stop applying and several tests would pass against the real database
+- `flask-server/routes/` — one blueprint per domain (`auth`, `categories`, `devices`, `entries`, `finance`, `health`, `pomodoro`, `settings`, `todo`). These reach shared state via `import app` and call `app.get_cursor()` — resolved at call time, which is what keeps `patch("app.get_cursor")` working in the 42 tests that use it. Do not change these to `from app import get_cursor`: the patches would silently stop applying and several tests would pass against the real database
 - `flask-server/rate_limit.py` — rate-limit keying and the failed-login throttle
+- `flask-server/device_tokens.py` — device token generation, hashing and header parsing; no DB, so `rate_limit.py` can key on it
 - `flask-server/users.py` — `resolve_user_id(cursor, username)`. The JWT carries
   a username, not an id, so anything touching a user-scoped table needs this
   first. Takes a cursor so the lookup shares the caller's transaction
@@ -173,6 +181,7 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 - `next-version/lib/constants.ts` — API endpoint constants
 - `next-version/lib/flask-client.ts` — `fetchWithTokenRefresh` utility used by all authenticated API routes
 - `next-version/lib/proxy-headers.ts` — relays the caller's address to Flask under the shared secret
+- `next-version/lib/device-proxy.ts` — forwards the Android app's requests, passing its `Authorization: Device` header through untouched
 - `mysql/schema.sql` — 10 tables; forward-only migrations live in `flask-server/migrations/` (008-011 add the four Panopto tables)
 
 ### Frontend structure
@@ -219,10 +228,13 @@ still runs without the overlay.
 
 Phase 1 (schema) is done: migrations 008-011 create `places`, `devices`,
 `presence_events` and `presence_sessions`, pinned by
-`test/test_presence_schema.py`. There are no endpoints yet. Next is phase 2,
-the first APK. Nothing else in
-this section exists as code yet. Update it as phases land, and don't let it
-claim more than the code does.
+`test/test_presence_schema.py`.
+
+Phase 2a (pairing, server side) is done: `/devices/*` in Flask, proxied by
+Next.js at `/api/devices/pair`, `/api/devices/me` and `/api/devices/me/revoke`.
+There is no web UI for devices yet (phase 5). Next is phase 2b, the Expo app
+and its Docker build. Nothing else in this section exists as code yet. Update
+it as phases land, and don't let it claim more than the code does.
 
 ### Decisions
 - **Event source: a companion Android app.** It's Expo (React Native +
@@ -253,6 +265,15 @@ claim more than the code does.
   the raw material for routine learning. A retention job can come later
 - **Place radius is 100-2000 m,** enforced by a CHECK. Android geofencing is
   unreliable below about 100 m
+- **Device tokens never expire.** They are revoke-only, from the phone
+  (`/devices/me/revoke`) or the web (`/devices/<id>/revoke`). A background app
+  cannot log in again on its own, and keeping the password on the phone would
+  be worse
+- **App display name: "Namu".**
+- **A second, LAN-only test APK.** `build_apk.sh --lan` builds
+  `dev.mpreto.namu.lan`, which installs alongside the real app and allows plain
+  HTTP to private network addresses only, for pairing with `docker compose up`
+  on a laptop. The release APK stays HTTPS-only
 - **Stays are logged automatically.** Leaving a place writes a normal
   `time_entries` row with no confirmation step. A stay closed by the server's
   cap rather than a real "leave" is still written, and is marked in the entry's

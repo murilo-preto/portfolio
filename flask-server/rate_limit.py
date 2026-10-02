@@ -48,6 +48,8 @@ from limits import RateLimitItemPerHour, RateLimitItemPerMinute
 from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
 
+from device_tokens import hash_token, token_from_header
+
 PROXY_SECRET_HEADER = "X-Proxy-Auth"
 FORWARDED_FOR_HEADER = "X-Forwarded-For"
 
@@ -98,11 +100,20 @@ def current_identity():
 
 
 def limiter_key():
-    """Default key: the authenticated user, falling back to the address.
+    """Default key: the paired device or the authenticated user, falling back
+    to the address.
 
-    The prefixes keep the two namespaces from colliding — without them a user
+    The prefixes keep the namespaces from colliding — without them a user
     named after an IP address would share a bucket with that address.
+
+    A device token is keyed by its hash without checking that it exists: the
+    key runs before the view, and a database lookup here would be paid on every
+    request. The cost is that each made-up token is a fresh bucket, which is why
+    every device route also carries an address-keyed cap (routes/devices.py).
     """
+    token = token_from_header(request.headers.get("Authorization"))
+    if token:
+        return f"device:{hash_token(token).hex()}"
     identity = current_identity()
     if identity:
         return f"user:{identity}"

@@ -249,6 +249,7 @@ def expired_token_callback(jwt_header, jwt_payload):
 # would be a private copy the patch could never reach.
 from routes.auth import auth_bp  # noqa: E402
 from routes.categories import categories_bp  # noqa: E402
+from routes.devices import devices_bp  # noqa: E402
 from routes.entries import entries_bp  # noqa: E402
 from routes.finance import finance_bp  # noqa: E402
 from routes.health import health_bp  # noqa: E402
@@ -259,6 +260,7 @@ from routes.todo import todo_bp  # noqa: E402
 for blueprint in (
     auth_bp,
     categories_bp,
+    devices_bp,
     entries_bp,
     finance_bp,
     health_bp,

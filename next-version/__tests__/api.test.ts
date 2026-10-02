@@ -520,3 +520,111 @@ describe("category and tag listing proxies", () => {
     expect(response.status).toBe(502);
   });
 });
+
+describe("device proxies (Namu Android app)", () => {
+  /** The calls the proxy made to Flask: [url, init] of the first. */
+  function forwarded() {
+    const [url, init] = vi.mocked(global.fetch).mock.calls[0];
+    return { url, init: init as RequestInit, headers: init?.headers as Record<string, string> };
+  }
+
+  it("forwards a pairing request's body as received", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(201, { device_id: 3, token: "namu_dev_abc" }) as unknown as Response,
+    );
+    const payload = { username: "alice", password: "pw", device_name: "Pixel" };
+
+    const { POST } = await import("@/app/api/devices/pair/route");
+    const response = await POST(jsonRequest("http://next/api/devices/pair", payload));
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices/pair`);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+    expect(headers.Authorization).toBeUndefined();
+    expect(response.status).toBe(201);
+    expect((await response.json()).token).toBe("namu_dev_abc");
+  });
+
+  it("passes the device token header through untouched", async () => {
+    // Not rebuilt from a cookie as a Bearer header: the app has no cookie, and
+    // Flask tells a device token from a JWT by its scheme.
+    cookieJar.set("access_token", "a-web-session-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { id: 3, username: "alice" }) as unknown as Response,
+    );
+
+    const { GET } = await import("@/app/api/devices/me/route");
+    await GET(new Request("http://next/api/devices/me", {
+      headers: { Authorization: "Device namu_dev_abc" },
+    }));
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices/me`);
+    expect(init.method).toBe("GET");
+    expect(headers.Authorization).toBe("Device namu_dev_abc");
+  });
+
+  it("forwards an unpair with the device token", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { message: "Device unpaired" }) as unknown as Response,
+    );
+
+    const { POST } = await import("@/app/api/devices/me/revoke/route");
+    await POST(new Request("http://next/api/devices/me/revoke", {
+      method: "POST",
+      headers: { Authorization: "Device namu_dev_abc" },
+    }));
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices/me/revoke`);
+    expect(init.method).toBe("POST");
+    expect(headers.Authorization).toBe("Device namu_dev_abc");
+  });
+
+  it("leaves refusing a missing token to Flask", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(401, { error: "Missing or invalid device token" }) as unknown as Response,
+    );
+
+    const { GET } = await import("@/app/api/devices/me/route");
+    const response = await GET(new Request("http://next/api/devices/me"));
+
+    expect(forwarded().headers.Authorization).toBeUndefined();
+    expect(response.status).toBe(401);
+    expect((await response.json()).error).toBe("Missing or invalid device token");
+  });
+
+  it("relays the caller's address under the shared secret", async () => {
+    process.env.INTERNAL_PROXY_SECRET = "shared-secret";
+    incomingHeaders.set("x-forwarded-for", "203.0.113.7");
+    vi.mocked(global.fetch).mockResolvedValue(flaskJson(200, {}) as unknown as Response);
+
+    const { GET } = await import("@/app/api/devices/me/route");
+    await GET(new Request("http://next/api/devices/me", {
+      headers: { Authorization: "Device namu_dev_abc" },
+    }));
+
+    const { headers } = forwarded();
+    expect(headers["X-Proxy-Auth"]).toBe("shared-secret");
+    expect(headers["X-Forwarded-For"]).toBe("203.0.113.7");
+  });
+
+  it("answers 502 when Flask is unreachable", async () => {
+    vi.mocked(global.fetch).mockRejectedValue(new TypeError("fetch failed"));
+
+    const { GET } = await import("@/app/api/devices/me/route");
+    const response = await GET(new Request("http://next/api/devices/me"));
+
+    expect(response.status).toBe(502);
+  });
+
+  it("keeps Flask's status when its body is not JSON", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(flaskNotJson(503) as unknown as Response);
+
+    const { POST } = await import("@/app/api/devices/pair/route");
+    const response = await POST(jsonRequest("http://next/api/devices/pair", {}));
+
+    expect(response.status).toBe(503);
+  });
+});

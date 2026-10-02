@@ -58,6 +58,19 @@ caller's own rows.
 | POST   | `/register` | No   | Register user (bcrypt hashing)                     |
 | POST   | `/login`    | No   | Login, receive JWT access token                    |
 
+### Devices (Namu Android app)
+
+A phone pairs once with a password, then authenticates with its device token
+as `Authorization: Device <token>`.
+
+| Method | Route                   | Auth   | Description                                         |
+| ------ | ----------------------- | ------ | --------------------------------------------------- |
+| POST   | `/devices/pair`         | No     | Pair a phone with username + password; returns the token once |
+| GET    | `/devices/me`           | Device | The pairing this token belongs to; records it was seen |
+| POST   | `/devices/me/revoke`    | Device | Unpair from the phone                               |
+| GET    | `/devices`              | JWT    | The caller's paired phones, revoked ones included   |
+| POST   | `/devices/<id>/revoke`  | JWT    | Revoke one of the caller's phones                   |
+
 ### Account
 
 | Method | Route               | Auth | Description                                  |
@@ -230,7 +243,7 @@ setup required:
 
 It runs the Next.js route tests first (Vitest; `fetch` is mocked, so it needs
 neither MySQL nor Flask), then the Python tiers against the full stack. Expect
-**728 Python tests and 60 frontend tests, no skips**.
+**758 Python tests and 67 frontend tests, no skips**.
 
 Browser-driven Playwright specs are separate — they need a browser download and
 a running stack:

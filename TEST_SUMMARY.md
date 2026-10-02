@@ -4,7 +4,7 @@ What the suite proves, tier by tier. For how to run it, see
 [`test/README.md`](test/README.md); the short version is `./run_tests.sh`,
 which runs everything inside Docker.
 
-**728 Python tests and 60 frontend tests, no skips.** A skip is a real problem
+**758 Python tests and 67 frontend tests, no skips.** A skip is a real problem
 here, not background noise — the two that used to be permanent were stale
 (they predated rate limiting being disabled for tests) and are gone.
 
@@ -14,7 +14,7 @@ here, not background noise — the two that used to be permanent were stale
 | ---- | ----- | ----- | ------ |
 | Frontend routes | `next-version/__tests__/` | nothing (`fetch` mocked) | The Next.js proxies attach credentials, pass errors through, and forward query strings |
 | Unit | `test_flask_app.py`, `test_query_params.py`, `test_rate_limit.py` | nothing (DB mocked) | Route logic, validation, parameter parsing, rate-limit keying |
-| Integration | `test_flask_integration.py`, `test_categories.py`, `test_settings.py`, `test_task_time_link.py`, `test_list_queries.py`, `test_migrations.py`, `test_finance_due.py`, `test_presence_schema.py` | MySQL | Real queries, transactions, migrations, cross-feature behaviour |
+| Integration | `test_flask_integration.py`, `test_categories.py`, `test_settings.py`, `test_task_time_link.py`, `test_list_queries.py`, `test_migrations.py`, `test_finance_due.py`, `test_presence_schema.py`, `test_devices.py` | MySQL | Real queries, transactions, migrations, cross-feature behaviour |
 | Security | `test_security.py` | MySQL | IDOR across every resource, auth bypass, SQL injection, token manipulation |
 | E2E | `test_e2e_health.py` | the full stack | Service availability, the browser→Next.js→Flask→MySQL path, served CSS |
 

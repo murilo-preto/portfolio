@@ -148,15 +148,41 @@ def login_user():
     password = data["password"]
 
     try:
-        with app.get_cursor() as cursor:
-            cursor.execute(
-                "SELECT id, username, pwd_hash FROM users WHERE username = %s",
-                (username,),
-            )
-            user = cursor.fetchone()
+        user, refusal = authenticate(username, password)
     except Error as e:
         logger.error(f"Database error: {e}")
         return jsonify({"error": "Login failed"}), 500
+
+    if refusal:
+        return refusal
+
+    access_token = create_access_token(identity=username)
+    return jsonify(
+        {
+            "message": "Login successful",
+            "authenticated": True,
+            "user_id": user["id"],
+            "username": user["username"],
+            "access_token": access_token,
+        }
+    ), 200
+
+
+def authenticate(username, password):
+    """Check a password, charging a wrong one to the account's throttle.
+
+    Returns `(user, None)` when the password is right, or `(None, refusal)`
+    with a ready (response, status) when it is not. Shared by `/login` and
+    `/devices/pair`, which both take a password: they draw on one budget of
+    wrong guesses per account, so pairing is not a second way to guess.
+    Database errors propagate for the caller to answer.
+    """
+    with app.get_cursor() as cursor:
+        cursor.execute(
+            "SELECT id, username, pwd_hash FROM users WHERE username = %s",
+            (username,),
+        )
+        user = cursor.fetchone()
 
     attempt_key = login_key()
 
@@ -164,26 +190,18 @@ def login_user():
     # guessing run against someone's username can never shut them out of their
     # own account. Everything below this point is a failed attempt.
     if user and bcrypt.checkpw(password.encode("utf-8"), bytes(user["pwd_hash"])):
-        access_token = create_access_token(identity=username)
-        return jsonify(
-            {
-                "message": "Login successful",
-                "authenticated": True,
-                "user_id": user["id"],
-                "username": user["username"],
-                "access_token": access_token,
-            }
-        ), 200
+        return user, None
 
     if too_many_failed_logins(attempt_key):
         # Already over budget, so this guess is not charged — the window should
         # drain on its own rather than being extended by continued guessing.
-        return jsonify(
-            {"error": "Too many failed attempts for this account. Please wait."}
-        ), 429
+        return None, (
+            jsonify({"error": "Too many failed attempts for this account. Please wait."}),
+            429,
+        )
 
     record_failed_login(attempt_key)
     # Unchanged wording whether the username or the password was wrong: saying
     # which would turn this endpoint into a test for whether an account exists.
-    return jsonify({"error": "Invalid username or password"}), 401
+    return None, (jsonify({"error": "Invalid username or password"}), 401)
 

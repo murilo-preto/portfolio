@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'flask-server')
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-unit-tests-min-32-chars")
 
 from app import app, limiter  # noqa: E402
+from device_tokens import hash_token  # noqa: E402
 from rate_limit import (  # noqa: E402
     address_key,
     client_address,
@@ -309,3 +310,39 @@ class TestKeyFunctions:
             "/login", method="POST", data="not json", content_type="application/json"
         ):
             assert login_key().startswith("login-malformed:")
+
+
+class TestDevices:
+    """The Namu app's device tokens, and pairing, which takes a password."""
+
+    def test_a_device_token_keys_on_its_hash(self, limited_app):
+        token = "namu_dev_some-token"
+        with limited_app.test_request_context(
+            headers={"Authorization": f"Device {token}"}
+        ):
+            assert limiter_key() == f"device:{hash_token(token).hex()}"
+
+    def test_pairing_draws_on_the_same_wrong_guess_budget_as_login(self, client):
+        """Otherwise pairing would be a second budget of guesses per account."""
+        with patch("app.get_cursor", return_value=mock_login_cursor(None)):
+            for _ in range(10):
+                assert client.post("/devices/pair", json={
+                    "username": "victim", "password": "wrong", "device_name": "x",
+                }).status_code == 401
+
+            assert client.post(
+                "/login", json={"username": "victim", "password": "wrong"}
+            ).status_code == 429
+
+    def test_made_up_device_tokens_hit_the_address_cap(self, client):
+        """Each made-up token is a fresh default bucket, so only the address
+        cap stops someone cycling through them."""
+        with patch("app.get_cursor", return_value=mock_login_cursor(None)):
+            for i in range(120):
+                assert client.get("/devices/me", headers={
+                    "Authorization": f"Device namu_dev_made-up-{i}",
+                }).status_code == 401
+
+            assert client.get("/devices/me", headers={
+                "Authorization": "Device namu_dev_one-more",
+            }).status_code == 429
