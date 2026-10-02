@@ -35,7 +35,7 @@ One command covers both tiers:
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **707 Python tests and 60
+integration, e2e — against the full stack. Expect **728 Python tests and 60
 frontend tests, with no skips**; anything skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -173,7 +173,7 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 - `next-version/lib/constants.ts` — API endpoint constants
 - `next-version/lib/flask-client.ts` — `fetchWithTokenRefresh` utility used by all authenticated API routes
 - `next-version/lib/proxy-headers.ts` — relays the caller's address to Flask under the shared secret
-- `mysql/schema.sql` — 10 tables; forward-only migrations live in `flask-server/migrations/`
+- `mysql/schema.sql` — 10 tables; forward-only migrations live in `flask-server/migrations/` (008-011 add the four Panopto tables)
 
 ### Frontend structure
 - `app/(main)/` — public-facing portfolio pages (home, CV)
@@ -215,8 +215,12 @@ Phase 0 (public HTTPS) is in the repo: `docker-compose.prod.yml`, the Secure
 cookie flag and `deploy/nginx-site.conf.example`, verified locally. It is **not
 yet confirmed on the server**: the live nginx's `X-Forwarded-For` line, and
 whether `INTERNAL_PROXY_SECRET` is set there, are unchecked, and the stack there
-still runs without the overlay. Next is phase 1, the migrations for places,
-devices and running timers. Nothing else in
+still runs without the overlay.
+
+Phase 1 (schema) is done: migrations 008-011 create `places`, `devices`,
+`presence_events` and `presence_sessions`, pinned by
+`test/test_presence_schema.py`. There are no endpoints yet. Next is phase 2,
+the first APK. Nothing else in
 this section exists as code yet. Update it as phases land, and don't let it
 claim more than the code does.
 
@@ -242,6 +246,13 @@ claim more than the code does.
   limiting**) matters there, and the
   pairing endpoint, which takes a password, needs the same per-account throttle
   as `/login`
+- **One open stay per person.** `presence_sessions` is `UNIQUE (user_id)`.
+  Entering a second place while one is open closes the first at the moment the
+  second starts
+- **Event history is kept indefinitely** for now. It's the debugging trail and
+  the raw material for routine learning. A retention job can come later
+- **Place radius is 100-2000 m,** enforced by a CHECK. Android geofencing is
+  unreliable below about 100 m
 - **Stays are logged automatically.** Leaving a place writes a normal
   `time_entries` row with no confirmation step. A stay closed by the server's
   cap rather than a real "leave" is still written, and is marked in the entry's
@@ -270,6 +281,21 @@ claim more than the code does.
 - **Schema changes are forward-only migrations.** Add `008_*.sql` onward in
   `flask-server/migrations/`, and never edit `mysql/schema.sql`'s frozen
   baseline
+
+### Notes for later phases
+- **Phase 3 must teach `category_admin` about places.** `places.category_id`
+  is `ON DELETE RESTRICT`, but `delete` and `merge` only count and move
+  entries. Until they also count and move places, deleting a category a place
+  uses fails with errno 1451 and returns a 500.
+  `test_a_category_used_by_a_place_cannot_be_deleted` pins the constraint
+- **No RESTRICT on the users cascade path.** Every FK from the Panopto tables
+  cascades or sets NULL, except `places.category_id`, and `category` is off
+  that path. A new table must keep it that way, or accounts become undeletable
+  (see **Category and tag tables are per user**).
+  `test_deleting_a_user_removes_all_their_presence_data` pins it
+- **Duplicate events are refused by the database.** Phase 4 should insert and
+  treat errno 1062 on `uk_presence_events_client_id` as "already processed",
+  not check first and race
 
 ### Privacy
 Location history is sensitive. Store as little as the feature needs (e.g. "user
