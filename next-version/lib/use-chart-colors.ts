@@ -95,15 +95,18 @@ export function useChartColors(): ChartColors {
 
 /**
  * Tooltip styling shared by every chart. Plain inline styles, so the tokens
- * apply directly and follow the theme without a re-render. The wrapper is
- * `.floating`, so Glass frosts it like any other layer over content; the
- * rounding and clip keep that frost inside the tooltip's corners.
+ * apply directly and follow the theme without a re-render.
+ *
+ * Recharts puts `wrapperClassName` on the content box, not the positioned
+ * wrapper, so `.floating` lands on the element that is drawn — Glass frosts
+ * it like any layer over content. Its background is inline, which no
+ * stylesheet can outrank, so a theme that wants a different tooltip body sets
+ * `--tooltip-bg` instead.
  */
 export const CHART_TOOLTIP_STYLE = {
   wrapperClassName: "floating",
-  wrapperStyle: { borderRadius: "0.5rem", overflow: "hidden" },
   contentStyle: {
-    backgroundColor: "var(--surface-raised)",
+    backgroundColor: "var(--tooltip-bg, var(--surface-raised))",
     border: "1px solid var(--border-default)",
     borderRadius: "0.5rem",
     color: "var(--text-primary)",

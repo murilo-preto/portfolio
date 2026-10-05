@@ -227,9 +227,10 @@
 }
 
 /* DARK > GLASS, after the minimal-black Omarchy theme: monochrome on black,
-   white hairline borders, and grey chart series. Every value below is lifted from that theme's colors.toml (the
-   background ramp, the #e7e9ea foreground and its greys) or its shell.toml
-   alphas (hairlines at 0.08/0.15/0.25, hover fills at 0.08).
+   white hairline borders, and colour for the data alone. The chrome's values
+   come from that theme's colors.toml (the #e7e9ea foreground and its greys)
+   and shell.toml alphas (hairlines at 0.08/0.15/0.25, hover fills at 0.08);
+   the chart series from Nord.
 
    Surfaces are glass: faint white washes rather than fills, so cards frost
    the backdrop behind them (see the pane rules below). The tints keep their
@@ -307,35 +308,58 @@
     --tint-gray-a: rgb(231 233 234 / 0.04);
     --tint-gray-line: rgb(231 233 234 / 0.1);
 
-    /* Series in grey, as the theme's ANSI palette is. Neighbours alternate
-       light and dark so adjacent bars and slices stay apart; all sit at or
-       above #767676 so black labels read on every one. */
-    --chart-1: #e7e9ea;
-    --chart-2: #8a8a8a;
-    --chart-3: #c4c4c4;
-    --chart-4: #767676;
-    --chart-5: #b2b2b2;
-    --chart-6: #9e9e9e;
-    --chart-7: #d4d4d4;
-    --chart-8: #a8a8a8;
-    --chart-on: #000;
+    /* Series from Nord (arcticicestudio): its muted Frost blues alternated
+       with the soft Aurora accents, so the data takes colour without
+       competing with the monochrome glass around it. The order is a search
+       over every arrangement for the most distinct neighbours, the first and
+       last slots counted as neighbours too because they meet in the donut:
+       worst neighbour ΔE 11.1 under red-green colour blindness (target 8),
+       15.5 for typical vision (floor 15). Labels set on a fill use Polar
+       Night nord0, at least 4.4:1 on every slot. */
+    --chart-1: #8fbcbb; /* nord7  frost teal */
+    --chart-2: #5e81ac; /* nord10 frost deep blue */
+    --chart-3: #88c0d0; /* nord8  frost ice */
+    --chart-4: #d08770; /* nord12 aurora orange */
+    --chart-5: #ebcb8b; /* nord13 aurora yellow */
+    --chart-6: #b48ead; /* nord15 aurora purple */
+    --chart-7: #a3be8c; /* nord14 aurora green */
+    --chart-8: #bf616a; /* nord11 aurora red */
+    --chart-on: #2e3440; /* nord0 */
+
+    /* Tooltips are the exception to the popovers' lighter frost: they appear
+       over the brightest thing on the page — the bar being hovered — and at
+       half opacity its colour bled through the label. Small and read at a
+       glance, they trade translucency for a near-opaque body. */
+    --tooltip-bg: rgb(24 24 24 / 0.88);
   }
 }
 
-/* The panes. A wash alone is only tinted cellophane; what makes it glass is
-   the blur behind it, a sheen across it, a lit top edge and a shadow beneath.
-   Cards — `rounded-xl` panels on `bg-surface`, and the tinted stat cards —
-   get all four. Each is its own compositing layer, which costs GPU; Glass
-   accepts that, the other styles never pay it.
+/* The panes, in depth order. A wash alone is only tinted cellophane; glass
+   is the blur behind it, a sheen across it, a lit top edge and a shadow
+   beneath. Each level gets its own measure of those four, so how far a layer
+   sits above the page reads at a glance: the higher it floats, the brighter
+   its edge, the deeper its shadow and the heavier its frost.
 
-   Unlayered, so these outrank the elements' own Tailwind utilities. */
+     0  page        the backdrop (grain, dots, light)
+     1  cards       light frost, short shadow
+     2  wells       sunk into a card: darker, inner shadow, no frost
+     2  nested      panes inside a card: a flatter wash, no blur of their own
+     3  bars        nav header, sticky headers: heavy frost, hairline, no lift
+     4  popovers    menus, tooltips: brighter frost, strong edge, long shadow
+     5  modals      the heaviest frost, brightest edge, deepest shadow
+
+   Every blurred layer is its own compositing layer, which costs GPU; Glass
+   accepts that, the other styles never pay it. Unlayered, so these outrank
+   the elements' own Tailwind utilities. */
+
+/* 1 — cards: `rounded-xl` panels on `bg-surface`, and the tinted stat cards. */
 :root[data-dark-style="glass"] .rounded-xl:is(.bg-surface, [class*="from-tint-"]) {
   @variant dark {
-    backdrop-filter: blur(18px) saturate(140%) brightness(1.15);
-    border-color: rgb(231 233 234 / 0.12);
+    backdrop-filter: blur(16px) saturate(140%) brightness(1.12);
+    border-color: rgb(231 233 234 / 0.1);
     box-shadow:
-      inset 0 1px 0 rgb(231 233 234 / 0.12),
-      0 12px 40px rgb(0 0 0 / 0.55);
+      inset 0 1px 0 rgb(231 233 234 / 0.1),
+      0 8px 28px rgb(0 0 0 / 0.45);
   }
 }
 
@@ -345,32 +369,94 @@
   @variant dark {
     background-image: linear-gradient(
       135deg,
-      rgb(231 233 234 / 0.08),
+      rgb(231 233 234 / 0.07),
       transparent 45%
     );
   }
 }
 
-/* Layers that float over content — the nav header, menus, modals, chart
-   tooltips, sticky table and modal headers — mark themselves `.floating`
-   (native <dialog>s need no mark); elsewhere the class does nothing. They sit
-   over text rather than the backdrop, so they keep a darker body (0.55 over a
-   heavier blur) for whatever scrolls beneath to stay legible. */
-:root[data-dark-style="glass"] :is(dialog, .floating) {
+/* 2 — nested panes (todo rows inside their list card). Their parent already
+   frosts the page, so a second blur adds cost and no depth; a slightly
+   brighter wash, a fainter glint and a contact shadow set them one step up. */
+:root[data-dark-style="glass"] .rounded-xl.bg-surface .rounded-xl.bg-surface {
   @variant dark {
-    background-color: rgb(18 18 18 / 0.55);
-    backdrop-filter: blur(28px) saturate(140%) brightness(1.1);
+    backdrop-filter: none;
+    background-color: rgb(231 233 234 / 0.05);
+    background-image: linear-gradient(
+      135deg,
+      rgb(231 233 234 / 0.04),
+      transparent 40%
+    );
+    border-color: rgb(231 233 234 / 0.08);
+    box-shadow:
+      inset 0 1px 0 rgb(231 233 234 / 0.06),
+      0 2px 8px rgb(0 0 0 / 0.3);
   }
 }
 
-/* The ones that hover above the page get the cards' edge and shadow too. */
-:root[data-dark-style="glass"] :is(dialog, [role="menu"].floating) {
+/* 2 — wells: the inset surface (stat tiles, instruction boxes, the pressed
+   option of a toggle) sinks into its card instead of rising from it. */
+:root[data-dark-style="glass"] .bg-surface-inset:not(.floating) {
   @variant dark {
-    border-color: rgb(231 233 234 / 0.14);
     box-shadow:
-      inset 0 1px 0 rgb(231 233 234 / 0.14),
-      0 24px 64px rgb(0 0 0 / 0.65);
+      inset 0 1px 3px rgb(0 0 0 / 0.45),
+      inset 0 0 0 1px rgb(231 233 234 / 0.04);
   }
+}
+
+/* 3 — bars. Layers that float over content — the nav header, menus, modals,
+   chart tooltips, sticky table and modal headers — mark themselves
+   `.floating` (native <dialog>s need no mark); elsewhere the class does
+   nothing. A bar sits over text rather than the backdrop, so it keeps a dark
+   body (0.55 over a heavy blur) for whatever scrolls beneath to stay legible,
+   and no shadow: it is attached to the page, not lifted off it. */
+:root[data-dark-style="glass"] :is(dialog, .floating) {
+  @variant dark {
+    background-color: rgb(18 18 18 / 0.55);
+    backdrop-filter: blur(24px) saturate(140%) brightness(1.1);
+  }
+}
+
+/* 4 — popovers: menus and chart tooltips. Lighter and brighter than a bar,
+   so a menu dropped over the header or a card still separates from both. */
+:root[data-dark-style="glass"] :is([role="menu"].floating, .recharts-default-tooltip.floating) {
+  @variant dark {
+    background-color: rgb(38 38 38 / 0.5);
+    backdrop-filter: blur(32px) saturate(160%) brightness(1.2);
+    border-color: rgb(231 233 234 / 0.16);
+    box-shadow:
+      inset 0 1px 0 rgb(231 233 234 / 0.16),
+      0 16px 48px rgb(0 0 0 / 0.6);
+  }
+}
+
+
+/* 5 — modals: native <dialog>s, and the panel directly inside a fixed
+   overlay. The page behind a <dialog> is softened as well; the hand-rolled
+   overlays cannot be — a backdrop-filter there would become the panel's
+   backdrop root and leave the panel nothing to frost. */
+:root[data-dark-style="glass"] :is(dialog, .fixed > .floating) {
+  @variant dark {
+    background-color: rgb(28 28 28 / 0.6);
+    backdrop-filter: blur(40px) saturate(160%) brightness(1.15);
+    border-color: rgb(231 233 234 / 0.2);
+    box-shadow:
+      inset 0 1px 0 rgb(231 233 234 / 0.2),
+      0 32px 80px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* `@variant dark` cannot follow a pseudo-element (it would compile to
+   `::backdrop:where(…)`, which matches nothing), so the variant's two
+   branches are spelled out here: OS dark without an explicit light, or an
+   explicit dark. */
+@media (prefers-color-scheme: dark) {
+  :root[data-dark-style="glass"]:not([data-theme="light"]) dialog::backdrop {
+    backdrop-filter: blur(6px);
+  }
+}
+:root[data-dark-style="glass"][data-theme="dark"] dialog::backdrop {
+  backdrop-filter: blur(6px);
 }
 
 /* A native <select>'s option list is drawn by the browser, which paints it
