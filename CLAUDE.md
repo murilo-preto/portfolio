@@ -63,6 +63,17 @@ docker compose up --build          # in another terminal
 cd next-version && npx playwright test
 ```
 
+### Demo data
+```bash
+./seed_demo_user.sh                                  # theme-demo, Dark > Glass
+./seed_demo_user.sh --username oled-demo --dark-style oled
+```
+Registers an account through the API on the running stack, then fills it with
+four weeks of time entries, four months of finance and ten todos. The password
+is `themedemo123`. It refuses an existing username rather than duplicate data.
+The logic is in `scripts/seed_demo_user.py`, piped into the Flask container,
+so no local Python is needed.
+
 ### Health verification
 ```bash
 curl http://localhost:3000/health   # Flask
