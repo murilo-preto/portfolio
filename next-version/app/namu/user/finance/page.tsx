@@ -13,7 +13,6 @@ import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
-import { useIsDark } from "@/lib/use-media-query";
 import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "month" | "all";
@@ -56,7 +55,6 @@ export default function FinanceDashboard() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [monthStart, setMonthStart] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
@@ -320,7 +318,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All entries" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryChart entries={visibleEntries} isDark={isDark} />
+            <CategoryChart entries={visibleEntries} />
           </div>
 
           {/* Transactions Table */}
@@ -349,7 +347,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All time" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryPieChart entries={visibleEntries} isDark={isDark} height={250} />
+            <CategoryPieChart entries={visibleEntries} height={250} />
           </div>
 
           {/* Quick Stats */}

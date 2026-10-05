@@ -24,6 +24,26 @@ export const THEME_OPTIONS: readonly {
   { value: "dark", label: "Dark", hint: "Always the dark theme" },
 ];
 
+/**
+ * A style within each mode, picked separately so "System" switches between
+ * the two the user chose. Light has only Paper for now, so settings shows no
+ * light picker; the slot exists so a second light style needs no change to
+ * the stored shape.
+ */
+export type LightStyle = "paper";
+export type DarkStyle = "default" | "oled" | "glass";
+export type ThemeStyles = { light: LightStyle; dark: DarkStyle };
+
+export const DARK_STYLE_OPTIONS: readonly {
+  value: DarkStyle;
+  label: string;
+  hint: string;
+}[] = [
+  { value: "default", label: "Default", hint: "Neutral greys" },
+  { value: "oled", label: "OLED", hint: "True black, separated by borders" },
+  { value: "glass", label: "Glass", hint: "Monochrome, frosted menus and modals" },
+];
+
 export type PomodoroPreferences = {
   workMinutes: number;
   shortBreakMinutes: number;
@@ -45,6 +65,7 @@ export type PreferenceSettings = {
   todoFilters: Record<string, unknown>;
   lastUsed: { category: string | null; priority: string | null };
   focus: FocusPreferences;
+  themeStyles: ThemeStyles;
 };
 
 export type UserPreferences = {
@@ -72,6 +93,7 @@ export const DEFAULT_PREFERENCE_SETTINGS: PreferenceSettings = {
   todoFilters: {},
   lastUsed: { category: null, priority: null },
   focus: { logToTimeEntries: false, category: null },
+  themeStyles: { light: "paper", dark: "default" },
 };
 
 /**
@@ -101,6 +123,53 @@ export function applyTheme(theme: ThemePreference) {
     // localStorage unavailable (private browsing, disabled storage) — the
     // theme still applies, it just cannot be restored before the next fetch.
   }
+}
+
+/**
+ * Mirrored for the same first-frame reason as the theme. There is no light
+ * counterpart yet: with one light style there is nothing to restore.
+ */
+export const THEME_DARK_STYLE_STORAGE_KEY = "themeDarkStyle";
+
+/**
+ * Narrow an untrusted value to a known dark style. The settings blob is
+ * client-owned and unvalidated by Flask, so a stale or hand-edited value must
+ * fall back to the default rather than name a style no CSS matches.
+ */
+export function parseDarkStyle(raw: unknown): DarkStyle {
+  return raw === "oled" || raw === "glass" ? raw : "default";
+}
+
+/**
+ * Apply the per-mode styles. The attribute is set regardless of the current
+ * mode; `globals.css` only honours it while dark applies.
+ */
+export function applyThemeStyles(styles: Partial<ThemeStyles> | undefined) {
+  if (typeof document === "undefined") return;
+
+  const dark = parseDarkStyle(styles?.dark);
+  const root = document.documentElement;
+  if (dark === "default") {
+    delete root.dataset.darkStyle;
+  } else {
+    root.dataset.darkStyle = dark;
+  }
+
+  try {
+    localStorage.setItem(THEME_DARK_STYLE_STORAGE_KEY, dark);
+  } catch {
+    // Same as applyTheme: the style applies, it just is not mirrored.
+  }
+}
+
+export function readStoredThemeStyles(): ThemeStyles {
+  let dark: DarkStyle = "default";
+  try {
+    dark = parseDarkStyle(localStorage.getItem(THEME_DARK_STYLE_STORAGE_KEY));
+  } catch {
+    // Unreadable storage is indistinguishable from "never set one".
+  }
+  return { light: "paper", dark };
 }
 
 export function readStoredTheme(): ThemePreference {

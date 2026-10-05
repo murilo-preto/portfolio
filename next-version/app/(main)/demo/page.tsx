@@ -9,14 +9,12 @@ import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
 import { EntriesTable } from "@/components/entries/EntriesTable";
 import { getMondayOf, addDays } from "@/components/entries/utils";
 import { DEMO_DATA } from "./constants";
-import { useIsDark } from "@/lib/use-media-query";
 
 type FilterMode = "today" | "week" | "all";
 
 export default function EntriesDemo() {
   const data = DEMO_DATA;
 
-  const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() =>
     getMondayOf(new Date("2026-02-18")),
   );
@@ -100,7 +98,7 @@ export default function EntriesDemo() {
                   Scope: {"All entries"}
                 </span>
               </div>
-              <CategoryChart entries={visibleEntries} isDark={isDark} />
+              <CategoryChart entries={visibleEntries} />
             </div>
           </div>
           <div className="col-span-1">
@@ -111,7 +109,7 @@ export default function EntriesDemo() {
                   Scope: {"All entries"}
                 </span>
               </div>
-              <CategoryPieChart entries={visibleEntries} isDark={isDark} />
+              <CategoryPieChart entries={visibleEntries} />
             </div>
           </div>
         </div>
@@ -127,7 +125,7 @@ export default function EntriesDemo() {
                     Scope: {filterMode === "today" ? "Today" : "Selected week"}
                   </span>
                 </div>
-                <CategoryChart entries={visibleEntries} isDark={isDark} />
+                <CategoryChart entries={visibleEntries} />
               </div>
             </div>
 
@@ -142,7 +140,7 @@ export default function EntriesDemo() {
                     Scope: {filterMode === "today" ? "Today" : "Selected week"}
                   </span>
                 </div>
-                <CategoryPieChart entries={visibleEntries} isDark={isDark} />
+                <CategoryPieChart entries={visibleEntries} />
               </div>
             </div>
           </div>
@@ -155,7 +153,7 @@ export default function EntriesDemo() {
                   : weekStart
               }
               entries={filteredEntries}
-              isDark={isDark}
+             
             />
           </div>
         </div>

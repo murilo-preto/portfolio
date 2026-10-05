@@ -7,15 +7,19 @@ import { formatPriceIn, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { applyCurrency } from "@/lib/use-currency";
 import {
   applyTheme,
+  applyThemeStyles,
   changePassword,
+  DARK_STYLE_OPTIONS,
   DEFAULT_PREFERENCE_SETTINGS,
   fetchPreferences,
   MIN_PASSWORD_LENGTH,
   readStoredTheme,
+  readStoredThemeStyles,
   savePreferences,
   THEME_OPTIONS,
 } from "@/lib/preferences";
 import type {
+  DarkStyle,
   PomodoroPreferences,
   ThemePreference,
   UserPreferences,
@@ -38,6 +42,15 @@ const POMODORO_FIELDS: readonly {
   { key: "longBreakMinutes", label: "Long break (minutes)" },
   { key: "sessionsBeforeLongBreak", label: "Sessions before long break" },
 ];
+
+/** A toggle in one of the theme rows; the pressed one reads as set in. */
+function choiceClass(selected: boolean): string {
+  return `px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+    selected
+      ? "border-strong bg-surface-inset text-primary"
+      : "border-subtle bg-surface-raised text-secondary hover:bg-surface-hover"
+  }`;
+}
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -65,6 +78,7 @@ export default function SettingsPage() {
     // The stored theme is applied before the round trip so the page does not
     // flash the OS theme on every load; the server answer overrides it below.
     applyTheme(readStoredTheme());
+    applyThemeStyles(readStoredThemeStyles());
 
     async function load() {
       try {
@@ -73,6 +87,7 @@ export default function SettingsPage() {
         setCurrency(data.currency);
         setPomodoro(data.settings.pomodoro);
         applyTheme(data.theme);
+        applyThemeStyles(data.settings.themeStyles);
         applyCurrency(data.currency);
       } catch (err: unknown) {
         setLoadError(
@@ -96,6 +111,33 @@ export default function SettingsPage() {
       setPrefsFeedback({
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to save theme",
+      });
+    }
+  }
+
+  async function handleDarkStyleChange(dark: DarkStyle) {
+    // Same optimistic pattern as the theme. The light half is sent unchanged;
+    // the server merges one level deep, so it would survive either way.
+    const themeStyles = {
+      ...(prefs?.settings.themeStyles ??
+        DEFAULT_PREFERENCE_SETTINGS.themeStyles),
+      dark,
+    };
+    applyThemeStyles(themeStyles);
+    setPrefs((current) =>
+      current
+        ? { ...current, settings: { ...current.settings, themeStyles } }
+        : current,
+    );
+    setPrefsFeedback(null);
+
+    try {
+      await savePreferences({ settings: { themeStyles } });
+    } catch (err: unknown) {
+      setPrefsFeedback({
+        kind: "error",
+        message:
+          err instanceof Error ? err.message : "Failed to save dark style",
       });
     }
   }
@@ -141,6 +183,7 @@ export default function SettingsPage() {
       setCurrency(saved.currency);
       setPomodoro(saved.settings.pomodoro);
       applyTheme(saved.theme);
+      applyThemeStyles(saved.settings.themeStyles);
       applyCurrency(saved.currency);
       setPrefsFeedback({ kind: "success", message: "Preferences reset" });
     } catch (err: unknown) {
@@ -199,6 +242,7 @@ export default function SettingsPage() {
   }
 
   const theme = prefs?.theme ?? "system";
+  const darkStyle = prefs?.settings.themeStyles.dark ?? "default";
 
   return (
     <main className="flex-1 px-4 py-6 md:px-6 md:py-8 max-w-3xl mx-auto space-y-6 text-primary">
@@ -288,11 +332,7 @@ export default function SettingsPage() {
                 title={option.hint}
                 onClick={() => handleThemeChange(option.value)}
                 aria-pressed={theme === option.value}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                  theme === option.value
-                    ? "border-strong bg-surface-inset text-primary"
-                    : "border-subtle bg-surface-raised text-secondary hover:bg-surface-hover"
-                }`}
+                className={choiceClass(theme === option.value)}
               >
                 {option.label}
               </button>
@@ -300,6 +340,28 @@ export default function SettingsPage() {
           </div>
           <p className="text-xs text-dim">
             Applies here right away; other pages pick it up on their next load.
+          </p>
+        </div>
+
+        {/* Light has a single style (Paper) for now, so it gets no picker. */}
+        <div className="space-y-2">
+          <span className="text-xs text-muted">Dark style</span>
+          <div className="flex flex-wrap gap-2">
+            {DARK_STYLE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                title={option.hint}
+                onClick={() => handleDarkStyleChange(option.value)}
+                aria-pressed={darkStyle === option.value}
+                className={choiceClass(darkStyle === option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-dim">
+            Used whenever the page is dark, including System on a dark OS.
           </p>
         </div>
 

@@ -10,8 +10,11 @@
  * A blocking inline script in <head> runs before any paint. It is deliberately
  * tiny and swallows everything — a theme is not worth failing a page load for,
  * and unreadable storage is indistinguishable from "no preference set".
+ *
+ * The dark style (`themeDarkStyle`) rides along for the same reason, and only a
+ * known value is applied — mirroring `parseDarkStyle` in lib/preferences.ts.
  */
-const SCRIPT = `(function(){try{var t=localStorage.getItem("themePreference");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t}}catch(e){}})()`;
+const SCRIPT = `(function(){try{var r=document.documentElement,t=localStorage.getItem("themePreference");if(t==="light"||t==="dark"){r.dataset.theme=t}var s=localStorage.getItem("themeDarkStyle");if(s==="oled"||s==="glass"){r.dataset.darkStyle=s}}catch(e){}})()`;
 
 export function ThemeScript() {
   return <script dangerouslySetInnerHTML={{ __html: SCRIPT }} />;

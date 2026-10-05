@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, type PointerEvent } from "react";
 import { Entry } from "@/components/entries/types";
 import { stripTime, formatDuration } from "@/components/entries/utils";
-import { getDarkEventColor } from "@/components/entries/colors";
+import { getEventColorSlot } from "@/components/entries/colors";
 import {
   DRAG_THRESHOLD_PX,
   MINUTES_PER_DAY,
@@ -114,7 +114,6 @@ function dragRange(drag: DragState) {
 type WeeklyCalendarProps = {
   weekStart: Date;
   entries: Entry[];
-  isDark?: boolean;
   maxHeight?: number;
   /** Makes empty space selectable: a click reports a 30-minute slot, a drag
    *  the range it covered. Omit it and the calendar is display-only. */
@@ -126,7 +125,6 @@ type WeeklyCalendarProps = {
 export const WeeklyCalendar = memo(function WeeklyCalendar({
   weekStart,
   entries,
-  isDark = false,
   maxHeight,
   onSelectRange,
   pendingRange = null,
@@ -161,12 +159,14 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
     [days, entriesByDay],
   );
 
-  const eventColors = useMemo(() => {
-    const colors: Record<number, string> = {};
+  // Each event is painted from its category's `--chart-N` slot, so the
+  // calendar follows the theme and dark style with no re-render of its own.
+  const eventSlots = useMemo(() => {
+    const slots: Record<number, number> = {};
     for (const ev of entries) {
-      if (!colors[ev.id]) colors[ev.id] = getDarkEventColor(ev.category);
+      if (!slots[ev.id]) slots[ev.id] = getEventColorSlot(ev.category);
     }
-    return colors;
+    return slots;
   }, [entries]);
 
   // Fixed 24h scale
@@ -316,18 +316,16 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
                         const topPct = seg.topPct;
                         const heightPct = Math.max(seg.heightPct, 0.8);
-                        const darkColorClass = isDark ? eventColors[ev.id] : "";
+                        const slot = eventSlots[ev.id];
 
                         return (
                           <div
                             key={ev.id}
                             data-entry
-                            className={`cursor-default absolute rounded-md shadow-sm text-white text-xs p-1 content-center-safe ${
-                              isDark
-                                ? darkColorClass
-                                : "bg-green-600 border-green-800/40"
-                            }`}
+                            className="cursor-default absolute rounded-md shadow-sm text-xs p-1 content-center-safe"
                             style={{
+                              backgroundColor: `var(--chart-${slot})`,
+                              color: "var(--chart-on)",
                               top: `${topPct}%`,
                               height: `${heightPct}%`,
                               overflow: "hidden",

@@ -11,16 +11,15 @@ import {
 } from "recharts";
 import { FinanceEntry } from "@/components/finance/types";
 import { useCurrency } from "@/lib/use-currency";
-import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
+import { CHART_TOOLTIP_STYLE, useChartColors } from "@/lib/use-chart-colors";
 
 type CategoryChartProps = {
   entries: FinanceEntry[];
-  isDark: boolean;
 };
 
-export function CategoryChart({ entries, isDark }: CategoryChartProps) {
+export function CategoryChart({ entries }: CategoryChartProps) {
   const { formatPrice } = useCurrency();
-  const palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
+  const colors = useChartColors();
 
   const grouped: Record<string, number> = {};
   entries.forEach((entry) => {
@@ -30,7 +29,7 @@ export function CategoryChart({ entries, isDark }: CategoryChartProps) {
   const data = Object.entries(grouped).map(([category, price], index) => ({
     category,
     price: +price.toFixed(2),
-    fill: palette[index % palette.length],
+    fill: colors.series[index % colors.series.length],
   }));
 
   return (
@@ -40,18 +39,19 @@ export function CategoryChart({ entries, isDark }: CategoryChartProps) {
           data={data}
           margin={{ top: 4, right: 4, left: -36, bottom: 4 }}
         >
-          <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
           <XAxis
             dataKey="category"
             angle={0}
             minTickGap={5}
             tickMargin={8}
-            tick={{ fontSize: 14 }}
+            tick={{ fontSize: 14, fill: colors.axis }}
+            stroke={colors.grid}
           />
-          <YAxis />
+          <YAxis tick={{ fill: colors.axis }} stroke={colors.grid} />
           <Tooltip
-            cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }}
-            labelStyle={{ color: isDark ? "#000000" : undefined }}
+            cursor={{ fill: colors.cursor }}
+            {...CHART_TOOLTIP_STYLE}
             formatter={(value) => [formatPrice(Number(value)), "Amount"]}
           />
           <Bar dataKey="price" />

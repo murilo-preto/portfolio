@@ -18,7 +18,6 @@ import {
 } from "@/components/entries/utils";
 import type { ApiResponse } from "@/components/entries/types";
 import type { Category } from "@/lib/types";
-import { useIsDark } from "@/lib/use-media-query";
 import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "all";
@@ -43,7 +42,6 @@ export default function Entries() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -263,13 +261,13 @@ export default function Entries() {
             flush with the calendar beside it. */}
         <div className="lg:col-span-1 flex flex-col gap-6">
           <Panel title="Hours per Category" className="lg:flex-1 lg:min-h-0">
-            <CategoryChart entries={visibleEntries} isDark={isDark} />
+            <CategoryChart entries={visibleEntries} />
           </Panel>
           <Panel
             title="Relative Time per Category"
             className="lg:flex-1 lg:min-h-0"
           >
-            <CategoryPieChart entries={visibleEntries} isDark={isDark} />
+            <CategoryPieChart entries={visibleEntries} />
           </Panel>
         </div>
 
@@ -280,7 +278,7 @@ export default function Entries() {
             <WeeklyCalendar
               weekStart={calendarStart}
               entries={filteredEntries}
-              isDark={isDark}
+             
               onSelectRange={setPendingRange}
               pendingRange={pendingRange}
             />

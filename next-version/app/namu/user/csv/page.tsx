@@ -207,7 +207,7 @@ export default function CSVPage() {
             <div className="hidden md:block overflow-x-auto justify-center">
               <table className="w-full text-center">
                 <thead>
-                  <tr className="border-b border-[#F3ECE3] dark:border-neutral-800">
+                  <tr className="border-b border-subtle">
                     <th className="py-2">Category</th>
                     <th>Start</th>
                     <th>End</th>
@@ -218,7 +218,7 @@ export default function CSVPage() {
                   {entries.map((entry) => (
                     <tr
                       key={entry.id}
-                      className="border-b border-[#F3ECE3] dark:border-neutral-800 hover:bg-[#F3ECE3] dark:hover:bg-neutral-700 transition"
+                      className="border-b border-subtle hover:bg-surface-hover transition"
                     >
                       <td className="py-2">{entry.category}</td>
                       <td>{formatDisplayDateTime(entry.start_time)}</td>
@@ -234,7 +234,7 @@ export default function CSVPage() {
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="border border-[#F3ECE3] dark:border-neutral-800 rounded-lg p-3 space-y-1"
+                  className="border border-subtle rounded-lg p-3 space-y-1"
                 >
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{entry.category}</span>

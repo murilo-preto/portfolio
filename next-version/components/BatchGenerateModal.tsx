@@ -225,9 +225,9 @@ export function BatchGenerateModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="floating bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
+        <div className="floating sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-primary">Bulk Add Entries</h2>
           <button
             onClick={handleClose}
@@ -411,7 +411,7 @@ export function BatchGenerateModal({
               </div>
               <div className="overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-surface-inset sticky top-0">
+                  <thead className="floating bg-surface-inset sticky top-0">
                     <tr>
                       <th className="px-4 py-2 text-left font-medium text-muted border-b border-default">
                         Date

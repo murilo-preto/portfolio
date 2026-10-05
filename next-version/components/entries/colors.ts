@@ -1,43 +1,20 @@
-export const LIGHT_PALETTE = [
-  "#a3b18a",
-  "#9EA479",
-  "#899063",
-  "#354024",
-  "#3A3D29",
-];
+import { CHART_SERIES_COUNT } from "@/lib/use-chart-colors";
 
-export const DARK_PALETTE = [
-  "#f72585",
-  "#b5179e",
-  "#7209b7",
-  "#560bad",
-  "#480ca8",
-  "#3a0ca8",
-  "#4361ee",
-  "#4cc9f0",
-];
-
-export const DARK_COLOR_CLASSES = [
-  "bg-[#f72585] border-[#f72585]/60",
-  "bg-[#b5179e] border-[#b5179e]/60",
-  "bg-[#7209b7] border-[#7209b7]/60",
-  "bg-[#560bad] border-[#560bad]/60",
-  "bg-[#480ca8] border-[#480ca8]/60",
-  "bg-[#3a0ca8] border-[#3a0ca8]/60",
-  "bg-[#4361ee] border-[#4361ee]/60",
-  "bg-[#4cc9f0] border-[#4cc9f0]/60",
-];
-
+/**
+ * Which `--chart-N` series a category's calendar events use. The colours
+ * themselves live in `globals.css`, one set per theme and dark style, so this
+ * only hands out a stable slot: first come, first served, kept for the
+ * lifetime of the page so a category keeps its colour across weeks.
+ */
 let nextIndex = 0;
-const colorCache = new Map<string, string>();
+const slotCache = new Map<string, number>();
 
-export function getDarkEventColor(category: string): string {
-  if (colorCache.has(category)) {
-    return colorCache.get(category)!;
-  }
+export function getEventColorSlot(category: string): number {
+  const cached = slotCache.get(category);
+  if (cached !== undefined) return cached;
 
-  const colorClass = DARK_COLOR_CLASSES[nextIndex % DARK_COLOR_CLASSES.length];
-  colorCache.set(category, colorClass);
+  const slot = (nextIndex % CHART_SERIES_COUNT) + 1;
+  slotCache.set(category, slot);
   nextIndex++;
-  return colorClass;
+  return slot;
 }

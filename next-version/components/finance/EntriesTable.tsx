@@ -157,7 +157,7 @@ export function EntriesTable({ entries, onEntryUpdated }: EntriesTableProps) {
         // page past the charts beside it. The header stays put while it does.
         <div className="overflow-x-auto overflow-y-auto max-h-[32rem]">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-surface">
+            <thead className="floating sticky top-0 z-10 bg-surface">
               {/* The rule lives on the cells, not the row: Tailwind collapses
                   table borders, and a collapsed border on a sticky row is not
                   painted as it scrolls. */}

@@ -360,6 +360,12 @@ class TestReadPreferences:
         assert data["settings"]["todoFilters"] == {}
 
     @pytest.mark.integration
+    def test_a_new_user_gets_the_default_theme_styles(self, client, make_user):
+        user = make_user()
+        data = client.get("/user/preferences", headers=auth(user)).get_json()
+        assert data["settings"]["themeStyles"] == {"light": "paper", "dark": "default"}
+
+    @pytest.mark.integration
     def test_defaults_fill_in_keys_a_stored_blob_is_missing(self, client, make_user):
         """A row written before a setting existed must still read complete."""
         user = make_user()
@@ -452,6 +458,21 @@ class TestWritePreferences:
         assert pomodoro["workMinutes"] == 50
         assert pomodoro["shortBreakMinutes"] == DEFAULT_POMODORO["shortBreakMinutes"]
         assert pomodoro["longBreakMinutes"] == DEFAULT_POMODORO["longBreakMinutes"]
+
+    @pytest.mark.integration
+    def test_saving_the_dark_style_keeps_the_light_one(self, client, make_user):
+        """Dark > OLED is saved alone; the light style must survive the merge."""
+        user = make_user()
+        client.put(
+            "/user/preferences",
+            json={"settings": {"themeStyles": {"dark": "oled"}}},
+            headers=auth(user),
+        )
+
+        styles = client.get("/user/preferences", headers=auth(user)).get_json()[
+            "settings"
+        ]["themeStyles"]
+        assert styles == {"light": "paper", "dark": "oled"}
 
     @pytest.mark.integration
     def test_saving_one_blob_does_not_touch_another(self, client, make_user):

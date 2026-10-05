@@ -10,21 +10,19 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Entry } from "@/components/entries/types";
-import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
+import { CHART_TOOLTIP_STYLE, useChartColors } from "@/lib/use-chart-colors";
 import { EmptyState } from "@/components/entries/EmptyState";
 
 type CategoryChartProps = {
   entries: Entry[];
-  isDark: boolean;
   height?: number; // optional, default 300
 };
 
 export function CategoryChart({
   entries,
-  isDark,
   height = 300,
 }: CategoryChartProps) {
-  const palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
+  const colors = useChartColors();
 
   const grouped: Record<string, number> = {};
   entries.forEach((entry) => {
@@ -35,7 +33,7 @@ export function CategoryChart({
   const data = Object.entries(grouped).map(([category, seconds], index) => ({
     category,
     hours: +(seconds / 3600).toFixed(2),
-    fill: palette[index % palette.length],
+    fill: colors.series[index % colors.series.length],
   }));
 
   if (data.length === 0) {
@@ -45,18 +43,19 @@ export function CategoryChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 4, right: 4, left: -36, bottom: 4 }}>
-        <CartesianGrid strokeDasharray="3 3" />
+        <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
         <XAxis
           dataKey="category"
           angle={0}
           minTickGap={5}
           tickMargin={8}
-          tick={{ fontSize: 14 }}
+          tick={{ fontSize: 14, fill: colors.axis }}
+          stroke={colors.grid}
         />
-        <YAxis />
+        <YAxis tick={{ fill: colors.axis }} stroke={colors.grid} />
         <Tooltip
-          cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }}
-          labelStyle={{ color: isDark ? "#000000" : undefined }} // label text color
+          cursor={{ fill: colors.cursor }}
+          {...CHART_TOOLTIP_STYLE}
         />
         <Bar dataKey="hours" />
       </BarChart>
