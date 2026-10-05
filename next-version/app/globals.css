@@ -227,8 +227,7 @@
 }
 
 /* DARK > GLASS, after the minimal-black Omarchy theme: monochrome on black,
-   white hairline borders, and colour only where it carries meaning in a
-   chart. Every value below is lifted from that theme's colors.toml (the
+   white hairline borders, and grey chart series. Every value below is lifted from that theme's colors.toml (the
    background ramp, the #e7e9ea foreground and its greys) or its shell.toml
    alphas (hairlines at 0.08/0.15/0.25, hover fills at 0.08).
 
@@ -241,20 +240,23 @@
     --background: #000;
     --foreground: #e7e9ea;
     /* Glass is only as convincing as what is behind it: on flat black a
-       blur has nothing to work with. So the backdrop carries light and
-       texture — three soft white pools, and a diamond lattice (two 45°
-       stripe sets of black bands whose crossings let the grey beneath show
-       through). Fine-grained on purpose: a pane's blur dissolves the lattice
-       into an even frost and spreads the light pools across it, so every
-       pane visibly differs from the page around it. Fixed to the viewport,
-       so panes slide over the light as the page scrolls. */
+       blur has nothing to work with. Three layers, back to front:
+       - soft white light pools, which a pane's blur spreads across it
+       - a faint 22px dot grid, the structure you see shift as a pane's edge
+         passes over it
+       - fine film grain, the texture that sells the frost: crisp on the page,
+         blurred smooth inside every pane, so the panes read as glass rather
+         than as grey boxes
+       The grid and grain are SVG tiles (white at 10-20% alpha, so they only
+       ever lighten). Fixed to the viewport, so panes slide over the light as
+       the page scrolls. */
     --backdrop:
-      radial-gradient(circle at 12% 6%, rgb(231 233 234 / 0.16), transparent 32%),
-      radial-gradient(circle at 90% 32%, rgb(231 233 234 / 0.1), transparent 28%),
-      radial-gradient(circle at 38% 96%, rgb(231 233 234 / 0.12), transparent 36%),
-      repeating-linear-gradient(-45deg, #000 0 11px, transparent 11px 17.6px),
-      repeating-linear-gradient(45deg, #000 0 11px, transparent 11px 17.6px),
-      linear-gradient(#1c1c1c, #1c1c1c);
+      url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'160'%20height%3D'160'%3E%3Cfilter%20id%3D'n'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'0.85'%20numOctaves%3D'2'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%201%200%200%200%200%201%200%200%200%200%201%200.1%200%200%200%200'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E"),
+      url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'22'%3E%3Ccircle%20cx%3D'11'%20cy%3D'11'%20r%3D'1'%20fill%3D'rgb(231%2C233%2C234)'%20fill-opacity%3D'0.2'%2F%3E%3C%2Fsvg%3E"),
+      radial-gradient(60% 50% at 12% 8%, rgb(231 233 234 / 0.165), transparent 70%),
+      radial-gradient(45% 40% at 88% 22%, rgb(231 233 234 / 0.1), transparent 70%),
+      radial-gradient(55% 45% at 45% 105%, rgb(231 233 234 / 0.13), transparent 70%),
+      radial-gradient(30% 30% at 72% 68%, rgb(231 233 234 / 0.066), transparent 70%);
 
     /* Washes, not fills: each surface lets the frosted backdrop through. */
     --surface: rgb(231 233 234 / 0.045);
