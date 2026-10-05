@@ -439,6 +439,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Scrolls, but draws no scrollbar: for panels whose content already shows it
+   can scroll (a cut-off row, a sticky header). `scrollbar-width` covers
+   Firefox and current Chromium; the pseudo-element covers older WebKit. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 body {
   background: var(--background);
   /* A style's wallpaper, painted over the background colour. Only Glass sets
