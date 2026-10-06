@@ -12,8 +12,8 @@ import { BatchImportModal } from "@/components/BatchImportModal";
 import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
+import { categoryOrder, colorSlotsFor } from "@/components/entries/colors";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
-import { useIsDark } from "@/lib/use-media-query";
 import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "month" | "all";
@@ -56,7 +56,6 @@ export default function FinanceDashboard() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isDark = useIsDark();
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
   const [monthStart, setMonthStart] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [filterMode, setFilterMode] = useState<FilterMode>("week");
@@ -152,6 +151,19 @@ export default function FinanceDashboard() {
   const visibleEntries =
     filterMode === "all" ? (data?.entries ?? []) : filteredEntries;
 
+  // One category → colour map for both charts, from every entry rather than
+  // the visible range, so switching Week / Month / All repaints nothing.
+  const colorSlots = useMemo(
+    () =>
+      colorSlotsFor(
+        categoryOrder(
+          [],
+          (data?.entries ?? []).map((e) => e.category),
+        ),
+      ),
+    [data],
+  );
+
   // Planned payments: one-time planned entries.
   const plannedTotal = visibleEntries
     .filter((e) => e.status === "planned")
@@ -189,7 +201,7 @@ export default function FinanceDashboard() {
   if (error) {
     return (
       <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
-        <div className="text-red-500">{error}</div>
+        <div className="text-danger">{error}</div>
       </main>
     );
   }
@@ -320,7 +332,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All entries" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryChart entries={visibleEntries} isDark={isDark} />
+            <CategoryChart entries={visibleEntries} colorSlots={colorSlots} />
           </div>
 
           {/* Transactions Table */}
@@ -349,7 +361,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All time" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryPieChart entries={visibleEntries} isDark={isDark} height={250} />
+            <CategoryPieChart entries={visibleEntries} height={250} colorSlots={colorSlots} />
           </div>
 
           {/* Quick Stats */}

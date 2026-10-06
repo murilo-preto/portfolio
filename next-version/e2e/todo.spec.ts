@@ -80,7 +80,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
     await expect(dialog.getByPlaceholder("What needs to be done?")).toHaveValue("");
     await expect(dialog.locator('input[type="datetime-local"]')).toHaveValue("");
     await expect(dialog.getByRole("button", { name: "Medium", exact: true })).toHaveClass(
-      /bg-amber-500/
+      /bg-warning-solid/
     );
   });
 
@@ -109,7 +109,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
     await expect(dialog.getByPlaceholder("Add details...")).toHaveValue("desc text");
     await expect(dialog.locator('input[type="datetime-local"]')).toHaveValue("2026-07-07T13:54");
     await expect(dialog.getByRole("button", { name: "Low", exact: true })).toHaveClass(
-      /bg-blue-500/
+      /bg-info-solid/
     );
 
     await dialog.getByText("✕").click();
@@ -150,7 +150,7 @@ test("TODO form: due-date timezone, edit pre-fill, blank default, Today button",
     // The last successful create used category "TestCat" and Low priority.
     await expect(dialog.locator("select").first()).toHaveValue("TestCat");
     await expect(dialog.getByRole("button", { name: "Low", exact: true })).toHaveClass(
-      /bg-blue-500/
+      /bg-info-solid/
     );
 
     await dialog.getByText("✕").click();

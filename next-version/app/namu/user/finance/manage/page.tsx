@@ -75,7 +75,7 @@ function StatusMessage({
   if (!message) return null;
   return (
     <p
-      className={`text-sm text-center ${status === "success" ? "text-tint-green-ink dark:text-green-400" : "text-red-500"}`}
+      className={`text-sm text-center ${status === "success" ? "text-success" : "text-danger"}`}
     >
       {message}
     </p>
@@ -297,7 +297,7 @@ function EntryList({
                 type="button"
                 onClick={onDeleteChecked}
                 disabled={deleting}
-                className="text-xs px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+                className="text-xs px-3 py-1.5 rounded-lg border border-danger-line text-danger hover:bg-danger-wash disabled:opacity-50 transition-colors"
               >
                 {deleting ? "Deleting…" : `Delete ${checkedIds.size}`}
               </button>
@@ -307,7 +307,7 @@ function EntryList({
       </div>
 
       {error && (
-        <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+        <p className="text-sm text-danger bg-danger-wash rounded-lg px-3 py-2">
           {error}
         </p>
       )}
@@ -373,8 +373,8 @@ function EntryList({
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
                     entry.status === "done"
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      ? "bg-success-wash text-success"
+                      : "bg-warning-wash text-warning"
                   }`}
                 >
                   {entry.status}
@@ -689,7 +689,7 @@ function EditEntryPanel({
         </button>
         <button
           onClick={() => setConfirmDelete(true)}
-          className="py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-opacity"
+          className="py-2.5 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-on font-medium text-sm transition-opacity"
         >
           Delete
         </button>
@@ -698,8 +698,8 @@ function EditEntryPanel({
       <StatusMessage status={saveStatus} message={saveMsg} />
 
       {confirmDelete && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 space-y-2">
-          <p className="text-sm text-center text-red-700 dark:text-red-300">
+        <div className="p-3 rounded-lg bg-danger-wash border border-danger-line space-y-2">
+          <p className="text-sm text-center text-danger">
             Delete entry?
           </p>
           <p className="text-xs text-center text-muted">
@@ -716,7 +716,7 @@ function EditEntryPanel({
             <button
               onClick={handleDelete}
               disabled={deleteStatus === "loading"}
-              className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium disabled:opacity-40 transition-opacity"
+              className="flex-1 py-2 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-on text-sm font-medium disabled:opacity-40 transition-opacity"
             >
               {deleteStatus === "loading" ? "Deleting…" : "Yes"}
             </button>

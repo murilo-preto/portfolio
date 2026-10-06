@@ -46,7 +46,7 @@ function Header() {
   }, [menuOpen]);
 
   return (
-    <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-subtle">
+    <header className="floating sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-subtle">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* ── Desktop nav (md+) ── */}
         <nav className="hidden md:grid grid-cols-3 items-center h-14">
@@ -136,7 +136,7 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="scrollbar-none">
       <head>
         <ThemeScript />
       </head>

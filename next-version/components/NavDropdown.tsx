@@ -100,7 +100,7 @@ export function NavDropdown({
         >
           <div
             role="menu"
-            className="rounded-xl border border-subtle bg-surface shadow-lg overflow-hidden p-1 animate-rise"
+            className="floating rounded-xl border border-subtle bg-surface shadow-lg overflow-hidden p-1 animate-rise"
           >
             {items.map((item) => {
               const active = item.href === activeHref;

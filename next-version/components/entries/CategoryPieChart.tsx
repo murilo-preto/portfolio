@@ -11,22 +11,26 @@ import {
   PieLabelRenderProps,
 } from "recharts";
 import { Entry } from "@/components/entries/types";
-import { LIGHT_PALETTE, DARK_PALETTE } from "@/components/entries/colors";
+import { CHART_TOOLTIP_STYLE, useChartColors } from "@/lib/use-chart-colors";
+import { fallbackSlots, type ColorSlots } from "@/components/entries/colors";
 import { EmptyState } from "@/components/entries/EmptyState";
 import { ReactNode } from "react";
 
 type CategoryPieChartProps = {
   entries: Entry[];
-  isDark: boolean;
+  /** The page's category → colour map, shared with its other charts. */
+  colorSlots?: ColorSlots;
   height?: number; // optional, default 300
 };
 
 export function CategoryPieChart({
   entries,
-  isDark,
+  colorSlots,
   height = 300,
 }: CategoryPieChartProps) {
-  const palette = isDark ? DARK_PALETTE : LIGHT_PALETTE;
+  const colors = useChartColors();
+  // One map for every chart on the page, so a category keeps its colour.
+  const slots = colorSlots ?? fallbackSlots(entries.map((e) => e.category));
 
   // Aggregate duration (seconds) per category
   const grouped: Record<string, number> = {};
@@ -36,10 +40,10 @@ export function CategoryPieChart({
   }
 
   // Prepare chart data: hours + color per slice
-  const data = Object.entries(grouped).map(([category, seconds], index) => ({
+  const data = Object.entries(grouped).map(([category, seconds]) => ({
     category,
     hours: +(seconds / 3600).toFixed(2),
-    fill: palette[index % palette.length],
+    fill: colors.series[(slots.get(category) ?? 1) - 1],
   }));
 
   const totalHours = data.reduce((sum, d) => sum + d.hours, 0);
@@ -77,7 +81,7 @@ export function CategoryPieChart({
       <text
         x={x}
         y={y}
-        fill={isDark ? "#fff" : "#111"}
+        fill={colors.on}
         textAnchor="middle"
         dominantBaseline="central"
         style={{ fontSize: 12, fontWeight: 600 }}
@@ -126,19 +130,20 @@ export function CategoryPieChart({
           labelLine={false}
           label={renderLabel}
           // IMPORTANT: rely on per-item "fill" from data; no <Cell> needed
+          stroke={colors.separator}
           isAnimationActive={false}
         />
         <Tooltip
-          cursor={{ fill: isDark ? "#262626" : "#e7e5e4" }}
+          cursor={{ fill: colors.cursor }}
+          {...CHART_TOOLTIP_STYLE}
           formatter={tooltipFormatter}
-          labelStyle={{ color: isDark ? "#000000" : undefined }}
         />
         <Legend
           verticalAlign="bottom"
           height={28}
           iconType="circle"
           formatter={(value) => (
-            <span style={{ color: isDark ? "#e5e7eb" : "#111827" }}>
+            <span style={{ color: "var(--text-primary)" }}>
               {value}
             </span>
           )}

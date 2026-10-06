@@ -9,14 +9,21 @@ import { WeeklyCalendar } from "@/components/entries/WeeklyCalendar";
 import { EntriesTable } from "@/components/entries/EntriesTable";
 import { getMondayOf, addDays } from "@/components/entries/utils";
 import { DEMO_DATA } from "./constants";
-import { useIsDark } from "@/lib/use-media-query";
+import { categoryOrder, colorSlotsFor } from "@/components/entries/colors";
 
 type FilterMode = "today" | "week" | "all";
 
 export default function EntriesDemo() {
   const data = DEMO_DATA;
 
-  const isDark = useIsDark();
+  // One colour per category across the charts and the calendar, from the
+  // whole sample rather than the visible week. Sample data has no ids, so
+  // the order is by name.
+  const colorSlots = useMemo(
+    () => colorSlotsFor(categoryOrder([], data.entries.map((e) => e.category))),
+    [data],
+  );
+
   const [weekStart, setWeekStart] = useState(() =>
     getMondayOf(new Date("2026-02-18")),
   );
@@ -100,7 +107,7 @@ export default function EntriesDemo() {
                   Scope: {"All entries"}
                 </span>
               </div>
-              <CategoryChart entries={visibleEntries} isDark={isDark} />
+              <CategoryChart entries={visibleEntries} colorSlots={colorSlots} />
             </div>
           </div>
           <div className="col-span-1">
@@ -111,7 +118,7 @@ export default function EntriesDemo() {
                   Scope: {"All entries"}
                 </span>
               </div>
-              <CategoryPieChart entries={visibleEntries} isDark={isDark} />
+              <CategoryPieChart entries={visibleEntries} colorSlots={colorSlots} />
             </div>
           </div>
         </div>
@@ -127,7 +134,7 @@ export default function EntriesDemo() {
                     Scope: {filterMode === "today" ? "Today" : "Selected week"}
                   </span>
                 </div>
-                <CategoryChart entries={visibleEntries} isDark={isDark} />
+                <CategoryChart entries={visibleEntries} colorSlots={colorSlots} />
               </div>
             </div>
 
@@ -142,7 +149,7 @@ export default function EntriesDemo() {
                     Scope: {filterMode === "today" ? "Today" : "Selected week"}
                   </span>
                 </div>
-                <CategoryPieChart entries={visibleEntries} isDark={isDark} />
+                <CategoryPieChart entries={visibleEntries} colorSlots={colorSlots} />
               </div>
             </div>
           </div>
@@ -155,7 +162,7 @@ export default function EntriesDemo() {
                   : weekStart
               }
               entries={filteredEntries}
-              isDark={isDark}
+              colorSlots={colorSlots}
             />
           </div>
         </div>

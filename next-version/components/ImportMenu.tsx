@@ -91,7 +91,7 @@ export function ImportMenu({
         >
           <div
             role="menu"
-            className="rounded-lg border border-default bg-surface shadow-xl overflow-hidden"
+            className="floating rounded-lg border border-default bg-surface shadow-xl overflow-hidden"
           >
             <button
               type="button"

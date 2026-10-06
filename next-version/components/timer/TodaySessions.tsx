@@ -88,7 +88,7 @@ export function TodaySessions({
                 <span
                   className={`tabular-nums flex-none ${
                     active
-                      ? "text-tint-green-ink dark:text-green-400 font-semibold"
+                      ? "text-success font-semibold"
                       : "text-secondary"
                   }`}
                 >

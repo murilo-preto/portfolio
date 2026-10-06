@@ -18,10 +18,10 @@ const accentStyles = {
 };
 
 const iconBgStyles = {
-  blue: "bg-tint-blue-a text-tint-blue-ink dark:text-blue-400",
-  green: "bg-tint-green-a text-tint-green-ink dark:text-green-400",
-  amber: "bg-tint-amber-a text-tint-amber-ink dark:text-amber-400",
-  purple: "bg-tint-purple-a text-tint-purple-ink dark:text-purple-400",
+  blue: "bg-tint-blue-a text-info",
+  green: "bg-tint-green-a text-success",
+  amber: "bg-tint-amber-a text-warning",
+  purple: "bg-tint-purple-a text-accent",
 };
 
 export function SummaryCard({

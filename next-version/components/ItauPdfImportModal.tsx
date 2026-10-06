@@ -318,9 +318,9 @@ export function ItauPdfImportModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="floating bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
+        <div className="floating sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-primary">
             Import Itaú PDF Bank Statements
           </h2>
@@ -370,9 +370,9 @@ export function ItauPdfImportModal({
             <p
               className={`text-sm text-center ${
                 status === "success"
-                  ? "text-tint-green-ink dark:text-green-400"
+                  ? "text-success"
                   : status === "error"
-                  ? "text-red-500"
+                  ? "text-danger"
                   : "text-muted"
               }`}
             >
@@ -412,7 +412,7 @@ export function ItauPdfImportModal({
                           {!statement.reconciled && (
                             <span
                               title="Transactions do not add up to the printed totals"
-                              className="ml-2 text-amber-600 dark:text-amber-400"
+                              className="ml-2 text-warning"
                             >
                               ⚠
                             </span>
@@ -456,9 +456,9 @@ export function ItauPdfImportModal({
 
           {/* Files that could not be read */}
           {failures.length > 0 && (
-            <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
-              <div className="bg-red-50 dark:bg-red-900/20 px-4 py-2 border-b border-red-200 dark:border-red-800">
-                <h3 className="text-sm font-medium text-red-700 dark:text-red-400">
+            <div className="border border-danger-line rounded-lg overflow-hidden">
+              <div className="bg-danger-wash px-4 py-2 border-b border-danger-line">
+                <h3 className="text-sm font-medium text-danger">
                   Not imported ({failures.length})
                 </h3>
               </div>
@@ -466,7 +466,7 @@ export function ItauPdfImportModal({
                 {failures.map((failure) => (
                   <div
                     key={failure.file}
-                    className="text-sm text-red-600 dark:text-red-400"
+                    className="text-sm text-danger"
                   >
                     <span className="font-mono">{failure.file}</span>:{" "}
                     {failure.error}
@@ -478,7 +478,7 @@ export function ItauPdfImportModal({
 
           {/* Reconciliation warning */}
           {unreconciled.length > 0 && (
-            <div className="border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-300">
+            <div className="border border-warning-line bg-warning-wash rounded-lg p-4 text-sm text-warning">
               The transactions read from{" "}
               {unreconciled.length === 1
                 ? `the statement issued ${unreconciled[0].issued_on}`
@@ -492,7 +492,7 @@ export function ItauPdfImportModal({
 
           {/* Skipped credits/refunds */}
           {skipped.length > 0 && (
-            <div className="border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 text-sm text-amber-800 dark:text-amber-300">
+            <div className="border border-warning-line bg-warning-wash rounded-lg p-4 text-sm text-warning">
               {skipped.length} credit/refund line
               {skipped.length === 1 ? "" : "s"} will not be imported — finance
               entries cannot hold a negative amount (
@@ -513,7 +513,7 @@ export function ItauPdfImportModal({
               </div>
               <div className="overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-surface-inset sticky top-0">
+                  <thead className="floating bg-surface-inset sticky top-0">
                     <tr>
                       {["Date", "Product", "Category", "Card", "Price"]
                         .concat(statements.length > 1 ? ["Statement"] : [])
@@ -613,15 +613,15 @@ export function ItauPdfImportModal({
 
           {/* Error Details */}
           {result && result.errors.length > 0 && (
-            <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
-              <div className="bg-red-50 dark:bg-red-900/20 px-4 py-2 border-b border-red-200 dark:border-red-800">
-                <h3 className="text-sm font-medium text-red-700 dark:text-red-400">
+            <div className="border border-danger-line rounded-lg overflow-hidden">
+              <div className="bg-danger-wash px-4 py-2 border-b border-danger-line">
+                <h3 className="text-sm font-medium text-danger">
                   Errors ({result.errors.length})
                 </h3>
               </div>
               <div className="max-h-48 overflow-y-auto p-4 space-y-1">
                 {result.errors.map((err, idx) => (
-                  <div key={idx} className="text-sm text-red-600 dark:text-red-400">
+                  <div key={idx} className="text-sm text-danger">
                     <span className="font-mono">Row {err.index + 1}:</span> {err.error}
                   </div>
                 ))}

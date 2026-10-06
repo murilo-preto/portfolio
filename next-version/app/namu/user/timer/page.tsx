@@ -650,8 +650,8 @@ function TimerPageContent() {
                   <button
                     onClick={handleSubmit}
                     disabled={!isValid || submitStatus === "loading"}
-                    className="flex-1 py-3.5 rounded-xl font-semibold text-white text-lg transition active:scale-95
-                               bg-blue-600 hover:bg-blue-700
+                    className="flex-1 py-3.5 rounded-xl font-semibold text-info-on text-lg transition active:scale-95
+                               bg-info-solid hover:bg-info-solid-hover
                                disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100
                                flex items-center justify-center gap-2"
                   >
@@ -700,8 +700,8 @@ function TimerPageContent() {
               <div
                 className={`p-3 rounded-lg text-sm ${
                   submitStatus === "success"
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                    ? "bg-success-wash text-success"
+                    : "bg-danger-wash text-danger"
                 }`}
               >
                 {submitMessage}

@@ -477,7 +477,7 @@ export function PomodoroTimer({
   function getModeColor(m: TimerMode): string {
     switch (m) {
       case "pomodoro":
-        return "text-red-500";
+        return "text-danger";
       case "shortBreak":
         return "text-tint-green-ink";
       case "longBreak":
@@ -499,10 +499,10 @@ export function PomodoroTimer({
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
               mode === m
                 ? m === "pomodoro"
-                  ? "bg-red-500 text-white"
+                  ? "bg-danger-solid text-danger-on"
                   : m === "shortBreak"
-                  ? "bg-green-500 text-white"
-                  : "bg-blue-500 text-white"
+                  ? "bg-success-solid text-success-on"
+                  : "bg-info-solid text-info-on"
                 : "bg-surface-muted text-muted hover:bg-gray-200 dark:hover:bg-neutral-700"
             }`}
           >
@@ -525,17 +525,17 @@ export function PomodoroTimer({
           <div
             className={`h-full transition-all duration-1000 ${
               mode === "pomodoro"
-                ? "bg-red-500"
+                ? "bg-danger-solid"
                 : mode === "shortBreak"
-                ? "bg-green-500"
-                : "bg-blue-500"
+                ? "bg-success-solid"
+                : "bg-info-solid"
             }`}
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           />
         </div>
 
         {completion && (
-          <div className="mt-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm text-left space-y-2">
+          <div className="mt-4 p-3 rounded-lg bg-success-wash text-success text-sm text-left space-y-2">
             <p className="font-medium">
               {completion.mode === "pomodoro"
                 ? "Pomodoro complete! 🎉"
@@ -549,7 +549,7 @@ export function PomodoroTimer({
               </p>
             )}
             {completion.logError && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-xs text-warning">
                 Not logged to your time entries: {completion.logError}
               </p>
             )}
@@ -564,8 +564,8 @@ export function PomodoroTimer({
                   <button
                     onClick={handleMarkTaskDone}
                     disabled={markingDone}
-                    className="text-xs px-2 py-1 rounded-md border border-green-300 dark:border-green-800
-                               hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors
+                    className="text-xs px-2 py-1 rounded-md border border-success-line
+                               hover:bg-success-wash transition-colors
                                disabled:opacity-60"
                   >
                     {markingDone ? "Marking…" : "Mark task done"}
@@ -584,7 +584,7 @@ export function PomodoroTimer({
             </p>
             <button
               onClick={onClearSelectedTodo}
-              className="text-xs text-red-500 hover:text-red-600 mt-1"
+              className="text-xs text-danger hover:text-danger mt-1"
             >
               Clear selection
             </button>
@@ -604,7 +604,7 @@ export function PomodoroTimer({
           <>
             <button
               onClick={handlePause}
-              className="py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
+              className="py-3 rounded-lg bg-warning-solid hover:bg-warning-solid-hover text-warning-on font-medium transition-colors"
             >
               Pause
             </button>
@@ -619,7 +619,7 @@ export function PomodoroTimer({
           <>
             <button
               onClick={handleStart}
-              className="py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
+              className="py-3 rounded-lg bg-success-solid hover:bg-success-solid-hover text-success-on font-medium transition-colors"
             >
               Resume
             </button>
@@ -633,7 +633,7 @@ export function PomodoroTimer({
         ) : (
           <button
             onClick={handleStart}
-            className="col-span-2 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
+            className="col-span-2 py-3 rounded-lg bg-success-solid hover:bg-success-solid-hover text-success-on font-medium transition-colors"
           >
             {mode === "pomodoro" ? "Start Pomodoro" : "Start Break"}
           </button>

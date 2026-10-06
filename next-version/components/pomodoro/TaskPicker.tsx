@@ -26,7 +26,7 @@ export function TaskPicker({
       {loading ? (
         <p className="text-xs text-muted">Loading tasks...</p>
       ) : error ? (
-        <p className="text-xs text-red-500">{error}</p>
+        <p className="text-xs text-danger">{error}</p>
       ) : (
         <select
           value={selectedTodo?.id ?? ""}

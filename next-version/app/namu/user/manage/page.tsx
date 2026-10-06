@@ -122,7 +122,7 @@ function StatusMessage({
   if (!message) return null;
   return (
     <p
-      className={`text-sm text-center ${status === "success" ? "text-tint-green-ink dark:text-green-400" : "text-red-500"}`}
+      className={`text-sm text-center ${status === "success" ? "text-success" : "text-danger"}`}
     >
       {message}
     </p>
@@ -134,7 +134,7 @@ function DurationPreview({ start, end }: { start: string; end: string }) {
   if (dur === null) return null;
   if (dur <= 0)
     return (
-      <p className="text-xs text-red-500">End time must be after start time.</p>
+      <p className="text-xs text-danger">End time must be after start time.</p>
     );
   return (
     <p className="text-xs text-muted">
@@ -350,7 +350,7 @@ function EntryList({
   return (
     <div className="space-y-2">
       {error && (
-        <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+        <p className="text-sm text-danger bg-danger-wash rounded-lg px-3 py-2">
           {error}
         </p>
       )}
@@ -649,7 +649,7 @@ function EditEntryPanel({
         </button>
         <button
           onClick={() => setConfirmDelete(true)}
-          className="py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition-opacity"
+          className="py-2.5 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-on font-medium text-sm transition-opacity"
         >
           Delete
         </button>
@@ -658,8 +658,8 @@ function EditEntryPanel({
       <StatusMessage status={saveStatus} message={saveMsg} />
 
       {confirmDelete && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 space-y-2">
-          <p className="text-sm text-center text-red-700 dark:text-red-300">
+        <div className="p-3 rounded-lg bg-danger-wash border border-danger-line space-y-2">
+          <p className="text-sm text-center text-danger">
             Delete entry?
           </p>
           <p className="text-xs text-center text-muted">
@@ -676,7 +676,7 @@ function EditEntryPanel({
             <button
               onClick={handleDelete}
               disabled={deleteStatus === "loading"}
-              className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium disabled:opacity-40 transition-opacity"
+              className="flex-1 py-2 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-on text-sm font-medium disabled:opacity-40 transition-opacity"
             >
               {deleteStatus === "loading" ? "Deleting…" : "Yes"}
             </button>

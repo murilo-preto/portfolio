@@ -62,9 +62,9 @@ export function EntriesTable({ entries, initialLimit = 25 }: EntriesTableProps) 
             ))}
           </div>
 
-          <div className="hidden md:block overflow-x-auto max-h-[32rem] overflow-y-auto">
+          <div className="hidden md:block overflow-x-auto max-h-[32rem] overflow-y-auto scrollbar-none">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-background">
+              <thead className="floating sticky top-0 bg-background">
                 <tr className="border-b border-default text-xs uppercase tracking-wide text-muted">
                   <th className="py-2 pr-4 text-left font-medium">Category</th>
                   <th className="py-2 pr-4 text-left font-medium">Note</th>

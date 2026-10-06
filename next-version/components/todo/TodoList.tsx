@@ -127,8 +127,8 @@ export function TodoList({
 
       {/* Bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-4 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-          <span className="text-xs text-blue-700 dark:text-blue-300 mr-1">
+        <div className="flex flex-wrap items-center gap-2 mb-4 p-2 rounded-lg bg-info-wash">
+          <span className="text-xs text-info mr-1">
             {selectedIds.size} selected
           </span>
           <button
@@ -151,7 +151,7 @@ export function TodoList({
           </button>
           <button
             onClick={onBulkDelete}
-            className="text-xs px-2 py-1 rounded-lg bg-red-500 text-white"
+            className="text-xs px-2 py-1 rounded-lg bg-danger-solid text-danger-on"
           >
             Delete
           </button>
@@ -250,7 +250,7 @@ export function TodoList({
           Loading To Do items...
         </div>
       ) : error ? (
-        <div className="text-center py-8 text-red-500">{error}</div>
+        <div className="text-center py-8 text-danger">{error}</div>
       ) : sortedItems.length === 0 ? (
         <div className="text-center py-8 text-muted">
           {items.length === 0

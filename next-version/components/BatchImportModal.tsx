@@ -135,9 +135,9 @@ export function BatchImportModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="floating bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
+        <div className="floating sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-primary">
             Batch Import {config.title}
           </h2>
@@ -192,9 +192,9 @@ export function BatchImportModal({
             <p
               className={`text-sm text-center ${
                 status === "success"
-                  ? "text-tint-green-ink dark:text-green-400"
+                  ? "text-success"
                   : status === "error"
-                  ? "text-red-500"
+                  ? "text-danger"
                   : "text-muted"
               }`}
             >
@@ -212,7 +212,7 @@ export function BatchImportModal({
               </div>
               <div className="overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-surface-inset sticky top-0">
+                  <thead className="floating bg-surface-inset sticky top-0">
                     <tr>
                       {config.columns.map((col) => (
                         <th
@@ -253,9 +253,9 @@ export function BatchImportModal({
 
           {/* Error Details */}
           {result && result.errors.length > 0 && (
-            <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
-              <div className="bg-red-50 dark:bg-red-900/20 px-4 py-2 border-b border-red-200 dark:border-red-800">
-                <h3 className="text-sm font-medium text-red-700 dark:text-red-400">
+            <div className="border border-danger-line rounded-lg overflow-hidden">
+              <div className="bg-danger-wash px-4 py-2 border-b border-danger-line">
+                <h3 className="text-sm font-medium text-danger">
                   Errors ({result.errors.length})
                 </h3>
               </div>
@@ -263,7 +263,7 @@ export function BatchImportModal({
                 {result.errors.map((err, idx) => (
                   <div
                     key={idx}
-                    className="text-sm text-red-600 dark:text-red-400"
+                    className="text-sm text-danger"
                   >
                     <span className="font-mono">Row {err.index + 1}:</span> {err.error}
                   </div>

@@ -59,11 +59,11 @@ export function formatDate(iso: string | null): string {
 export function getPriorityColor(priority: string): string {
   switch (priority) {
     case "high":
-      return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800";
+      return "text-danger bg-danger-wash border-danger-line";
     case "medium":
-      return "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800";
+      return "text-warning bg-warning-wash border-warning-line";
     case "low":
-      return "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800";
+      return "text-info bg-info-wash border-info-line";
     default:
       return "text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800";
   }
@@ -73,9 +73,9 @@ export function getPriorityColor(priority: string): string {
 export function getStatusColor(status: string): string {
   switch (status) {
     case "completed":
-      return "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800";
+      return "text-success bg-success-wash border-success-line";
     case "in_progress":
-      return "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800";
+      return "text-info bg-info-wash border-info-line";
     case "pending":
       return "text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800";
     default:

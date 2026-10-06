@@ -44,7 +44,8 @@
    already rendered before this refactor, quoted as literal oklch() so they
    cannot drift — the Tailwind color each one came from is named in the
    comment beside it. Editing a light value cannot reach dark mode, and
-   dark is byte-identical to what it was.
+   dark is byte-identical to what it was. That default dark is the base for
+   the dark styles (`data-dark-style`), which override only what they change.
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
@@ -112,10 +113,72 @@
 
   --tint-gray-a: oklch(45% 0.02 75 / 0.1);
   --tint-gray-line: oklch(45% 0.02 75 / 0.22);
+
+  /* Status — what a colour *means*, not which hue it is: danger, success,
+     warning, info, and an accent for the odd thing that is just special
+     (recurrence). Each has an ink (text, icons, focus rings), a wash and a
+     line (badges, alert boxes), a solid fill for buttons with its hover, and
+     `on`, the text set on that fill. Paper's inks are its own earthy tint
+     inks, which its status text already used; danger stays red-600, as
+     Paper's red tint has no ink. Washes, lines and solids keep the Tailwind
+     hues they replaced. A dark style can recolour any of them. */
+  --danger: oklch(57.7% 0.245 27.325); /* red-600 */
+  --danger-wash: oklch(97.1% 0.013 17.38); /* red-50 */
+  --danger-line: oklch(88.5% 0.062 18.334); /* red-200 */
+  --danger-solid: oklch(57.7% 0.245 27.325); /* red-600 */
+  --danger-solid-hover: oklch(50.5% 0.213 27.518); /* red-700 */
+  --danger-on: #fff;
+
+  --success: var(--tint-green-ink);
+  --success-wash: oklch(98.2% 0.018 155.826); /* green-50 */
+  --success-line: oklch(92.5% 0.084 155.995); /* green-200 */
+  --success-solid: oklch(62.7% 0.194 149.214); /* green-600 */
+  --success-solid-hover: oklch(52.7% 0.154 150.069); /* green-700 */
+  --success-on: #fff;
+
+  --warning: var(--tint-amber-ink);
+  --warning-wash: oklch(98.7% 0.022 95.277); /* amber-50 */
+  --warning-line: oklch(92.4% 0.12 95.746); /* amber-200 */
+  --warning-solid: oklch(76.9% 0.188 70.08); /* amber-500 */
+  --warning-solid-hover: oklch(66.6% 0.179 58.318); /* amber-600 */
+  --warning-on: #fff;
+
+  --info: var(--tint-blue-ink);
+  --info-wash: oklch(97% 0.014 254.604); /* blue-50 */
+  --info-line: oklch(88.2% 0.059 254.128); /* blue-200 */
+  --info-solid: oklch(54.6% 0.245 262.881); /* blue-600 */
+  --info-solid-hover: oklch(48.8% 0.243 264.376); /* blue-700 */
+  --info-on: #fff;
+
+  --accent: var(--tint-purple-ink);
+  --accent-wash: oklch(97.7% 0.014 308.299); /* purple-50 */
+  --accent-line: oklch(90.2% 0.063 306.703); /* purple-200 */
+  --accent-solid: oklch(55.8% 0.288 302.321); /* purple-600 */
+  --accent-solid-hover: oklch(49.6% 0.265 301.924); /* purple-700 */
+  --accent-on: #fff;
+
+  /* Data series — chart bars and slices, calendar events — in assignment
+     order, plus `--chart-on` for text set on a solid series fill. Paper takes
+     the tint inks above (indigo, sage, ochre, plum, terracotta) and adds three
+     more earths, all near 45-53% lightness so the paper-white label reads on
+     every one. */
+  --chart-1: oklch(45% 0.08 245);
+  --chart-2: oklch(48% 0.08 145);
+  --chart-3: oklch(52% 0.12 66);
+  --chart-4: oklch(44% 0.11 305);
+  --chart-5: oklch(53% 0.11 32);
+  --chart-6: oklch(48% 0.07 120);
+  --chart-7: oklch(48% 0.06 200);
+  --chart-8: oklch(42% 0.03 60);
+  --chart-on: #faf6f0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="dark"]):not([data-theme="light"]) {
+/* DARK, written once. `@variant dark` expands through the custom variant at
+   the top of this file into both of its branches — the OS says dark and no
+   explicit light, or an explicit dark — so the token blocks and the `dark:`
+   utilities share one predicate and there is no second copy to keep in step. */
+:root {
+  @variant dark {
     --background: #0a0a0a;
     --foreground: #ededed;
     color-scheme: dark;
@@ -169,67 +232,338 @@
 
     --tint-gray-a: oklch(55.1% 0.027 264.364 / 0.1); /* gray-500/10 */
     --tint-gray-line: oklch(55.1% 0.027 264.364 / 0.2); /* gray-500/20 */
+
+    /* The neon series the charts and calendar always used in dark. OLED
+       keeps them: they are at their best on true black. */
+    --chart-1: #f72585;
+    --chart-2: #b5179e;
+    --chart-3: #7209b7;
+    --chart-4: #560bad;
+    --chart-5: #480ca8;
+    --chart-6: #3a0ca8;
+    --chart-7: #4361ee;
+    --chart-8: #4cc9f0;
+    --chart-on: #fff;
+
+    /* Status: the 400 inks, 900 washes at 20% and 800 lines the components
+       paired with their light classes. Solids and `on` carry over. */
+    --danger: oklch(70.4% 0.191 22.216); /* red-400 */
+    --danger-wash: oklch(39.6% 0.141 25.723 / 0.2); /* red-900/20 */
+    --danger-line: oklch(44.4% 0.177 26.899); /* red-800 */
+    --success: oklch(79.2% 0.209 151.711); /* green-400 */
+    --success-wash: oklch(39.3% 0.095 152.535 / 0.2); /* green-900/20 */
+    --success-line: oklch(44.8% 0.119 151.328); /* green-800 */
+    --warning: oklch(82.8% 0.189 84.429); /* amber-400 */
+    --warning-wash: oklch(41.4% 0.112 45.904 / 0.2); /* amber-900/20 */
+    --warning-line: oklch(47.3% 0.137 46.201); /* amber-800 */
+    --info: oklch(70.7% 0.165 254.624); /* blue-400 */
+    --info-wash: oklch(37.9% 0.146 265.522 / 0.2); /* blue-900/20 */
+    --info-line: oklch(42.4% 0.199 265.638); /* blue-800 */
+    --accent: oklch(71.4% 0.203 305.504); /* purple-400 */
+    --accent-wash: oklch(38.1% 0.176 304.987 / 0.2); /* purple-900/20 */
+    --accent-line: oklch(43.8% 0.218 303.724); /* purple-800 */
   }
 }
 
-/* An explicit theme preference (account settings, mirrored to
-   localStorage) wins over the OS setting. The declarations below are the
-   dark block above, verbatim — the media query is scoped to "no explicit
-   choice" so the two can never both apply. Edit them together. */
-:root[data-theme="dark"] {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  color-scheme: dark;
+/* DARK > OLED. A style within dark, not a third theme: `data-dark-style`
+   stays on <html> whatever the mode, and only takes effect while dark does,
+   so "System" can flip between paper and OLED without any script.
 
-  --surface: oklch(20.5% 0 0); /* neutral-900 */
-  --surface-raised: oklch(26.9% 0 0); /* neutral-800 */
-  --surface-inset: oklch(26.9% 0 0); /* neutral-800 */
-  --surface-muted: oklch(26.9% 0 0); /* neutral-800 */
-  --surface-deep: oklch(14.5% 0 0); /* neutral-950 */
-  --surface-hover: oklch(37.1% 0 0); /* neutral-700 */
+   Every surface is true black, so fills no longer separate a card from the
+   page or a raised panel from an inset one — the borders, inherited from the
+   default dark, carry that hierarchy alone. Hover is the one lift kept, or
+   rows would give no feedback at all. Text, tints and the inverted surface
+   are inherited unchanged. */
+:root[data-dark-style="oled"] {
+  @variant dark {
+    --background: #000;
 
-  --border-subtle: oklch(26.9% 0 0); /* neutral-800 */
-  --border-default: oklch(37.1% 0 0); /* neutral-700 */
-  --border-strong: oklch(43.9% 0 0); /* neutral-600 */
+    --surface: #000;
+    --surface-raised: #000;
+    --surface-inset: #000;
+    --surface-muted: #000;
+    --surface-deep: #000;
+    --surface-hover: oklch(20.5% 0 0); /* neutral-900 */
+  }
+}
 
-  --text-primary: oklch(96.7% 0.003 264.542); /* gray-100 */
-  --text-secondary: oklch(87.2% 0.01 258.338); /* gray-300 */
-  --text-muted: oklch(70.7% 0.022 261.325); /* gray-400 */
-  --text-dim: oklch(55.1% 0.027 264.364); /* gray-500 */
+/* DARK > GLASS, after the minimal-black Omarchy theme: monochrome on black,
+   white hairline borders, and colour for the data alone. The chrome's values
+   come from that theme's colors.toml (the #e7e9ea foreground and its greys)
+   and shell.toml alphas (hairlines at 0.08/0.15/0.25, hover fills at 0.08);
+   the chart series from Nord.
 
-  --invert-bg: oklch(97% 0 0); /* neutral-100 */
-  --invert-bg-hover: oklch(92.2% 0 0); /* neutral-200 */
-  --invert-fg: oklch(20.5% 0 0); /* neutral-900 */
+   Surfaces are glass: faint white washes rather than fills, so cards frost
+   the backdrop behind them (see the pane rules below). The tint washes lose
+   their hue — each is the same faint white, so cards stay neutral glass —
+   while their inks (icons, figures) take the Nord colour of the status
+   tokens below, so an icon and a badge of one meaning agree. */
+:root[data-dark-style="glass"] {
+  @variant dark {
+    --background: #000;
+    --foreground: #e7e9ea;
+    /* Glass is only as convincing as what is behind it: on flat black a
+       blur has nothing to work with. Three layers, back to front:
+       - soft white light pools, which a pane's blur spreads across it
+       - a faint 22px dot grid, the structure you see shift as a pane's edge
+         passes over it
+       - fine film grain, the texture that sells the frost: crisp on the page,
+         blurred smooth inside every pane, so the panes read as glass rather
+         than as grey boxes
+       The grid and grain are SVG tiles (white at 10-20% alpha, so they only
+       ever lighten). Fixed to the viewport, so panes slide over the light as
+       the page scrolls. */
+    --backdrop:
+      url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'160'%20height%3D'160'%3E%3Cfilter%20id%3D'n'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'0.85'%20numOctaves%3D'2'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%201%200%200%200%200%201%200%200%200%200%201%200.1%200%200%200%200'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E"),
+      url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'22'%3E%3Ccircle%20cx%3D'11'%20cy%3D'11'%20r%3D'1'%20fill%3D'rgb(231%2C233%2C234)'%20fill-opacity%3D'0.2'%2F%3E%3C%2Fsvg%3E"),
+      radial-gradient(60% 50% at 12% 8%, rgb(231 233 234 / 0.165), transparent 70%),
+      radial-gradient(45% 40% at 88% 22%, rgb(231 233 234 / 0.1), transparent 70%),
+      radial-gradient(55% 45% at 45% 105%, rgb(231 233 234 / 0.13), transparent 70%),
+      radial-gradient(30% 30% at 72% 68%, rgb(231 233 234 / 0.066), transparent 70%);
 
-  /* Pinned to exactly what Tailwind emitted for the classes these
-     replaced, alpha included — e.g. `from-blue-500/10` is blue-500 at
-     0.1. Dark renders bit-for-bit what it did before. */
-  --tint-blue-a: oklch(62.3% 0.214 259.815 / 0.1); /* blue-500/10 */
-  --tint-blue-b: oklch(54.6% 0.245 262.881 / 0.05); /* blue-600/5 */
-  --tint-blue-line: oklch(62.3% 0.214 259.815 / 0.2); /* blue-500/20 */
-  --tint-blue-ink: oklch(62.3% 0.214 259.815); /* blue-500 */
+    /* Washes, not fills: each surface lets the frosted backdrop through. */
+    --surface: rgb(231 233 234 / 0.045);
+    --surface-raised: rgb(231 233 234 / 0.07);
+    --surface-inset: rgb(0 0 0 / 0.3);
+    --surface-muted: rgb(231 233 234 / 0.05);
+    --surface-deep: transparent; /* page-level mains: let the backdrop show */
+    --surface-hover: rgb(231 233 234 / 0.1);
 
-  --tint-green-a: oklch(72.3% 0.219 149.579 / 0.1); /* green-500/10 */
-  --tint-green-b: oklch(62.7% 0.194 149.214 / 0.05); /* green-600/5 */
-  --tint-green-line: oklch(72.3% 0.219 149.579 / 0.2); /* green-500/20 */
-  --tint-green-ink: oklch(72.3% 0.219 149.579); /* green-500 */
+    --border-subtle: rgb(231 233 234 / 0.08);
+    --border-default: rgb(231 233 234 / 0.15);
+    --border-strong: rgb(231 233 234 / 0.25);
 
-  --tint-amber-a: oklch(76.9% 0.188 70.08 / 0.1); /* amber-500/10 */
-  --tint-amber-b: oklch(66.6% 0.179 58.318 / 0.05); /* amber-600/5 */
-  --tint-amber-line: oklch(76.9% 0.188 70.08 / 0.2); /* amber-500/20 */
-  --tint-amber-ink: oklch(76.9% 0.188 70.08); /* amber-500 */
+    --text-primary: #e7e9ea;
+    --text-secondary: #b2b2b2;
+    --text-muted: #8a8a8a;
+    --text-dim: #626262;
 
-  --tint-purple-a: oklch(62.7% 0.265 303.9 / 0.1); /* purple-500/10 */
-  --tint-purple-b: oklch(55.8% 0.288 302.321 / 0.05); /* purple-600/5 */
-  --tint-purple-line: oklch(62.7% 0.265 303.9 / 0.2); /* purple-500/20 */
-  --tint-purple-ink: oklch(62.7% 0.265 303.9); /* purple-500 */
+    --invert-bg: #e7e9ea;
+    --invert-bg-hover: #fff;
+    --invert-fg: #000;
 
-  --tint-red-a: oklch(63.7% 0.237 25.331 / 0.1); /* red-500/10 */
-  --tint-red-b: oklch(57.7% 0.245 27.325 / 0.05); /* red-600/5 */
-  --tint-red-line: oklch(63.7% 0.237 25.331 / 0.2); /* red-500/20 */
+    --tint-blue-a: rgb(231 233 234 / 0.06);
+    --tint-blue-b: rgb(231 233 234 / 0.02);
+    --tint-blue-line: rgb(231 233 234 / 0.15);
+    --tint-blue-ink: #81a1c1; /* nord9 */
 
-  --tint-gray-a: oklch(55.1% 0.027 264.364 / 0.1); /* gray-500/10 */
-  --tint-gray-line: oklch(55.1% 0.027 264.364 / 0.2); /* gray-500/20 */
+    --tint-green-a: rgb(231 233 234 / 0.06);
+    --tint-green-b: rgb(231 233 234 / 0.02);
+    --tint-green-line: rgb(231 233 234 / 0.15);
+    --tint-green-ink: #a3be8c; /* nord14 */
+
+    --tint-amber-a: rgb(231 233 234 / 0.06);
+    --tint-amber-b: rgb(231 233 234 / 0.02);
+    --tint-amber-line: rgb(231 233 234 / 0.15);
+    --tint-amber-ink: #ebcb8b; /* nord13 */
+
+    --tint-purple-a: rgb(231 233 234 / 0.06);
+    --tint-purple-b: rgb(231 233 234 / 0.02);
+    --tint-purple-line: rgb(231 233 234 / 0.15);
+    --tint-purple-ink: #b48ead; /* nord15 */
+
+    /* Errors stay findable without colour: a stronger hairline. */
+    --tint-red-a: rgb(231 233 234 / 0.06);
+    --tint-red-b: rgb(231 233 234 / 0.02);
+    --tint-red-line: rgb(231 233 234 / 0.3);
+
+    --tint-gray-a: rgb(231 233 234 / 0.04);
+    --tint-gray-line: rgb(231 233 234 / 0.1);
+
+    /* Series from Nord (arcticicestudio): its muted Frost blues alternated
+       with the soft Aurora accents, so the data takes colour without
+       competing with the monochrome glass around it. The order is a search
+       over every arrangement for the most distinct neighbours, the first and
+       last slots counted as neighbours too because they meet in the donut:
+       worst neighbour ΔE 11.1 under red-green colour blindness (target 8),
+       15.5 for typical vision (floor 15). Labels set on a fill use Polar
+       Night nord0, at least 4.4:1 on every slot. */
+    --chart-1: #8fbcbb; /* nord7  frost teal */
+    --chart-2: #5e81ac; /* nord10 frost deep blue */
+    --chart-3: #88c0d0; /* nord8  frost ice */
+    --chart-4: #d08770; /* nord12 aurora orange */
+    --chart-5: #ebcb8b; /* nord13 aurora yellow */
+    --chart-6: #b48ead; /* nord15 aurora purple */
+    --chart-7: #a3be8c; /* nord14 aurora green */
+    --chart-8: #bf616a; /* nord11 aurora red */
+    --chart-on: #2e3440; /* nord0 */
+
+    /* Tooltips are the exception to the popovers' lighter frost: they appear
+       over the brightest thing on the page — the bar being hovered — and at
+       half opacity its colour bled through the label. Small and read at a
+       glance, they trade translucency for a near-opaque body. */
+    --tooltip-bg: rgb(24 24 24 / 0.88);
+
+    /* Status in Nord's Aurora, so a badge, an alert and the charts speak one
+       palette: nord11 red, nord14 green, nord13 yellow, nord9 blue, nord15
+       purple. Washes and lines are the ink at 14% and 40%. Aurora is light,
+       so text on a solid is Polar Night nord0 — except red, the one dark
+       enough for white: its solid steps down to #b15d67 (white 4.5:1) and its
+       ink up to #cc757e (5.6:1 on a pane), nord11 itself managing neither. */
+    --danger: #cc757e;
+    --danger-wash: rgb(191 97 106 / 0.14);
+    --danger-line: rgb(191 97 106 / 0.4);
+    --danger-solid: #b15d67;
+    --danger-solid-hover: #bf616a;
+    --danger-on: #fff;
+    --success: #a3be8c;
+    --success-wash: rgb(163 190 140 / 0.14);
+    --success-line: rgb(163 190 140 / 0.4);
+    --success-solid: #a3be8c;
+    --success-solid-hover: #b4cb9f;
+    --success-on: #2e3440;
+    --warning: #ebcb8b;
+    --warning-wash: rgb(235 203 139 / 0.14);
+    --warning-line: rgb(235 203 139 / 0.4);
+    --warning-solid: #ebcb8b;
+    --warning-solid-hover: #f0d6a3;
+    --warning-on: #2e3440;
+    --info: #81a1c1;
+    --info-wash: rgb(129 161 193 / 0.14);
+    --info-line: rgb(129 161 193 / 0.4);
+    --info-solid: #81a1c1;
+    --info-solid-hover: #94b0cc;
+    --info-on: #2e3440;
+    --accent: #b48ead;
+    --accent-wash: rgb(180 142 173 / 0.14);
+    --accent-line: rgb(180 142 173 / 0.4);
+    --accent-solid: #b48ead;
+    --accent-solid-hover: #c2a2bc;
+    --accent-on: #2e3440;
+  }
+}
+
+/* The panes, in depth order. A wash alone is only tinted cellophane; glass
+   is the blur behind it, a sheen across it, a lit top edge and a shadow
+   beneath. Each level gets its own measure of those four, so how far a layer
+   sits above the page reads at a glance: the higher it floats, the brighter
+   its edge, the deeper its shadow and the heavier its frost.
+
+     0  page        the backdrop (grain, dots, light)
+     1  cards       light frost, short shadow
+     2  wells       sunk into a card: darker, inner shadow, no frost
+     2  nested      panes inside a card: a flatter wash, no blur of their own
+     3  bars        nav header, sticky headers: heavy frost, hairline, no lift
+     4  popovers    menus, tooltips: brighter frost, strong edge, long shadow
+     5  modals      the heaviest frost, brightest edge, deepest shadow
+
+   Every blurred layer is its own compositing layer, which costs GPU; Glass
+   accepts that, the other styles never pay it. Unlayered, so these outrank
+   the elements' own Tailwind utilities. */
+
+/* 1 — cards: `rounded-xl` panels on `bg-surface`, and the tinted stat cards. */
+:root[data-dark-style="glass"] .rounded-xl:is(.bg-surface, [class*="from-tint-"]) {
+  @variant dark {
+    backdrop-filter: blur(16px) saturate(140%) brightness(1.12);
+    border-color: rgb(231 233 234 / 0.1);
+    box-shadow:
+      inset 0 1px 0 rgb(231 233 234 / 0.1),
+      0 8px 28px rgb(0 0 0 / 0.45);
+  }
+}
+
+/* The sheen: a diagonal glint from the top-left corner. Plain cards only —
+   the stat cards' own tint gradient already lives in background-image. */
+:root[data-dark-style="glass"] .rounded-xl.bg-surface {
+  @variant dark {
+    background-image: linear-gradient(
+      135deg,
+      rgb(231 233 234 / 0.07),
+      transparent 45%
+    );
+  }
+}
+
+/* 2 — nested panes (todo rows inside their list card). Their parent already
+   frosts the page, so a second blur adds cost and no depth; a slightly
+   brighter wash, a fainter glint and a contact shadow set them one step up. */
+:root[data-dark-style="glass"] .rounded-xl.bg-surface .rounded-xl.bg-surface {
+  @variant dark {
+    backdrop-filter: none;
+    background-color: rgb(231 233 234 / 0.05);
+    background-image: linear-gradient(
+      135deg,
+      rgb(231 233 234 / 0.04),
+      transparent 40%
+    );
+    border-color: rgb(231 233 234 / 0.08);
+    box-shadow:
+      inset 0 1px 0 rgb(231 233 234 / 0.06),
+      0 2px 8px rgb(0 0 0 / 0.3);
+  }
+}
+
+/* 2 — wells: the inset surface (stat tiles, instruction boxes, the pressed
+   option of a toggle) sinks into its card instead of rising from it. */
+:root[data-dark-style="glass"] .bg-surface-inset:not(.floating) {
+  @variant dark {
+    box-shadow:
+      inset 0 1px 3px rgb(0 0 0 / 0.45),
+      inset 0 0 0 1px rgb(231 233 234 / 0.04);
+  }
+}
+
+/* 3 — bars. Layers that float over content — the nav header, menus, modals,
+   chart tooltips, sticky table and modal headers — mark themselves
+   `.floating` (native <dialog>s need no mark); elsewhere the class does
+   nothing. A bar sits over text rather than the backdrop, so it keeps a dark
+   body (0.55 over a heavy blur) for whatever scrolls beneath to stay legible,
+   and no shadow: it is attached to the page, not lifted off it. */
+:root[data-dark-style="glass"] :is(dialog, .floating) {
+  @variant dark {
+    background-color: rgb(18 18 18 / 0.55);
+    backdrop-filter: blur(24px) saturate(140%) brightness(1.1);
+  }
+}
+
+/* 4 — popovers: menus and chart tooltips. Lighter and brighter than a bar,
+   so a menu dropped over the header or a card still separates from both. */
+:root[data-dark-style="glass"] :is([role="menu"].floating, .recharts-default-tooltip.floating) {
+  @variant dark {
+    background-color: rgb(38 38 38 / 0.5);
+    backdrop-filter: blur(32px) saturate(160%) brightness(1.2);
+    border-color: rgb(231 233 234 / 0.16);
+    box-shadow:
+      inset 0 1px 0 rgb(231 233 234 / 0.16),
+      0 16px 48px rgb(0 0 0 / 0.6);
+  }
+}
+
+
+/* 5 — modals: native <dialog>s, and the panel directly inside a fixed
+   overlay. The page behind a <dialog> is softened as well; the hand-rolled
+   overlays cannot be — a backdrop-filter there would become the panel's
+   backdrop root and leave the panel nothing to frost. */
+:root[data-dark-style="glass"] :is(dialog, .fixed > .floating) {
+  @variant dark {
+    background-color: rgb(28 28 28 / 0.6);
+    backdrop-filter: blur(40px) saturate(160%) brightness(1.15);
+    border-color: rgb(231 233 234 / 0.2);
+    box-shadow:
+      inset 0 1px 0 rgb(231 233 234 / 0.2),
+      0 32px 80px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* `@variant dark` cannot follow a pseudo-element (it would compile to
+   `::backdrop:where(…)`, which matches nothing), so the variant's two
+   branches are spelled out here: OS dark without an explicit light, or an
+   explicit dark. */
+@media (prefers-color-scheme: dark) {
+  :root[data-dark-style="glass"]:not([data-theme="light"]) dialog::backdrop {
+    backdrop-filter: blur(6px);
+  }
+}
+:root[data-dark-style="glass"][data-theme="dark"] dialog::backdrop {
+  backdrop-filter: blur(6px);
+}
+
+/* A native <select>'s option list is drawn by the browser, which paints it
+   with the select's own background — a 7% wash over nothing. */
+:root[data-dark-style="glass"] option {
+  @variant dark {
+    background-color: #121212;
+  }
 }
 
 @theme inline {
@@ -286,12 +620,63 @@
   --color-tint-gray-a: var(--tint-gray-a);
   --color-tint-gray-line: var(--tint-gray-line);
 
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+  --color-danger-line: var(--danger-line);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-danger-on: var(--danger-on);
+
+  --color-success: var(--success);
+  --color-success-wash: var(--success-wash);
+  --color-success-line: var(--success-line);
+  --color-success-solid: var(--success-solid);
+  --color-success-solid-hover: var(--success-solid-hover);
+  --color-success-on: var(--success-on);
+
+  --color-warning: var(--warning);
+  --color-warning-wash: var(--warning-wash);
+  --color-warning-line: var(--warning-line);
+  --color-warning-solid: var(--warning-solid);
+  --color-warning-solid-hover: var(--warning-solid-hover);
+  --color-warning-on: var(--warning-on);
+
+  --color-info: var(--info);
+  --color-info-wash: var(--info-wash);
+  --color-info-line: var(--info-line);
+  --color-info-solid: var(--info-solid);
+  --color-info-solid-hover: var(--info-solid-hover);
+  --color-info-on: var(--info-on);
+
+  --color-accent: var(--accent);
+  --color-accent-wash: var(--accent-wash);
+  --color-accent-line: var(--accent-line);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-solid-hover: var(--accent-solid-hover);
+  --color-accent-on: var(--accent-on);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+/* Scrolls, but draws no scrollbar: for panels whose content already shows it
+   can scroll (a cut-off row, a sticky header), and for the page itself, on
+   <html> in both layouts. Wheel, trackpad, touch and keys still scroll.
+   `scrollbar-width` covers Firefox and current Chromium; the pseudo-element
+   covers older WebKit. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 body {
   background: var(--background);
+  /* A style's wallpaper, painted over the background colour. Only Glass sets
+     one; fixed so the frosted layers blur the same patch wherever you scroll. */
+  background-image: var(--backdrop, none);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

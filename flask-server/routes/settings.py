@@ -43,6 +43,9 @@ DEFAULT_PREFERENCE_SETTINGS = {
     # whether to log them at all. Off by default: silently writing time
     # entries on someone's behalf would be a surprise, not a feature.
     "focus": {"logToTimeEntries": False, "category": None},
+    # The style used within each theme mode (Dark > OLED, Dark > Glass). The client narrows
+    # unknown values to the default, so this is not validated here either.
+    "themeStyles": {"light": "paper", "dark": "default"},
 }
 
 DEFAULT_THEME = "system"

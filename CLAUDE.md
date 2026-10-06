@@ -35,7 +35,7 @@ One command covers both tiers:
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **707 Python tests and 58
+integration, e2e — against the full stack. Expect **709 Python tests and 65
 frontend tests, with no skips**; anything skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -62,6 +62,17 @@ Playwright (`next-version/e2e/`) is browser-driven and deliberately outside
 docker compose up --build          # in another terminal
 cd next-version && npx playwright test
 ```
+
+### Demo data
+```bash
+./seed_demo_user.sh                                  # theme-demo, Dark > Glass
+./seed_demo_user.sh --username oled-demo --dark-style oled
+```
+Registers an account through the API on the running stack, then fills it with
+four weeks of time entries, four months of finance and ten todos. The password
+is `themedemo123`. It refuses an existing username rather than duplicate data.
+The logic is in `scripts/seed_demo_user.py`, piped into the Flask container,
+so no local Python is needed.
 
 ### Health verification
 ```bash
@@ -174,6 +185,18 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 
 ### Theming
 `app/globals.css` is the single source of theme truth. It redefines Tailwind v4's `dark:` variant to follow `[data-theme]` rather than the OS, so never introduce raw `gray-*`/`neutral-*` pairs to work around it. Note that in dark mode `surface-raised`, `surface-inset` and `surface-muted` all resolve to neutral-800 — if one surface must read as raised above another, check both themes; `surface-hover` (neutral-700) is the only reliable dark lift.
+
+Dark tokens are written once, as `:root { @variant dark { … } }`, which expands through that same custom variant — don't reintroduce a hand-written `@media` copy. A dark *style* is a further block keyed on `data-dark-style` on `<html>` (`:root[data-dark-style="oled"] { @variant dark { … } }`), overriding only what it changes; the attribute stays set in light mode and is simply inert there. It is stored in the preferences blob as `settings.themeStyles`, mirrored to localStorage for `ThemeScript`, and narrowed by `parseDarkStyle`. In OLED every surface is `#000`, so borders alone separate cards, panels and insets — a component that relies on a fill difference needs a border there. Glass (after the user's Omarchy minimal-black theme) is monochrome chrome with Nord colour for meaning: the tint washes are colourless, while tint inks, status tokens and chart series take Nord. Its backdrop (light, dots and grain) is painted on `body` via `--backdrop`. Its surfaces are translucent washes, frosted at depth levels listed in `globals.css`. From the page up:
+
+- cards (`rounded-xl` on `bg-surface`, and the tinted stat cards)
+- wells (`bg-surface-inset`) sunk into them, and panes nested in a card
+- bars: `.floating` elements such as the nav header and sticky headers
+- popovers: `[role="menu"].floating` and chart tooltips
+- modals: native `<dialog>`s, and the `.floating` panel directly inside a `fixed` overlay
+
+Each level up gets a heavier frost, brighter edge and deeper shadow. The chart series are Nord's Frost and Aurora colours. The tooltip body is the `--tooltip-bg` token, because Recharts sets it inline. A new layer that floats over content should carry that class, or it will be see-through in Glass. `backdrop-filter` makes an element a containing block for `position: fixed` descendants, so mount modals at page level, never inside a card. Data colours are tokens too. Each theme and style defines `--chart-1`…`--chart-8` and `--chart-on` (text on a solid series fill). Recharts needs concrete values in its SVG attributes, so charts read them through `useChartColors()` (`lib/use-chart-colors.ts`). Calendar events use `var(--chart-N)` inline. Which slot a category wears comes from one page-level map (`colorSlotsFor(categoryOrder(…))` in `components/entries/colors.ts`), passed as `colorSlots` to every chart and the calendar on the page. That keeps a category one colour everywhere, and stable as the week or filter changes. Don't hardcode a palette or branch on light/dark in a component.
+
+Status colours are tokens too: `danger`, `success`, `warning`, `info` and `accent`, each with an ink (`text-danger`), a wash and a line (`bg-danger-wash`, `border-danger-line`), a solid fill with its hover (`bg-danger-solid`, `hover:bg-danger-solid-hover`) and `text-danger-on` for text on that fill. Glass's fills are light, so text on them isn't white; use the `-on` token rather than `text-white`. Never write a raw `red-*`/`green-*`/`amber-*`/`blue-*`/`purple-*` class or its `dark:` twin. The e2e spec matches priority buttons by these class names. The neutral `gray-*`/`neutral-*` pairs are the remaining raw colours.
 
 ## Important notes
 

@@ -52,7 +52,7 @@ export default function LoginPage() {
           </h1>
 
           {error && (
-            <p className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-900 dark:text-red-200">
+            <p className="rounded-md bg-danger-wash px-3 py-2 text-sm text-danger">
               {error}
             </p>
           )}
@@ -66,7 +66,7 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full rounded-lg border border-strong px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+              className="w-full rounded-lg border border-strong px-4 py-2 focus:outline-none focus:ring-2 focus:ring-info dark:bg-neutral-700 dark:text-white"
             />
           </div>
 
@@ -79,21 +79,21 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-lg border border-strong px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+              className="w-full rounded-lg border border-strong px-4 py-2 focus:outline-none focus:ring-2 focus:ring-info dark:bg-neutral-700 dark:text-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+            className="w-full rounded-lg bg-info-solid py-2 font-semibold text-info-on transition hover:bg-info-solid-hover disabled:opacity-60"
           >
             {loading ? "Logging in..." : "Submit"}
           </button>
 
           <p className="text-center text-sm text-neutral-600 dark:text-neutral-400">
             Do not have an account?{" "}
-            <a href="/register" className="text-tint-blue-ink hover:underline dark:text-blue-400">
+            <a href="/register" className="hover:underline text-info">
               Register
             </a>
           </p>

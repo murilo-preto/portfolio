@@ -225,9 +225,9 @@ export function BatchGenerateModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="floating bg-surface rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
+        <div className="floating sticky top-0 bg-surface border-b border-default p-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-primary">Bulk Add Entries</h2>
           <button
             onClick={handleClose}
@@ -381,7 +381,7 @@ export function BatchGenerateModal({
                     onClick={() =>
                       setRows((prev) => prev.filter((_, i) => i !== index))
                     }
-                    className="px-3 py-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="px-3 py-2 rounded-lg border border-danger-line text-danger text-sm hover:bg-danger-wash transition-colors"
                   >
                     Remove
                   </button>
@@ -392,10 +392,10 @@ export function BatchGenerateModal({
 
           {/* Messages */}
           {error && (
-            <p className="text-sm text-center text-red-500">{error}</p>
+            <p className="text-sm text-center text-danger">{error}</p>
           )}
           {successMsg && (
-            <p className="text-sm text-center text-tint-green-ink dark:text-green-400">
+            <p className="text-sm text-center text-success">
               {successMsg}
             </p>
           )}
@@ -411,7 +411,7 @@ export function BatchGenerateModal({
               </div>
               <div className="overflow-x-auto max-h-64 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-surface-inset sticky top-0">
+                  <thead className="floating bg-surface-inset sticky top-0">
                     <tr>
                       <th className="px-4 py-2 text-left font-medium text-muted border-b border-default">
                         Date

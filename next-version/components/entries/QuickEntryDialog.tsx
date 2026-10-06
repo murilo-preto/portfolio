@@ -160,7 +160,7 @@ export function QuickEntryDialog({
               Duration: {formatDuration(durationMin * 60)}
             </p>
           ) : (
-            <p className="text-xs text-red-500">
+            <p className="text-xs text-danger">
               End time must be after start time.
             </p>
           )}
@@ -208,7 +208,7 @@ export function QuickEntryDialog({
           />
         </label>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <button

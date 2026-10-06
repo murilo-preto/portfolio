@@ -26,7 +26,7 @@ const CHIP_BASE =
 const CHIP_IDLE =
   "bg-surface-raised border-default " +
   "text-gray-700 dark:text-gray-200 hover:bg-surface-hover";
-const CHIP_ON = "bg-green-500 border-green-500 text-white";
+const CHIP_ON = "bg-success-solid border-success text-success-on";
 const CHIP_MORE =
   "border-dashed border-default text-muted";
 
@@ -106,7 +106,7 @@ export function CategoryPicker({
 
   if (error) {
     return (
-      <p className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+      <p className="text-sm text-danger bg-danger-wash rounded-lg px-3 py-2">
         {error}
       </p>
     );
@@ -161,7 +161,7 @@ export function CategoryPicker({
         {overflow.length > 0 && (
           <span
             className={`${CHIP_BASE} ${CHIP_MORE} relative inline-flex items-center gap-1
-                        focus-within:ring-2 focus-within:ring-green-500
+                        focus-within:ring-2 focus-within:ring-success
                         ${locked ? "opacity-50" : "hover:bg-surface-inset"}`}
           >
             More
