@@ -35,7 +35,7 @@ One command covers both tiers:
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **709 Python tests and 60
+integration, e2e — against the full stack. Expect **709 Python tests and 65
 frontend tests, with no skips**; anything skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -194,7 +194,7 @@ Dark tokens are written once, as `:root { @variant dark { … } }`, which expand
 - popovers: `[role="menu"].floating` and chart tooltips
 - modals: native `<dialog>`s, and the `.floating` panel directly inside a `fixed` overlay
 
-Each level up gets a heavier frost, brighter edge and deeper shadow. The chart series are Nord's Frost and Aurora colours. The tooltip body is the `--tooltip-bg` token, because Recharts sets it inline. A new layer that floats over content should carry that class, or it will be see-through in Glass. `backdrop-filter` makes an element a containing block for `position: fixed` descendants, so mount modals at page level, never inside a card. Data colours are tokens too. Each theme and style defines `--chart-1`…`--chart-8` and `--chart-on` (text on a solid series fill). Recharts needs concrete values in its SVG attributes, so charts read them through `useChartColors()` (`lib/use-chart-colors.ts`). Calendar events use `var(--chart-N)` inline, with the slot from `getEventColorSlot`. Don't hardcode a palette or branch on light/dark in a component.
+Each level up gets a heavier frost, brighter edge and deeper shadow. The chart series are Nord's Frost and Aurora colours. The tooltip body is the `--tooltip-bg` token, because Recharts sets it inline. A new layer that floats over content should carry that class, or it will be see-through in Glass. `backdrop-filter` makes an element a containing block for `position: fixed` descendants, so mount modals at page level, never inside a card. Data colours are tokens too. Each theme and style defines `--chart-1`…`--chart-8` and `--chart-on` (text on a solid series fill). Recharts needs concrete values in its SVG attributes, so charts read them through `useChartColors()` (`lib/use-chart-colors.ts`). Calendar events use `var(--chart-N)` inline. Which slot a category wears comes from one page-level map (`colorSlotsFor(categoryOrder(…))` in `components/entries/colors.ts`), passed as `colorSlots` to every chart and the calendar on the page. That keeps a category one colour everywhere, and stable as the week or filter changes. Don't hardcode a palette or branch on light/dark in a component.
 
 Status colours are tokens too: `danger`, `success`, `warning`, `info` and `accent`, each with an ink (`text-danger`), a wash and a line (`bg-danger-wash`, `border-danger-line`), a solid fill with its hover (`bg-danger-solid`, `hover:bg-danger-solid-hover`) and `text-danger-on` for text on that fill. Glass's fills are light, so text on them isn't white; use the `-on` token rather than `text-white`. Never write a raw `red-*`/`green-*`/`amber-*`/`blue-*`/`purple-*` class or its `dark:` twin. The e2e spec matches priority buttons by these class names. The neutral `gray-*`/`neutral-*` pairs are the remaining raw colours.
 

@@ -18,6 +18,7 @@ import {
 } from "@/components/entries/utils";
 import type { ApiResponse } from "@/components/entries/types";
 import type { Category } from "@/lib/types";
+import { categoryOrder, colorSlotsFor } from "@/components/entries/colors";
 import { warmFetch } from "@/lib/prefetch";
 
 type FilterMode = "today" | "week" | "all";
@@ -124,6 +125,20 @@ export default function Entries() {
       return start >= weekStart && start <= weekEndInclusive;
     });
   }, [data, weekStart, weekEnd, filterMode]);
+
+  // One category → colour map for the bar chart, the pie and the calendar,
+  // built from every category the user has rather than what this week or
+  // filter shows, so a category is one colour everywhere and stays it.
+  const colorSlots = useMemo(
+    () =>
+      colorSlotsFor(
+        categoryOrder(
+          categories,
+          (data?.entries ?? []).map((e) => e.category),
+        ),
+      ),
+    [categories, data],
+  );
 
   const showAll = filterMode === "all";
   const visibleEntries = useMemo(
@@ -261,13 +276,13 @@ export default function Entries() {
             flush with the calendar beside it. */}
         <div className="lg:col-span-1 flex flex-col gap-6">
           <Panel title="Hours per Category" className="lg:flex-1 lg:min-h-0">
-            <CategoryChart entries={visibleEntries} />
+            <CategoryChart entries={visibleEntries} colorSlots={colorSlots} />
           </Panel>
           <Panel
             title="Relative Time per Category"
             className="lg:flex-1 lg:min-h-0"
           >
-            <CategoryPieChart entries={visibleEntries} />
+            <CategoryPieChart entries={visibleEntries} colorSlots={colorSlots} />
           </Panel>
         </div>
 
@@ -278,7 +293,7 @@ export default function Entries() {
             <WeeklyCalendar
               weekStart={calendarStart}
               entries={filteredEntries}
-             
+              colorSlots={colorSlots}
               onSelectRange={setPendingRange}
               pendingRange={pendingRange}
             />

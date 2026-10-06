@@ -11,18 +11,24 @@ import {
 } from "recharts";
 import { Entry } from "@/components/entries/types";
 import { CHART_TOOLTIP_STYLE, useChartColors } from "@/lib/use-chart-colors";
+import { fallbackSlots, type ColorSlots } from "@/components/entries/colors";
 import { EmptyState } from "@/components/entries/EmptyState";
 
 type CategoryChartProps = {
   entries: Entry[];
+  /** The page's category → colour map, shared with its other charts. */
+  colorSlots?: ColorSlots;
   height?: number; // optional, default 300
 };
 
 export function CategoryChart({
   entries,
+  colorSlots,
   height = 300,
 }: CategoryChartProps) {
   const colors = useChartColors();
+  // One map for every chart on the page, so a category keeps its colour.
+  const slots = colorSlots ?? fallbackSlots(entries.map((e) => e.category));
 
   const grouped: Record<string, number> = {};
   entries.forEach((entry) => {
@@ -30,10 +36,10 @@ export function CategoryChart({
       (grouped[entry.category] || 0) + entry.duration_seconds;
   });
 
-  const data = Object.entries(grouped).map(([category, seconds], index) => ({
+  const data = Object.entries(grouped).map(([category, seconds]) => ({
     category,
     hours: +(seconds / 3600).toFixed(2),
-    fill: colors.series[index % colors.series.length],
+    fill: colors.series[(slots.get(category) ?? 1) - 1],
   }));
 
   if (data.length === 0) {

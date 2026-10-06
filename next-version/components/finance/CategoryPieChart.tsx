@@ -12,29 +12,35 @@ import {
 import { FinanceEntry } from "@/components/finance/types";
 import { useCurrency } from "@/lib/use-currency";
 import { CHART_TOOLTIP_STYLE, useChartColors } from "@/lib/use-chart-colors";
+import { fallbackSlots, type ColorSlots } from "@/components/entries/colors";
 import { ReactNode } from "react";
 
 type CategoryPieChartProps = {
   entries: FinanceEntry[];
+  /** The page's category → colour map, shared with its other charts. */
+  colorSlots?: ColorSlots;
   height?: number;
 };
 
 export function CategoryPieChart({
   entries,
+  colorSlots,
   height = 300,
 }: CategoryPieChartProps) {
   const { formatPrice } = useCurrency();
   const colors = useChartColors();
+  // One map for every chart on the page, so a category keeps its colour.
+  const slots = colorSlots ?? fallbackSlots(entries.map((e) => e.category));
 
   const grouped: Record<string, number> = {};
   for (const entry of entries) {
     grouped[entry.category] = (grouped[entry.category] || 0) + entry.price;
   }
 
-  const data = Object.entries(grouped).map(([category, price], index) => ({
+  const data = Object.entries(grouped).map(([category, price]) => ({
     category,
     price: +price.toFixed(2),
-    fill: colors.series[index % colors.series.length],
+    fill: colors.series[(slots.get(category) ?? 1) - 1],
   }));
 
   const totalPrice = data.reduce((sum, d) => sum + d.price, 0);

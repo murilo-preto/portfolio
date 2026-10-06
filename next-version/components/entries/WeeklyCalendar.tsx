@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, type PointerEvent } from "react";
 import { Entry } from "@/components/entries/types";
 import { stripTime, formatDuration } from "@/components/entries/utils";
-import { getEventColorSlot } from "@/components/entries/colors";
+import { fallbackSlots, type ColorSlots } from "@/components/entries/colors";
 import {
   DRAG_THRESHOLD_PX,
   MINUTES_PER_DAY,
@@ -120,6 +120,8 @@ type WeeklyCalendarProps = {
   onSelectRange?: (range: SlotRange) => void;
   /** A selection awaiting confirmation, kept on screen as a ghost block. */
   pendingRange?: SlotRange | null;
+  /** The page's category → colour map, shared with its charts. */
+  colorSlots?: ColorSlots;
 };
 
 export const WeeklyCalendar = memo(function WeeklyCalendar({
@@ -128,6 +130,7 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
   maxHeight,
   onSelectRange,
   pendingRange = null,
+  colorSlots,
 }: WeeklyCalendarProps) {
   const [drag, setDrag] = useState<DragState | null>(null);
 
@@ -161,13 +164,11 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
   // Each event is painted from its category's `--chart-N` slot, so the
   // calendar follows the theme and dark style with no re-render of its own.
-  const eventSlots = useMemo(() => {
-    const slots: Record<number, number> = {};
-    for (const ev of entries) {
-      if (!slots[ev.id]) slots[ev.id] = getEventColorSlot(ev.category);
-    }
-    return slots;
-  }, [entries]);
+  // The slot comes from the page's map, the one its charts use too.
+  const slots = useMemo(
+    () => colorSlots ?? fallbackSlots(entries.map((e) => e.category)),
+    [colorSlots, entries],
+  );
 
   // Fixed 24h scale
   const hours = useMemo(() => Array.from({ length: 24 }, (_, h) => h), []);
@@ -316,7 +317,7 @@ export const WeeklyCalendar = memo(function WeeklyCalendar({
 
                         const topPct = seg.topPct;
                         const heightPct = Math.max(seg.heightPct, 0.8);
-                        const slot = eventSlots[ev.id];
+                        const slot = slots.get(ev.category) ?? 1;
 
                         return (
                           <div

@@ -12,6 +12,7 @@ import { BatchImportModal } from "@/components/BatchImportModal";
 import { BatchGenerateModal } from "@/components/BatchGenerateModal";
 import { ItauPdfImportModal } from "@/components/ItauPdfImportModal";
 import { ImportMenu } from "@/components/ImportMenu";
+import { categoryOrder, colorSlotsFor } from "@/components/entries/colors";
 import type { ApiResponse, FinanceEntry } from "@/components/finance/types";
 import { warmFetch } from "@/lib/prefetch";
 
@@ -149,6 +150,19 @@ export default function FinanceDashboard() {
 
   const visibleEntries =
     filterMode === "all" ? (data?.entries ?? []) : filteredEntries;
+
+  // One category → colour map for both charts, from every entry rather than
+  // the visible range, so switching Week / Month / All repaints nothing.
+  const colorSlots = useMemo(
+    () =>
+      colorSlotsFor(
+        categoryOrder(
+          [],
+          (data?.entries ?? []).map((e) => e.category),
+        ),
+      ),
+    [data],
+  );
 
   // Planned payments: one-time planned entries.
   const plannedTotal = visibleEntries
@@ -318,7 +332,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All entries" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryChart entries={visibleEntries} />
+            <CategoryChart entries={visibleEntries} colorSlots={colorSlots} />
           </div>
 
           {/* Transactions Table */}
@@ -347,7 +361,7 @@ export default function FinanceDashboard() {
                 {filterMode === "all" ? "All time" : filterMode === "today" ? "Today" : filterMode === "month" ? "This month" : "This week"}
               </span>
             </div>
-            <CategoryPieChart entries={visibleEntries} height={250} />
+            <CategoryPieChart entries={visibleEntries} height={250} colorSlots={colorSlots} />
           </div>
 
           {/* Quick Stats */}
