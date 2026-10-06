@@ -246,7 +246,7 @@ function CategoryRow({
             Merge
           </button>
           <button
-            className={`${GHOST_BUTTON_CLASS} text-red-600 dark:text-red-400`}
+            className={`${GHOST_BUTTON_CLASS} text-danger`}
             disabled={shared}
             title={shared ? "Other users' entries use this category" : undefined}
             onClick={() => setMode(mode === "delete" ? "none" : "delete")}
@@ -334,7 +334,7 @@ function CategoryRow({
           <button
             onClick={handleDelete}
             disabled={busy || (category.mine > 0 && !targetId)}
-            className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium disabled:opacity-40"
+            className="px-3 py-2 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-on text-sm font-medium disabled:opacity-40"
           >
             {busy ? "…" : "Delete"}
           </button>
@@ -458,7 +458,7 @@ function NamespacePanel({ namespace }: { namespace: Namespace }) {
 
       {message && (
         <p
-          className={`text-sm ${status === "success" ? "text-tint-green-ink dark:text-green-400" : "text-red-500"}`}
+          className={`text-sm ${status === "success" ? "text-success" : "text-danger"}`}
         >
           {message}
         </p>

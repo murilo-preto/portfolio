@@ -381,7 +381,7 @@ export function BatchGenerateModal({
                     onClick={() =>
                       setRows((prev) => prev.filter((_, i) => i !== index))
                     }
-                    className="px-3 py-2 rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="px-3 py-2 rounded-lg border border-danger-line text-danger text-sm hover:bg-danger-wash transition-colors"
                   >
                     Remove
                   </button>
@@ -392,10 +392,10 @@ export function BatchGenerateModal({
 
           {/* Messages */}
           {error && (
-            <p className="text-sm text-center text-red-500">{error}</p>
+            <p className="text-sm text-center text-danger">{error}</p>
           )}
           {successMsg && (
-            <p className="text-sm text-center text-tint-green-ink dark:text-green-400">
+            <p className="text-sm text-center text-success">
               {successMsg}
             </p>
           )}

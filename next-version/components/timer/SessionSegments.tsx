@@ -22,7 +22,7 @@ type SessionSegmentsProps = {
 const INPUT_CLASS =
   "w-full px-3 py-2.5 rounded-lg border border-strong " +
   "bg-surface-raised text-primary text-sm " +
-  "dark:[color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-green-500";
+  "dark:[color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-success";
 
 export function SessionSegments({
   segments,
@@ -120,7 +120,7 @@ export function SessionSegments({
                       <button
                         type="button"
                         onClick={() => removeSegment(index)}
-                        className="text-xs text-gray-400 hover:text-red-500 transition-colors
+                        className="text-xs text-gray-400 hover:text-danger transition-colors
                                    px-2 py-1.5 -mr-2 rounded-lg"
                       >
                         Remove
@@ -175,7 +175,7 @@ export function SessionSegments({
                 </div>
 
                 {invalid && (
-                  <p className="text-xs text-red-500">
+                  <p className="text-xs text-danger">
                     End must be after start.
                   </p>
                 )}
@@ -187,8 +187,8 @@ export function SessionSegments({
             <button
               type="button"
               onClick={addSegment}
-              className="text-xs text-tint-blue-ink dark:text-blue-400 px-2.5 py-2 -ml-2.5
-                         rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              className="text-xs text-info px-2.5 py-2 -ml-2.5
+                         rounded-lg hover:bg-info-wash transition-colors"
             >
               + Add interval
             </button>

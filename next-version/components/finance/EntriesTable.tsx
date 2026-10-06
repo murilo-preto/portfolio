@@ -145,7 +145,7 @@ export function EntriesTable({ entries, onEntryUpdated }: EntriesTableProps) {
   return (
     <div className="text-black dark:text-white">
       {error && (
-        <p className="text-sm text-red-500 mb-3">{error}</p>
+        <p className="text-sm text-danger mb-3">{error}</p>
       )}
 
       {entries.length === 0 ? (
@@ -257,8 +257,8 @@ export function EntriesTable({ entries, onEntryUpdated }: EntriesTableProps) {
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${
                         entry.status === "done"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          ? "bg-success-wash text-success"
+                          : "bg-warning-wash text-warning"
                       }`}
                     >
                       {entry.status}

@@ -88,8 +88,8 @@ export function TimerDisplay({
                 strokeDashoffset={CIRCUMFERENCE * (1 - progress)}
                 className={
                   targetMet
-                    ? "stroke-green-500 transition-[stroke-dashoffset] duration-700"
-                    : "stroke-blue-500 transition-[stroke-dashoffset] duration-700"
+                    ? "stroke-success transition-[stroke-dashoffset] duration-700"
+                    : "stroke-info transition-[stroke-dashoffset] duration-700"
                 }
               />
             )}
@@ -114,7 +114,7 @@ export function TimerDisplay({
             >
               {isRunning ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  <span className="w-1.5 h-1.5 bg-success-solid rounded-full animate-pulse" />
                   Running
                 </span>
               ) : (
@@ -134,7 +134,7 @@ export function TimerDisplay({
                 <dd
                   className={`mt-1 text-xl font-semibold tabular-nums ${
                     targetMet
-                      ? "text-tint-green-ink dark:text-green-400"
+                      ? "text-success"
                       : "text-secondary"
                   }`}
                 >
@@ -170,10 +170,10 @@ export function TimerDisplay({
             onClick={onStart}
             disabled={disabled}
             title={disabled ? disabledReason : undefined}
-            className="col-span-2 py-4 rounded-xl bg-green-500 hover:bg-green-600
+            className="col-span-2 py-4 rounded-xl bg-success-solid hover:bg-success-solid-hover
                        disabled:bg-surface-muted disabled:text-dim
                        disabled:cursor-not-allowed
-                       text-white font-semibold text-lg transition active:scale-95
+                       text-success-on font-semibold text-lg transition active:scale-95
                        disabled:active:scale-100 flex items-center justify-center gap-2"
           >
             {!disabled && (
@@ -201,7 +201,7 @@ export function TimerDisplay({
             </button>
             <button
               onClick={onStop}
-              className="py-4 rounded-xl bg-red-500 hover:bg-red-600 text-white
+              className="py-4 rounded-xl bg-danger-solid hover:bg-danger-solid-hover text-danger-on
                          font-semibold text-lg transition active:scale-95
                          flex items-center justify-center gap-2"
             >
@@ -217,7 +217,7 @@ export function TimerDisplay({
           <>
             <button
               onClick={onResume}
-              className="py-4 rounded-xl bg-green-500 hover:bg-green-600 text-white
+              className="py-4 rounded-xl bg-success-solid hover:bg-success-solid-hover text-success-on
                          font-semibold text-lg transition active:scale-95
                          flex items-center justify-center gap-2"
             >
@@ -228,7 +228,7 @@ export function TimerDisplay({
             </button>
             <button
               onClick={onStop}
-              className="py-4 rounded-xl bg-red-500 hover:bg-red-600 text-white
+              className="py-4 rounded-xl bg-danger-solid hover:bg-danger-solid-hover text-danger-on
                          font-semibold text-lg transition active:scale-95
                          flex items-center justify-center gap-2"
             >

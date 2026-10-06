@@ -114,6 +114,49 @@
   --tint-gray-a: oklch(45% 0.02 75 / 0.1);
   --tint-gray-line: oklch(45% 0.02 75 / 0.22);
 
+  /* Status — what a colour *means*, not which hue it is: danger, success,
+     warning, info, and an accent for the odd thing that is just special
+     (recurrence). Each has an ink (text, icons, focus rings), a wash and a
+     line (badges, alert boxes), a solid fill for buttons with its hover, and
+     `on`, the text set on that fill. Paper's inks are its own earthy tint
+     inks, which its status text already used; danger stays red-600, as
+     Paper's red tint has no ink. Washes, lines and solids keep the Tailwind
+     hues they replaced. A dark style can recolour any of them. */
+  --danger: oklch(57.7% 0.245 27.325); /* red-600 */
+  --danger-wash: oklch(97.1% 0.013 17.38); /* red-50 */
+  --danger-line: oklch(88.5% 0.062 18.334); /* red-200 */
+  --danger-solid: oklch(57.7% 0.245 27.325); /* red-600 */
+  --danger-solid-hover: oklch(50.5% 0.213 27.518); /* red-700 */
+  --danger-on: #fff;
+
+  --success: var(--tint-green-ink);
+  --success-wash: oklch(98.2% 0.018 155.826); /* green-50 */
+  --success-line: oklch(92.5% 0.084 155.995); /* green-200 */
+  --success-solid: oklch(62.7% 0.194 149.214); /* green-600 */
+  --success-solid-hover: oklch(52.7% 0.154 150.069); /* green-700 */
+  --success-on: #fff;
+
+  --warning: var(--tint-amber-ink);
+  --warning-wash: oklch(98.7% 0.022 95.277); /* amber-50 */
+  --warning-line: oklch(92.4% 0.12 95.746); /* amber-200 */
+  --warning-solid: oklch(76.9% 0.188 70.08); /* amber-500 */
+  --warning-solid-hover: oklch(66.6% 0.179 58.318); /* amber-600 */
+  --warning-on: #fff;
+
+  --info: var(--tint-blue-ink);
+  --info-wash: oklch(97% 0.014 254.604); /* blue-50 */
+  --info-line: oklch(88.2% 0.059 254.128); /* blue-200 */
+  --info-solid: oklch(54.6% 0.245 262.881); /* blue-600 */
+  --info-solid-hover: oklch(48.8% 0.243 264.376); /* blue-700 */
+  --info-on: #fff;
+
+  --accent: var(--tint-purple-ink);
+  --accent-wash: oklch(97.7% 0.014 308.299); /* purple-50 */
+  --accent-line: oklch(90.2% 0.063 306.703); /* purple-200 */
+  --accent-solid: oklch(55.8% 0.288 302.321); /* purple-600 */
+  --accent-solid-hover: oklch(49.6% 0.265 301.924); /* purple-700 */
+  --accent-on: #fff;
+
   /* Data series — chart bars and slices, calendar events — in assignment
      order, plus `--chart-on` for text set on a solid series fill. Paper takes
      the tint inks above (indigo, sage, ochre, plum, terracotta) and adds three
@@ -201,6 +244,24 @@
     --chart-7: #4361ee;
     --chart-8: #4cc9f0;
     --chart-on: #fff;
+
+    /* Status: the 400 inks, 900 washes at 20% and 800 lines the components
+       paired with their light classes. Solids and `on` carry over. */
+    --danger: oklch(70.4% 0.191 22.216); /* red-400 */
+    --danger-wash: oklch(39.6% 0.141 25.723 / 0.2); /* red-900/20 */
+    --danger-line: oklch(44.4% 0.177 26.899); /* red-800 */
+    --success: oklch(79.2% 0.209 151.711); /* green-400 */
+    --success-wash: oklch(39.3% 0.095 152.535 / 0.2); /* green-900/20 */
+    --success-line: oklch(44.8% 0.119 151.328); /* green-800 */
+    --warning: oklch(82.8% 0.189 84.429); /* amber-400 */
+    --warning-wash: oklch(41.4% 0.112 45.904 / 0.2); /* amber-900/20 */
+    --warning-line: oklch(47.3% 0.137 46.201); /* amber-800 */
+    --info: oklch(70.7% 0.165 254.624); /* blue-400 */
+    --info-wash: oklch(37.9% 0.146 265.522 / 0.2); /* blue-900/20 */
+    --info-line: oklch(42.4% 0.199 265.638); /* blue-800 */
+    --accent: oklch(71.4% 0.203 305.504); /* purple-400 */
+    --accent-wash: oklch(38.1% 0.176 304.987 / 0.2); /* purple-900/20 */
+    --accent-line: oklch(43.8% 0.218 303.724); /* purple-800 */
   }
 }
 
@@ -233,9 +294,10 @@
    the chart series from Nord.
 
    Surfaces are glass: faint white washes rather than fills, so cards frost
-   the backdrop behind them (see the pane rules below). The tints keep their
-   names but lose their hue — each one is the same faint white wash, told
-   apart by the grey of its ink, as the theme's ANSI palette is. */
+   the backdrop behind them (see the pane rules below). The tint washes lose
+   their hue — each is the same faint white, so cards stay neutral glass —
+   while their inks (icons, figures) take the Nord colour of the status
+   tokens below, so an icon and a badge of one meaning agree. */
 :root[data-dark-style="glass"] {
   @variant dark {
     --background: #000;
@@ -283,22 +345,22 @@
     --tint-blue-a: rgb(231 233 234 / 0.06);
     --tint-blue-b: rgb(231 233 234 / 0.02);
     --tint-blue-line: rgb(231 233 234 / 0.15);
-    --tint-blue-ink: #9e9e9e;
+    --tint-blue-ink: #81a1c1; /* nord9 */
 
     --tint-green-a: rgb(231 233 234 / 0.06);
     --tint-green-b: rgb(231 233 234 / 0.02);
     --tint-green-line: rgb(231 233 234 / 0.15);
-    --tint-green-ink: #e7e9ea;
+    --tint-green-ink: #a3be8c; /* nord14 */
 
     --tint-amber-a: rgb(231 233 234 / 0.06);
     --tint-amber-b: rgb(231 233 234 / 0.02);
     --tint-amber-line: rgb(231 233 234 / 0.15);
-    --tint-amber-ink: #b2b2b2;
+    --tint-amber-ink: #ebcb8b; /* nord13 */
 
     --tint-purple-a: rgb(231 233 234 / 0.06);
     --tint-purple-b: rgb(231 233 234 / 0.02);
     --tint-purple-line: rgb(231 233 234 / 0.15);
-    --tint-purple-ink: #8a8a8a;
+    --tint-purple-ink: #b48ead; /* nord15 */
 
     /* Errors stay findable without colour: a stronger hairline. */
     --tint-red-a: rgb(231 233 234 / 0.06);
@@ -331,6 +393,43 @@
        half opacity its colour bled through the label. Small and read at a
        glance, they trade translucency for a near-opaque body. */
     --tooltip-bg: rgb(24 24 24 / 0.88);
+
+    /* Status in Nord's Aurora, so a badge, an alert and the charts speak one
+       palette: nord11 red, nord14 green, nord13 yellow, nord9 blue, nord15
+       purple. Washes and lines are the ink at 14% and 40%. Aurora is light,
+       so text on a solid is Polar Night nord0 — except red, the one dark
+       enough for white: its solid steps down to #b15d67 (white 4.5:1) and its
+       ink up to #cc757e (5.6:1 on a pane), nord11 itself managing neither. */
+    --danger: #cc757e;
+    --danger-wash: rgb(191 97 106 / 0.14);
+    --danger-line: rgb(191 97 106 / 0.4);
+    --danger-solid: #b15d67;
+    --danger-solid-hover: #bf616a;
+    --danger-on: #fff;
+    --success: #a3be8c;
+    --success-wash: rgb(163 190 140 / 0.14);
+    --success-line: rgb(163 190 140 / 0.4);
+    --success-solid: #a3be8c;
+    --success-solid-hover: #b4cb9f;
+    --success-on: #2e3440;
+    --warning: #ebcb8b;
+    --warning-wash: rgb(235 203 139 / 0.14);
+    --warning-line: rgb(235 203 139 / 0.4);
+    --warning-solid: #ebcb8b;
+    --warning-solid-hover: #f0d6a3;
+    --warning-on: #2e3440;
+    --info: #81a1c1;
+    --info-wash: rgb(129 161 193 / 0.14);
+    --info-line: rgb(129 161 193 / 0.4);
+    --info-solid: #81a1c1;
+    --info-solid-hover: #94b0cc;
+    --info-on: #2e3440;
+    --accent: #b48ead;
+    --accent-wash: rgb(180 142 173 / 0.14);
+    --accent-line: rgb(180 142 173 / 0.4);
+    --accent-solid: #b48ead;
+    --accent-solid-hover: #c2a2bc;
+    --accent-on: #2e3440;
   }
 }
 
@@ -521,13 +620,50 @@
   --color-tint-gray-a: var(--tint-gray-a);
   --color-tint-gray-line: var(--tint-gray-line);
 
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+  --color-danger-line: var(--danger-line);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-danger-on: var(--danger-on);
+
+  --color-success: var(--success);
+  --color-success-wash: var(--success-wash);
+  --color-success-line: var(--success-line);
+  --color-success-solid: var(--success-solid);
+  --color-success-solid-hover: var(--success-solid-hover);
+  --color-success-on: var(--success-on);
+
+  --color-warning: var(--warning);
+  --color-warning-wash: var(--warning-wash);
+  --color-warning-line: var(--warning-line);
+  --color-warning-solid: var(--warning-solid);
+  --color-warning-solid-hover: var(--warning-solid-hover);
+  --color-warning-on: var(--warning-on);
+
+  --color-info: var(--info);
+  --color-info-wash: var(--info-wash);
+  --color-info-line: var(--info-line);
+  --color-info-solid: var(--info-solid);
+  --color-info-solid-hover: var(--info-solid-hover);
+  --color-info-on: var(--info-on);
+
+  --color-accent: var(--accent);
+  --color-accent-wash: var(--accent-wash);
+  --color-accent-line: var(--accent-line);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-solid-hover: var(--accent-solid-hover);
+  --color-accent-on: var(--accent-on);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 /* Scrolls, but draws no scrollbar: for panels whose content already shows it
-   can scroll (a cut-off row, a sticky header). `scrollbar-width` covers
-   Firefox and current Chromium; the pseudo-element covers older WebKit. */
+   can scroll (a cut-off row, a sticky header), and for the page itself, on
+   <html> in both layouts. Wheel, trackpad, touch and keys still scroll.
+   `scrollbar-width` covers Firefox and current Chromium; the pseudo-element
+   covers older WebKit. */
 @utility scrollbar-none {
   scrollbar-width: none;
   &::-webkit-scrollbar {

@@ -193,13 +193,13 @@ export default function CSVPage() {
         )}
 
         {status === "success" && (
-          <p className="mb-4 text-sm text-tint-green-ink dark:text-green-400 text-center">
+          <p className="mb-4 text-sm text-success text-center">
             {msg}
           </p>
         )}
 
         {status === "error" && (
-          <p className="mb-4 text-sm text-red-500 text-center">{msg}</p>
+          <p className="mb-4 text-sm text-danger text-center">{msg}</p>
         )}
 
         {entries.length > 0 && (

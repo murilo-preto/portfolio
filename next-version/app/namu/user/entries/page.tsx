@@ -167,7 +167,7 @@ export default function Entries() {
   if (error) {
     return (
       <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
-        <div className="text-red-500">{error}</div>
+        <div className="text-danger">{error}</div>
       </main>
     );
   }

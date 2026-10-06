@@ -136,7 +136,7 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="scrollbar-none">
       <head>
         <ThemeScript />
       </head>

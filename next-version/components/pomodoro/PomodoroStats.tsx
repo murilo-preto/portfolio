@@ -60,14 +60,14 @@ export function PomodoroStats() {
                 {stats.stats.today.sessions} sessions
               </p>
             </div>
-            <p className="text-sm font-medium text-red-500">
+            <p className="text-sm font-medium text-danger">
               {formatDuration(stats.stats.today.total_seconds)}
             </p>
           </div>
         </div>
 
         {/* Today's breaks */}
-        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/10 border border-tint-green-a">
+        <div className="p-3 rounded-lg bg-success-wash border border-tint-green-a">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-muted">Today (breaks)</p>
@@ -75,7 +75,7 @@ export function PomodoroStats() {
                 {stats.stats.today_breaks.sessions} sessions
               </p>
             </div>
-            <p className="text-sm font-medium text-tint-green-ink dark:text-green-400">
+            <p className="text-sm font-medium text-success">
               {formatDuration(stats.stats.today_breaks.total_seconds)}
             </p>
           </div>

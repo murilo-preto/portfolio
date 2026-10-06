@@ -44,7 +44,7 @@ export function FocusLogging({
       </p>
 
       {error ? (
-        <p className="text-xs text-red-500">{error}</p>
+        <p className="text-xs text-danger">{error}</p>
       ) : (
         <>
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -58,7 +58,7 @@ export function FocusLogging({
                   category: e.target.checked ? fallbackCategory : focus.category,
                 })
               }
-              className="w-4 h-4 rounded border-strong accent-red-500"
+              className="w-4 h-4 rounded border-strong accent-danger"
             />
             <span className="text-sm text-secondary">
               Log completed sessions

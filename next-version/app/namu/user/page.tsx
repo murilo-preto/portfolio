@@ -153,7 +153,7 @@ function ResourceBody<T>({
   if (resource.error) {
     return (
       <div className="flex flex-col items-start gap-2 py-2">
-        <p className="text-sm text-red-500">{resource.error}</p>
+        <p className="text-sm text-danger">{resource.error}</p>
         <button
           type="button"
           onClick={resource.reload}
@@ -594,7 +594,7 @@ export default function Dashboard() {
                       <p className="text-lg font-bold text-primary">
                         {stats.stats.today.sessions} sessions
                       </p>
-                      <p className="text-sm font-medium text-red-500 tabular-nums">
+                      <p className="text-sm font-medium text-danger tabular-nums">
                         {formatDuration(stats.stats.today.total_seconds)}
                       </p>
                     </div>
@@ -671,7 +671,7 @@ export default function Dashboard() {
                         key={item.id}
                         className={`p-3 rounded-lg border ${
                           overdue
-                            ? "border-red-300 dark:border-red-700 bg-gradient-to-br from-tint-red-a to-tint-red-b"
+                            ? "border-danger-line bg-gradient-to-br from-tint-red-a to-tint-red-b"
                             : "border-subtle bg-surface-inset"
                         }`}
                       >
@@ -692,7 +692,7 @@ export default function Dashboard() {
                         {item.due_date && (
                           <p
                             className={`text-xs mt-1 tabular-nums ${
-                              overdue ? "text-red-500 font-medium" : "text-dim"
+                              overdue ? "text-danger font-medium" : "text-dim"
                             }`}
                           >
                             {overdue ? "Overdue — due " : "Due "}

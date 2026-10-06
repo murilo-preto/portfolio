@@ -93,7 +93,7 @@ export function DailyTarget({
                 onKeyDown={(e) => e.key === "Enter" && saveDraft()}
                 className="w-full px-3 py-2 rounded-lg border border-strong
                            bg-surface-raised text-primary text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           focus:outline-none focus:ring-2 focus:ring-info"
               />
             </label>
             <label className="flex-1">
@@ -110,7 +110,7 @@ export function DailyTarget({
                 onKeyDown={(e) => e.key === "Enter" && saveDraft()}
                 className="w-full px-3 py-2 rounded-lg border border-strong
                            bg-surface-raised text-primary text-sm
-                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           focus:outline-none focus:ring-2 focus:ring-info"
               />
             </label>
           </div>
@@ -137,8 +137,8 @@ export function DailyTarget({
             <button
               type="button"
               onClick={saveDraft}
-              className="flex-1 py-2 rounded-lg text-sm font-medium text-white bg-blue-600
-                         hover:bg-blue-700 transition active:scale-95"
+              className="flex-1 py-2 rounded-lg text-sm font-medium text-info-on bg-info-solid
+                         hover:bg-info-solid-hover transition active:scale-95"
             >
               Save target
             </button>
@@ -184,7 +184,7 @@ export function DailyTarget({
                 <dt className="text-muted">
                   This session
                 </dt>
-                <dd className="text-tint-green-ink dark:text-green-400">
+                <dd className="text-success">
                   +{formatDuration(liveSeconds)}
                 </dd>
               </div>
@@ -201,8 +201,8 @@ export function DailyTarget({
             <button
               type="button"
               onClick={startEditing}
-              className="px-2.5 py-2 -ml-2.5 rounded-lg text-tint-blue-ink dark:text-blue-400
-                         hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              className="px-2.5 py-2 -ml-2.5 rounded-lg text-info
+                         hover:bg-info-wash transition-colors"
             >
               Edit target
             </button>
