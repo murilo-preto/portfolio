@@ -25,7 +25,8 @@ A personal portfolio and **Namu** — a full-featured time management app built 
 - **Database**: MySQL 8.0
 - **Auth**: JWT (Flask-JWT-Extended) with httpOnly cookie storage and auto-refresh
 - **Infrastructure**: Docker Compose, GitHub Actions CI
-- **Testing**: Pytest (unit/integration/e2e) and Vitest (Next.js route handlers), both inside Docker via one command; Playwright for browser-driven specs, run locally
+- **Mobile** (`Panopto` branch): Expo / React Native Android app, built into a sideloaded APK in Docker
+- **Testing**: Pytest (unit/integration/e2e), Vitest (Next.js route handlers) and Jest (Android app), all inside Docker via one command; Playwright and Maestro (Android emulator) for driven specs, run locally
 
 ## Architecture
 
@@ -177,6 +178,9 @@ portfolio/
 │   ├── itau_pdf.py             # Statement PDF extraction
 │   ├── migrations/             # Forward-only schema migrations
 │   └── requirements.txt
+├── mobile/                     # Namu Android app (Expo); Dockerfile, build_apk.sh
+│   ├── src/                    # Screens, API client, storage, and their Jest tests
+│   └── e2e/                    # Emulator + Maestro flows (local only)
 ├── mysql/
 │   └── schema.sql              # 10 tables (users, entries, categories, todo, pomodoro, …)
 ├── test/                       # Python tiers — unit, integration, e2e
@@ -242,8 +246,9 @@ setup required:
 ```
 
 It runs the Next.js route tests first (Vitest; `fetch` is mocked, so it needs
-neither MySQL nor Flask), then the Python tiers against the full stack. Expect
-**758 Python tests and 67 frontend tests, no skips**.
+neither MySQL nor Flask), then the Android app's Jest suite, then the Python
+tiers against the full stack. Expect **758 Python tests, 67 frontend tests and
+39 mobile tests, no skips**.
 
 Browser-driven Playwright specs are separate — they need a browser download and
 a running stack:
@@ -251,6 +256,14 @@ a running stack:
 ```bash
 docker compose up --build          # in another terminal
 cd next-version && npx playwright test
+```
+
+The Android app's emulator tests are separate too — they need `/dev/kvm`, and
+bring up their own copy of the stack:
+
+```bash
+./mobile/build_apk.sh --lan    # optional: run.sh builds the LAN APK if missing
+./mobile/e2e/run.sh
 ```
 
 ## Pre-Deployment Checklist

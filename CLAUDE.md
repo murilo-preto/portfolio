@@ -27,22 +27,27 @@ is kept at zero warnings — treat any warning as a failure.
 ### Testing
 
 Everything runs inside Docker — no local Python, Node or MySQL setup required.
-One command covers both tiers:
+One command covers all three standalone tiers and the full-stack one:
 
 ```bash
 ./run_tests.sh
 ```
 
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
-neither MySQL nor Flask and reports in seconds), then the Python suite — unit,
-integration, e2e — against the full stack. Expect **758 Python tests and 67
-frontend tests, with no skips**; anything skipping is a real problem.
+neither MySQL nor Flask and reports in seconds), then the Namu Android app's
+typecheck and Jest suite (`mobile-test`, equally standalone), then the Python
+suite — unit, integration, e2e — against the full stack. Expect **758 Python
+tests, 67 frontend tests and 39 mobile tests, with no skips**; anything
+skipping is a real problem.
 
 To run one tier on its own while iterating:
 
 ```bash
 # Frontend only
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm nextjs-test
+
+# Mobile app only (typecheck + Jest)
+docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm mobile-test
 
 # One Python test file (rebuild first — Dockerfile.test bakes the repo in)
 docker compose -f docker-compose.yml -f docker-compose.test.yml build test
@@ -62,6 +67,31 @@ Playwright (`next-version/e2e/`) is browser-driven and deliberately outside
 docker compose up --build          # in another terminal
 cd next-version && npx playwright test
 ```
+
+### Android app (`mobile/`)
+```bash
+./mobile/build_apk.sh --lan    # LAN test APK, debug key, into mobile/dist/
+./mobile/build_apk.sh          # release APK; needs the key from scripts/create_keystore.sh
+./mobile/e2e/run.sh            # LAN APK on a headless emulator, against a fresh stack
+```
+
+Both builds run the mobile tests first. The first build takes several minutes
+(SDK, NDK and a native compile); Gradle's cache is a BuildKit cache mount, so
+later ones are quicker. `e2e/run.sh` is outside `run_tests.sh` for the same
+reason Playwright is: it needs `/dev/kvm` and takes minutes. It runs its own
+compose project (`namu-e2e`) with no published ports, so it can run beside a
+dev stack. Screenshots, Maestro's per-flow logs and logcat land in
+`mobile/e2e/output/` (ignored by git).
+
+- **`sdkmanager` is pinned to cmdline-tools 22.0** (`mobile/Dockerfile`). 23.0
+  replaces it with a shim that downloads an unpinned "Android CLI" during the
+  build. Don't bump past 22.0 without checking that
+- **Maestro flows must wait for enabled buttons.** The status screen checks in
+  as it opens and disables its buttons until that returns, and Maestro taps a
+  disabled button without complaint. Wait with `extendedWaitUntil` on
+  `enabled: true` before tapping
+- **Maestro's `http.post` refuses an empty body.** A script calling a bodiless
+  POST route must send `{}`
 
 ### Health verification
 ```bash
@@ -232,9 +262,16 @@ Phase 1 (schema) is done: migrations 008-011 create `places`, `devices`,
 
 Phase 2a (pairing, server side) is done: `/devices/*` in Flask, proxied by
 Next.js at `/api/devices/pair`, `/api/devices/me` and `/api/devices/me/revoke`.
-There is no web UI for devices yet (phase 5). Next is phase 2b, the Expo app
-and its Docker build. Nothing else in this section exists as code yet. Update
-it as phases land, and don't let it claim more than the code does.
+There is no web UI for devices yet (phase 5).
+
+Phase 2b (the app, pairing only) is done: the Expo app in `mobile/`, with a
+pair screen and a status screen, built into a sideloadable APK in Docker (see
+**Android app**). It is tested in three tiers: Jest in `run_tests.sh`, the APK
+build, and five Maestro flows on an emulator against the real stack (wrong
+password, pair, pairing survives a restart, unpair, revoked from the web). It
+has not yet been installed on a real phone. Nothing else in this section exists
+as code yet. Update it as phases land, and don't let it claim more than the
+code does.
 
 ### Decisions
 - **Event source: a companion Android app.** It's Expo (React Native +

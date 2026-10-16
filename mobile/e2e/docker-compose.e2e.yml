@@ -1,0 +1,40 @@
+# Emulator end-to-end tests. Use mobile/e2e/run.sh, which runs this as its own
+# compose project (namu-e2e) next to docker-compose.yml, on a fresh database.
+#
+# Paths are relative to the repository root, the directory of the first
+# compose file.
+services:
+  flask:
+    # Nothing here is published: the emulator reaches Next.js over the compose
+    # network, so this can run alongside a dev stack that holds 3000 and 5000.
+    ports: !reset []
+    environment:
+      # Pairing and checking a pairing repeatedly in a few minutes must not be
+      # what fails a run. Limiting has its own coverage in test_rate_limit.py.
+      RATELIMIT_ENABLED: "false"
+
+  nextjs:
+    ports: !reset []
+
+  emulator:
+    build:
+      context: ./mobile
+      target: emulator
+    devices:
+      - /dev/kvm
+    # frontend for Next.js, as a phone reaches it. backend only so
+    # flows/revoke_all_devices.js can stand in for the web app's device routes,
+    # which have no Next.js proxy until phase 5.
+    networks:
+      - frontend
+      - backend
+    environment:
+      NEXTJS_HOST: nextjs
+      HOST_UID: ${HOST_UID:-1000}
+    volumes:
+      - ./mobile/e2e:/e2e:ro
+      - ./mobile/dist:/apk:ro
+      - ./mobile/e2e/output:/e2e-output
+    depends_on:
+      nextjs:
+        condition: service_healthy

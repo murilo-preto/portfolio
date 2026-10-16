@@ -1,0 +1,15 @@
+# Unpairing from the phone revokes the token and returns to the pair screen.
+appId: dev.mpreto.namu.lan
+---
+- launchApp
+# The status screen checks in as it opens and disables its buttons until that
+# returns; a tap before then is silently ignored.
+- extendedWaitUntil:
+    visible:
+      id: "unpair-button"
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: "unpair-button"
+- assertVisible: "Pair this phone"
+- takeScreenshot: 04_unpaired

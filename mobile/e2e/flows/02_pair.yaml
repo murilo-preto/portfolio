@@ -1,0 +1,17 @@
+# Pairing with the right password shows the paired screen, and the app checks
+# in with the server straight away.
+appId: dev.mpreto.namu.lan
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    file: _fill_pairing_form.yaml
+    env:
+      PASSWORD: ${NAMU_PASSWORD}
+- assertVisible:
+    id: "paired-as"
+    text: "Paired as ${NAMU_USER}"
+- extendedWaitUntil:
+    notVisible: "Last checked in: …"
+    timeout: 10000
+- takeScreenshot: 02_paired

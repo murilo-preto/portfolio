@@ -21,6 +21,15 @@ services:
     # immediately would tear the whole stack down before pytest had started.
     profiles: ["frontend-tests"]
 
+  # The Namu Android app's typecheck and Jest suite. Like nextjs-test, it needs
+  # nothing else running. The APK build and the emulator flows stay outside
+  # run_tests.sh (see mobile/build_apk.sh and mobile/e2e/run.sh).
+  mobile-test:
+    build:
+      context: ./mobile
+      target: test
+    profiles: ["frontend-tests"]
+
   test:
     build:
       context: .

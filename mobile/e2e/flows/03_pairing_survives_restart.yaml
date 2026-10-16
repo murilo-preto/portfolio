@@ -1,0 +1,9 @@
+# The pairing is kept in SecureStore, so a cold start lands back on the paired
+# screen without asking for the password again.
+appId: dev.mpreto.namu.lan
+---
+- stopApp
+- launchApp
+- assertVisible:
+    id: "paired-as"
+    text: "Paired as ${NAMU_USER}"

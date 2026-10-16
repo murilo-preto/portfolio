@@ -1,0 +1,14 @@
+# Generated, or installed in the image.
+node_modules
+android
+ios
+dist
+.expo
+# Not needed to build the APK. Keeping them out means editing a Maestro flow or
+# a script does not invalidate the Gradle build. e2e/ is mounted into the
+# emulator container at run time instead.
+e2e
+build_apk.sh
+scripts
+Dockerfile
+.dockerignore

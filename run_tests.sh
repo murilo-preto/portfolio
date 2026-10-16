@@ -32,7 +32,7 @@ else
     exit 1
 fi
 
-REQUIRED_IMAGES=("python:3.12-slim" "python:3.12" "node:20-alpine" "mysql:8.0")
+REQUIRED_IMAGES=("python:3.12-slim" "python:3.12" "node:20-alpine" "node:22-bookworm-slim" "mysql:8.0")
 for image in "${REQUIRED_IMAGES[@]}"; do
     if ! docker image inspect "$image" &> /dev/null; then
         echo -e "${YELLOW}Image $image not found locally — pulling...${NC}"
@@ -56,6 +56,15 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml build nextjs-tes
 if ! docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm nextjs-test; then
     echo -e "${RED}========================================${NC}"
     echo -e "${RED}      Next.js Route Tests Failed!       ${NC}"
+    echo -e "${RED}========================================${NC}"
+    exit 1
+fi
+
+echo -e "${YELLOW}Running Namu mobile tests...${NC}"
+docker compose -f docker-compose.yml -f docker-compose.test.yml build mobile-test
+if ! docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm mobile-test; then
+    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}         Mobile Tests Failed!           ${NC}"
     echo -e "${RED}========================================${NC}"
     exit 1
 fi

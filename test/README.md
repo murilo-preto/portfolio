@@ -80,6 +80,28 @@ Note that these routes do **not** validate payloads — that is Flask's job. A
 test asserting the proxy rejects a bad body with its own 400 is testing the
 wrong layer; the suite this replaced was full of them and had never been run.
 
+### Android App Tests (`mobile/src/__tests__/`, Jest)
+Run by `./run_tests.sh` after the Next.js tests; standalone, like them. On its
+own:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm mobile-test
+```
+
+Covers the typecheck, the API client (pairing, check-in, a revoked token),
+server URL rules (HTTPS only, except private addresses in the LAN build),
+SecureStore persistence, and the release-signing config plugin.
+
+### Android Emulator Tests (`mobile/e2e/`, Maestro)
+Local only — needs `/dev/kvm`. Builds the LAN APK if there is none, then runs
+five flows on a headless emulator against a fresh copy of the stack:
+
+```bash
+./mobile/e2e/run.sh
+```
+
+Output (screenshots, Maestro logs, logcat) lands in `mobile/e2e/output/`.
+
 ### Browser Tests (`next-version/e2e/`, Playwright)
 Local only — needs a browser download and a stack that is already running:
 

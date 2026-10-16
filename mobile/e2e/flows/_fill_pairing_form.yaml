@@ -1,0 +1,14 @@
+# Shared by the pairing flows: types the credentials into the pair screen. The
+# server field keeps the LAN build's default, http://10.0.2.2:5000, which the
+# emulator container relays to Next.js.
+appId: dev.mpreto.namu.lan
+---
+- tapOn:
+    id: "username-input"
+- inputText: ${NAMU_USER}
+- tapOn:
+    id: "password-input"
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "pair-button"

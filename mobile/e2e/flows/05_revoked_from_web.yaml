@@ -1,0 +1,27 @@
+# Revoking the phone from the web (as phase 5's devices page will) is noticed
+# the next time the app checks in: it forgets the token and says so.
+appId: dev.mpreto.namu.lan
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    file: _fill_pairing_form.yaml
+    env:
+      PASSWORD: ${NAMU_PASSWORD}
+- assertVisible:
+    id: "paired-as"
+- runScript:
+    file: revoke_all_devices.js
+# The status screen checks in as it opens and disables its buttons until that
+# returns; a tap before then is silently ignored.
+- extendedWaitUntil:
+    visible:
+      id: "refresh-button"
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: "refresh-button"
+- assertVisible:
+    id: "pair-notice"
+    text: "This phone was unpaired from your account. Pair it again to continue."
+- takeScreenshot: 05_revoked_from_web
