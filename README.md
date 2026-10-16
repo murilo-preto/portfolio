@@ -38,9 +38,10 @@ Next.js API routes act as thin proxies: they attach credentials, handle cookie-b
 
 ## API Endpoints
 
-All 50 routes Flask serves. Three are unauthenticated — `/health`, `/register`
-and `/login`; the rest need a JWT, which the Next.js proxy attaches from the
-httpOnly cookie.
+All 60 routes Flask serves. Four are unauthenticated — `/health`, `/register`,
+`/login` and `/devices/pair`. The Namu app's `/devices/me*` routes take a device
+token instead, and the rest need a JWT, which the Next.js proxy attaches from
+the httpOnly cookie.
 
 The four category and tag listings used to be public as well. They read lookup
 tables that were global — one row per name for the whole installation — so an
@@ -71,6 +72,20 @@ as `Authorization: Device <token>`.
 | POST   | `/devices/me/revoke`    | Device | Unpair from the phone                               |
 | GET    | `/devices`              | JWT    | The caller's paired phones, revoked ones included   |
 | POST   | `/devices/<id>/revoke`  | JWT    | Revoke one of the caller's phones                   |
+
+### Places (Namu Android app)
+
+The pins the phone geofences. Each one logs its stays in one of the caller's
+time categories, so deleting or merging a category moves its places along with
+its entries (see `category_admin.py`).
+
+| Method | Route                 | Auth   | Description                                          |
+| ------ | --------------------- | ------ | ---------------------------------------------------- |
+| GET    | `/places`             | JWT    | The caller's places, disabled ones included          |
+| POST   | `/places`             | JWT    | Create a place: name, category, coordinates, radius 100-2000 m; at most 100 per user |
+| PATCH  | `/places/<id>`        | JWT    | Change any of its fields                             |
+| DELETE | `/places/<id>`        | JWT    | Delete it, with its recorded events and any open stay |
+| GET    | `/devices/me/places`  | Device | The enabled places, i.e. the ones the phone watches  |
 
 ### Account
 
@@ -247,8 +262,8 @@ setup required:
 
 It runs the Next.js route tests first (Vitest; `fetch` is mocked, so it needs
 neither MySQL nor Flask), then the Android app's Jest suite, then the Python
-tiers against the full stack. Expect **758 Python tests, 67 frontend tests and
-39 mobile tests, no skips**.
+tiers against the full stack. Expect **816 Python tests, 73 frontend tests and
+43 mobile tests, no skips**.
 
 Browser-driven Playwright specs are separate — they need a browser download and
 a running stack:

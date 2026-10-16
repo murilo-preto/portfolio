@@ -17,6 +17,8 @@ type CategoryUsage = {
   mine: number;
   /** Entries of *other* users — the lookup tables are shared, see below. */
   others: number;
+  /** Places (Namu app) that log their stays here. Always 0 outside time. */
+  places: number;
 };
 
 type Namespace = {
@@ -67,6 +69,18 @@ type RowMode = "none" | "rename" | "merge" | "delete";
 
 function countLabel(n: number, ns: Namespace): string {
   return `${n} ${n === 1 ? ns.noun : ns.nounPlural}`;
+}
+
+function placeLabel(n: number): string {
+  return `${n} ${n === 1 ? "place" : "places"}`;
+}
+
+/** "3 entries", "2 places" or "3 entries and 2 places": what a delete moves. */
+function usageLabel(category: CategoryUsage, ns: Namespace): string {
+  const parts = [];
+  if (category.mine > 0) parts.push(countLabel(category.mine, ns));
+  if (category.places > 0) parts.push(placeLabel(category.places));
+  return parts.join(" and ");
 }
 
 async function readError(res: Response, fallback: string): Promise<string> {
@@ -132,6 +146,9 @@ function CategoryRow({
   // backend refuses those, and the row says so up front rather than letting the
   // user find out from a 409.
   const shared = category.others > 0;
+  // Places reference the category through a RESTRICT key too, so they block a
+  // plain delete exactly as entries do.
+  const inUse = category.mine > 0 || category.places > 0;
 
   const previewName = namespace.normalizes ? normalizeCategoryName(name) : name.trim();
   const renameChanged = previewName !== category.name && previewName.length > 0;
@@ -197,7 +214,7 @@ function CategoryRow({
   async function handleDelete() {
     // The FK is ON DELETE RESTRICT: a category still in use can only go if its
     // entries are moved somewhere first.
-    if (category.mine > 0 && !targetId) return;
+    if (inUse && !targetId) return;
     const ok = await send(
       `${namespace.base}/${category.id}`,
       {
@@ -221,6 +238,7 @@ function CategoryRow({
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <span className="font-medium text-sm truncate">{category.name}</span>
           <Pill>{countLabel(category.mine, namespace)}</Pill>
+          {category.places > 0 && <Pill>{placeLabel(category.places)}</Pill>}
           {shared && (
             <Pill tone="amber">
               shared · {countLabel(category.others, namespace)} from other users
@@ -309,7 +327,7 @@ function CategoryRow({
             Cancel
           </button>
           <p className="basis-full text-xs text-muted">
-            Moves your {countLabel(category.mine, namespace)} across, then removes
+            Moves your {usageLabel(category, namespace) || countLabel(0, namespace)} across, then removes
             “{category.name}”.
           </p>
         </div>
@@ -317,13 +335,16 @@ function CategoryRow({
 
       {mode === "delete" && (
         <div className="flex gap-2 flex-wrap items-center">
-          {category.mine > 0 && (
+          {inUse && (
             <select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
               className={`${INPUT_CLASS} flex-1 min-w-48`}
             >
-              <option value="">Move my {namespace.nounPlural} to…</option>
+              <option value="">
+                Move my {category.mine > 0 ? namespace.nounPlural : "places"}
+                {category.mine > 0 && category.places > 0 ? " and places" : ""} to…
+              </option>
               {siblings.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -333,7 +354,7 @@ function CategoryRow({
           )}
           <button
             onClick={handleDelete}
-            disabled={busy || (category.mine > 0 && !targetId)}
+            disabled={busy || (inUse && !targetId)}
             className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium disabled:opacity-40"
           >
             {busy ? "…" : "Delete"}
@@ -342,8 +363,8 @@ function CategoryRow({
             Cancel
           </button>
           <p className="basis-full text-xs text-muted">
-            {category.mine > 0
-              ? `“${category.name}” still holds ${countLabel(category.mine, namespace)}; pick where they should go.`
+            {inUse
+              ? `“${category.name}” still holds ${usageLabel(category, namespace)}; pick where they should go.`
               : `“${category.name}” is unused and can be removed.`}
           </p>
         </div>
@@ -430,7 +451,9 @@ function NamespacePanel({ namespace }: { namespace: Namespace }) {
 
   const totals = useMemo(
     () => ({
-      unused: categories.filter((c) => c.mine === 0 && c.others === 0).length,
+      unused: categories.filter(
+        (c) => c.mine === 0 && c.others === 0 && c.places === 0,
+      ).length,
       shared: categories.filter((c) => c.others > 0).length,
     }),
     [categories],

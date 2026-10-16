@@ -2,8 +2,9 @@
 Schema tests for the Panopto tables (migrations 008-011)
 ========================================================
 
-`places`, `devices`, `presence_events` and `presence_sessions` have no endpoints
-yet, so these exercise the schema directly against the real database: what is
+These exercise the schema of `places`, `devices`, `presence_events` and
+`presence_sessions` directly against the real database, below the endpoints
+(test_places.py, test_devices.py): what is
 deleted with what, what is refused, and the uniqueness that later phases rely
 on instead of checking for themselves.
 
@@ -237,8 +238,9 @@ class TestDeletion:
             assert cursor.fetchone() == {"device_id": None}
 
     def test_a_category_used_by_a_place_cannot_be_deleted(self, owner):
-        """Pinned so phase 3 has to deal with it: category_admin counts only
-        entries as usage today, so this would surface as a 500 there."""
+        """The constraint category_admin relies on: it counts places as usage
+        and refuses with a 409 first (test_categories.py), so this errno only
+        surfaces if that check is bypassed."""
         with get_cursor() as cursor:
             _place(cursor, owner)
 

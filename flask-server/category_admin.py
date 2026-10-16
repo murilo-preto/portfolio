@@ -45,6 +45,14 @@ choice made here is **refuse-by-default with an escape hatch**:
 `merge()` is the same move, with the reassignment mandatory and the counts
 reported as a merge rather than a delete.
 
+Places
+------
+A Panopto place (`places`, migration 008) also names a time category, the one
+its stays are logged in, and that foreign key is RESTRICT too. So in the time
+namespace a place counts as usage exactly as an entry does: it blocks a plain
+delete, and it moves with the entries on reassign or merge. `place_table` names
+the table, and is None for finance and TODO, which only their entries reference.
+
 Cursors are passed in rather than opened here so this module does not import
 back into app.py — the same arrangement migrations.py uses.
 """
@@ -59,13 +67,15 @@ MAX_NAME_LENGTH = 100
 # an identifier as a placeholder. They are never user input: the only values
 # that ever reach these fields are the three literals defined right here.
 CategoryNamespace = namedtuple(
-    "CategoryNamespace", ["key", "table", "entry_table", "label", "normalize"]
+    "CategoryNamespace",
+    ["key", "table", "entry_table", "place_table", "label", "normalize"],
 )
 
 TIME = CategoryNamespace(
     key="time",
     table="category",
     entry_table="time_entries",
+    place_table="places",
     label="Category",
     normalize=False,
 )
@@ -74,6 +84,7 @@ FINANCE = CategoryNamespace(
     key="finance",
     table="finance_categories",
     entry_table="finance_entries",
+    place_table=None,
     label="Finance category",
     normalize=True,
 )
@@ -82,6 +93,7 @@ TODO = CategoryNamespace(
     key="todo",
     table="todo_categories",
     entry_table="todo_items",
+    place_table=None,
     label="TODO category",
     normalize=False,
 )
@@ -145,6 +157,28 @@ def _usage(cursor, namespace, category_id, user_id):
     return int(row["mine"]), int(row["others"])
 
 
+def _place_usage(cursor, namespace, category_id, user_id):
+    """How many of the caller's places log their stays in this category."""
+    if namespace.place_table is None:
+        return 0
+    cursor.execute(
+        f"SELECT COUNT(*) AS places FROM {namespace.place_table}"
+        " WHERE category_id = %s AND user_id = %s",
+        (category_id, user_id),
+    )
+    return int(cursor.fetchone()["places"])
+
+
+def _in_use_by(entries, places):
+    """'3 of your entries and 1 place', for the 409 a delete returns."""
+    parts = []
+    if entries:
+        parts.append(f"{entries} of your {'entry' if entries == 1 else 'entries'}")
+    if places:
+        parts.append(f"{places} {'place' if places == 1 else 'places'}")
+    return " and ".join(parts)
+
+
 def _shared_error(namespace, category, others):
     """The 409 returned when someone else's entries are in the way.
 
@@ -184,24 +218,52 @@ def _move_entries(cursor, namespace, source_id, target_id, user_id):
     return cursor.rowcount
 
 
+def _move_places(cursor, namespace, source_id, target_id, user_id):
+    """Re-point the caller's places, as _move_entries does their entries."""
+    if namespace.place_table is None:
+        return 0
+    cursor.execute(
+        f"""
+        UPDATE {namespace.place_table}
+        SET category_id = %s
+        WHERE category_id = %s AND user_id = %s
+        """,
+        (target_id, source_id, user_id),
+    )
+    return cursor.rowcount
+
+
 # ─── Operations ───────────────────────────────────────────────────────────────
 
 
 def list_with_usage(cursor, namespace, user_id):
     """Every category in the namespace with the caller's and other users' entry
-    counts, so a management UI can show what a delete would affect."""
+    counts, and the caller's places, so a management UI can show what a delete
+    would affect. `places` is always 0 outside the time namespace."""
+    # A subquery rather than a second join, which would multiply the entry
+    # counts by the place count.
+    if namespace.place_table:
+        places_sql = (
+            f"(SELECT COUNT(*) FROM {namespace.place_table} p"
+            " WHERE p.category_id = c.id AND p.user_id = %s)"
+        )
+        params = (user_id, user_id, user_id, user_id)
+    else:
+        places_sql = "0"
+        params = (user_id, user_id, user_id)
     cursor.execute(
         f"""
         SELECT c.id, c.name,
                COALESCE(SUM(e.user_id = %s), 0)  AS mine,
-               COALESCE(SUM(e.user_id <> %s), 0) AS others
+               COALESCE(SUM(e.user_id <> %s), 0) AS others,
+               {places_sql} AS places
         FROM {namespace.table} c
         LEFT JOIN {namespace.entry_table} e ON e.category_id = c.id
         WHERE c.user_id = %s
         GROUP BY c.id, c.name
         ORDER BY c.name
         """,
-        (user_id, user_id, user_id),
+        params,
     )
     return [
         {
@@ -209,6 +271,7 @@ def list_with_usage(cursor, namespace, user_id):
             "name": row["name"],
             "mine": int(row["mine"]),
             "others": int(row["others"]),
+            "places": int(row["places"]),
         }
         for row in cursor.fetchall()
     ]
@@ -278,17 +341,20 @@ def delete(cursor, namespace, category_id, reassign_to, user_id):
     if others:
         return _shared_error(namespace, category, others)
 
-    if mine and reassign_to is None:
+    places = _place_usage(cursor, namespace, category_id, user_id)
+
+    if (mine or places) and reassign_to is None:
         return {
             "error": (
-                f'"{category["name"]}" is still used by {mine} of your '
-                f"{'entry' if mine == 1 else 'entries'}. Choose a category to "
-                f"move them to, or delete them first."
+                f'"{category["name"]}" is still used by '
+                f"{_in_use_by(mine, places)}. Choose a category to move them "
+                f"to, or delete them first."
             ),
-            "usage": {"mine": mine, "others": 0},
+            "usage": {"mine": mine, "others": 0, "places": places},
         }, 409
 
     moved = 0
+    moved_places = 0
     if reassign_to is not None:
         if reassign_to == category_id:
             return {"error": "Cannot reassign a category to itself"}, 400
@@ -298,6 +364,9 @@ def delete(cursor, namespace, category_id, reassign_to, user_id):
             return {"error": "Replacement category not found"}, 404
 
         moved = _move_entries(cursor, namespace, category_id, reassign_to, user_id)
+        moved_places = _move_places(
+            cursor, namespace, category_id, reassign_to, user_id
+        )
 
     cursor.execute(
         f"DELETE FROM {namespace.table} WHERE id = %s AND user_id = %s",
@@ -309,6 +378,7 @@ def delete(cursor, namespace, category_id, reassign_to, user_id):
         "id": category_id,
         "name": category["name"],
         "reassigned": moved,
+        "reassigned_places": moved_places,
     }, 200
 
 
@@ -334,6 +404,7 @@ def merge(cursor, namespace, source_id, target_id, user_id):
         return _shared_error(namespace, source, others)
 
     moved = _move_entries(cursor, namespace, source_id, target_id, user_id)
+    moved_places = _move_places(cursor, namespace, source_id, target_id, user_id)
     cursor.execute(
         f"DELETE FROM {namespace.table} WHERE id = %s AND user_id = %s",
         (source_id, user_id),
@@ -344,4 +415,5 @@ def merge(cursor, namespace, source_id, target_id, user_id):
         "merged": {"id": source_id, "name": source["name"]},
         "into": {"id": target["id"], "name": target["name"]},
         "moved": moved,
+        "moved_places": moved_places,
     }, 200

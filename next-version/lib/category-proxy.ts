@@ -19,7 +19,7 @@ import { FLASK_BASE_URL } from "@/lib/constants";
  */
 export async function proxyFlaskJson(
   flaskPath: string,
-  method: "GET" | "PUT" | "POST" | "DELETE",
+  method: "GET" | "PUT" | "PATCH" | "POST" | "DELETE",
   req?: Request,
 ): Promise<Response> {
   let body: string | undefined;

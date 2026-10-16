@@ -39,6 +39,11 @@ class TestNamespaceDefinitions:
         assert category_admin.TODO.table == "todo_categories"
         assert category_admin.TODO.entry_table == "todo_items"
 
+    def test_only_time_categories_are_used_by_places(self):
+        assert category_admin.TIME.place_table == "places"
+        assert category_admin.FINANCE.place_table is None
+        assert category_admin.TODO.place_table is None
+
     def test_only_finance_normalizes_names(self):
         assert category_admin.FINANCE.normalize is True
         assert category_admin.TIME.normalize is False
@@ -167,6 +172,28 @@ def _create_time_entry(client, headers, category_name):
     )
     assert response.status_code == 201, response.get_json()
     return response.get_json()["entry"]["id"]
+
+
+def _create_place(client, headers, category_id):
+    response = client.post(
+        "/places",
+        headers=headers,
+        json={
+            "name": _unique("Place"),
+            "category_id": category_id,
+            "latitude": 0,
+            "longitude": 0,
+        },
+    )
+    assert response.status_code == 201, response.get_json()
+    return response.get_json()["place"]["id"]
+
+
+def _place_category(client, headers, place_id):
+    for place in client.get("/places", headers=headers).get_json()["places"]:
+        if place["id"] == place_id:
+            return place["category_id"]
+    return None
 
 
 def _usage_for(client, headers, category_id):
@@ -454,6 +481,83 @@ class TestMergeCategory:
             f"/category/{category_id}/merge", headers=owner, json={"into": 99999999}
         )
         assert response.status_code == 404
+
+
+# ─── Places ───────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestCategoriesUsedByPlaces:
+    """A place's category_id is ON DELETE RESTRICT, like an entry's, so a place
+    has to count as usage. Before it did, deleting such a category was a 500
+    from errno 1451 (test_presence_schema.py pins the constraint itself)."""
+
+    def test_usage_counts_places(self, client, owner):
+        category_id = _create_category(client, owner, _unique("Placed"))
+        _create_place(client, owner, category_id)
+
+        row = _usage_for(client, owner, category_id)
+
+        assert row["places"] == 1
+        assert row["mine"] == 0
+
+    def test_finance_and_todo_usage_never_count_places(self, client, owner):
+        for path in ("/finance/category/usage", "/todo/category/usage"):
+            rows = client.get(path, headers=owner).get_json()["categories"]
+            assert all(row["places"] == 0 for row in rows)
+
+    def test_a_category_a_place_uses_is_refused_with_a_count(self, client, owner):
+        category_id = _create_category(client, owner, _unique("PlaceOnly"))
+        _create_place(client, owner, category_id)
+
+        response = client.delete(f"/category/{category_id}", headers=owner)
+
+        assert response.status_code == 409
+        body = response.get_json()
+        assert body["usage"] == {"mine": 0, "others": 0, "places": 1}
+        assert "1 place" in body["error"]
+        assert _usage_for(client, owner, category_id) is not None
+
+    def test_the_refusal_names_entries_and_places_together(self, client, owner):
+        name = _unique("Both")
+        category_id = _create_category(client, owner, name)
+        _create_time_entry(client, owner, name)
+        _create_place(client, owner, category_id)
+        _create_place(client, owner, category_id)
+
+        error = client.delete(f"/category/{category_id}", headers=owner).get_json()["error"]
+
+        assert "1 of your entry and 2 places" in error
+
+    def test_reassign_moves_places_with_the_entries(self, client, owner):
+        doomed_name = _unique("DoomedPlaced")
+        doomed_id = _create_category(client, owner, doomed_name)
+        keeper_id = _create_category(client, owner, _unique("KeeperPlaced"))
+        _create_time_entry(client, owner, doomed_name)
+        place_id = _create_place(client, owner, doomed_id)
+
+        response = client.delete(
+            f"/category/{doomed_id}", headers=owner, json={"reassign_to": keeper_id}
+        )
+
+        assert response.status_code == 200
+        body = response.get_json()
+        assert (body["reassigned"], body["reassigned_places"]) == (1, 1)
+        assert _place_category(client, owner, place_id) == keeper_id
+
+    def test_merge_moves_places(self, client, owner):
+        source_id = _create_category(client, owner, _unique("SourcePlaced"))
+        target_id = _create_category(client, owner, _unique("TargetPlaced"))
+        place_id = _create_place(client, owner, source_id)
+
+        response = client.post(
+            f"/category/{source_id}/merge", headers=owner, json={"into": target_id}
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["moved_places"] == 1
+        assert _place_category(client, owner, place_id) == target_id
+        assert _usage_for(client, owner, target_id)["places"] == 1
 
 
 # ─── Ownership / IDOR ─────────────────────────────────────────────────────────

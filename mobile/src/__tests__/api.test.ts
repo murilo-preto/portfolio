@@ -1,4 +1,11 @@
-import { ApiError, fetchDeviceStatus, pairDevice, unpairDevice, type Pairing } from "../api";
+import {
+  ApiError,
+  fetchDeviceStatus,
+  fetchPlaces,
+  pairDevice,
+  unpairDevice,
+  type Pairing,
+} from "../api";
 
 function reply(status: number, body: unknown): Response {
   return {
@@ -116,5 +123,63 @@ describe("device-token calls", () => {
     const error = (await fetchDeviceStatus(PAIRING, fetchImpl).catch((e: unknown) => e)) as ApiError;
 
     expect(error.isUnpaired).toBe(false);
+  });
+});
+
+describe("fetchPlaces", () => {
+  it("asks for the device's places with its token", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(reply(200, { places: [] }));
+
+    await fetchPlaces(PAIRING, fetchImpl);
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("https://namu.example/api/devices/me/places");
+    expect(init.method).toBe("GET");
+    expect(init.headers).toEqual({ Authorization: "Device namu_dev_abc" });
+  });
+
+  it("maps the server's places to the app's shape", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      reply(200, {
+        places: [
+          {
+            id: 4,
+            name: "Office",
+            category_id: 9,
+            category: "Work",
+            latitude: -23.561414,
+            longitude: -46.655881,
+            radius_m: 150,
+            enabled: true,
+          },
+        ],
+      }),
+    );
+
+    expect(await fetchPlaces(PAIRING, fetchImpl)).toEqual([
+      {
+        id: 4,
+        name: "Office",
+        category: "Work",
+        latitude: -23.561414,
+        longitude: -46.655881,
+        radiusM: 150,
+      },
+    ]);
+  });
+
+  it("treats a reply without a list as no places", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(reply(200, {}));
+    expect(await fetchPlaces(PAIRING, fetchImpl)).toEqual([]);
+  });
+
+  it("marks a refused token as unpaired", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      reply(401, { error: "This device has been unpaired" }),
+    );
+
+    const error = (await fetchPlaces(PAIRING, fetchImpl).catch((e: unknown) => e)) as ApiError;
+
+    expect(error.isUnpaired).toBe(true);
   });
 });

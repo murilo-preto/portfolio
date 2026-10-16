@@ -30,6 +30,21 @@ export interface Category {
   name: string;
 }
 
+/** A place the Namu Android app geofences; stays there are logged in `category`. */
+export interface Place {
+  id: number;
+  name: string;
+  category_id: number;
+  /** The category's name, joined in by Flask. */
+  category: string;
+  latitude: number;
+  longitude: number;
+  /** 100-2000; Android geofencing is unreliable below about 100 m. */
+  radius_m: number;
+  /** A disabled place keeps its settings and history but is not watched. */
+  enabled: boolean;
+}
+
 export interface FinanceCategory {
   id: number;
   name: string;

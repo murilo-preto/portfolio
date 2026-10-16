@@ -627,4 +627,108 @@ describe("device proxies (Namu Android app)", () => {
 
     expect(response.status).toBe(503);
   });
+
+  it("forwards the phone's place listing with its device token", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { places: [] }) as unknown as Response,
+    );
+
+    const { GET } = await import("@/app/api/devices/me/places/route");
+    await GET(new Request("http://next/api/devices/me/places", {
+      headers: { Authorization: "Device namu_dev_abc" },
+    }));
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices/me/places`);
+    expect(init.method).toBe("GET");
+    expect(headers.Authorization).toBe("Device namu_dev_abc");
+  });
+});
+
+describe("place proxies", () => {
+  function forwarded() {
+    const [url, init] = vi.mocked(global.fetch).mock.calls[0];
+    return { url, init: init as RequestInit, headers: init?.headers as Record<string, string> };
+  }
+
+  it("refuses without a cookie, and never reaches Flask", async () => {
+    const { GET } = await import("@/app/api/places/route");
+    const response = await GET();
+
+    expect(response.status).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards the listing with the bearer token", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { places: [] }) as unknown as Response,
+    );
+
+    const { GET } = await import("@/app/api/places/route");
+    await GET();
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/places`);
+    expect(init.method).toBe("GET");
+    expect(headers.Authorization).toBe("Bearer stored-token");
+  });
+
+  it("forwards a create's body as received", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(201, { place: { id: 4 } }) as unknown as Response,
+    );
+    // Out of range on purpose: refusing it is Flask's job, not the proxy's.
+    const payload = { name: "Office", category_id: 1, latitude: 91, longitude: 0 };
+
+    const { POST } = await import("@/app/api/places/route");
+    const response = await POST(jsonRequest("http://next/api/places", payload));
+
+    const { url, init } = forwarded();
+    expect(url).toBe(`${FLASK}/places`);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+    expect(response.status).toBe(201);
+  });
+
+  it("forwards an update to the place's id", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { place: { id: 4 } }) as unknown as Response,
+    );
+
+    const { PATCH } = await import("@/app/api/places/[id]/route");
+    await PATCH(
+      new Request("http://next/api/places/4", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled: false }),
+      }),
+      { params: Promise.resolve({ id: "4" }) },
+    );
+
+    const { url, init } = forwarded();
+    expect(url).toBe(`${FLASK}/places/4`);
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ enabled: false });
+  });
+
+  it("forwards a delete and relays Flask's 404", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(404, { error: "Place not found" }) as unknown as Response,
+    );
+
+    const { DELETE } = await import("@/app/api/places/[id]/route");
+    const response = await DELETE(
+      new Request("http://next/api/places/9", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "9" }) },
+    );
+
+    const { url, init } = forwarded();
+    expect(url).toBe(`${FLASK}/places/9`);
+    expect(init.method).toBe("DELETE");
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Place not found" });
+  });
 });

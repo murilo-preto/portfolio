@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { ApiError, fetchDeviceStatus, unpairDevice, type DeviceStatus, type Pairing } from "../api";
+import {
+  ApiError,
+  fetchDeviceStatus,
+  fetchPlaces,
+  unpairDevice,
+  type DeviceStatus,
+  type Pairing,
+  type WatchedPlace,
+} from "../api";
 import { useTheme } from "../theme";
 
 type Props = {
@@ -17,6 +33,7 @@ function formatTime(iso: string | null): string {
 export function StatusScreen({ pairing, onUnpaired }: Props) {
   const theme = useTheme();
   const [status, setStatus] = useState<DeviceStatus | null>(null);
+  const [places, setPlaces] = useState<WatchedPlace[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +41,12 @@ export function StatusScreen({ pairing, onUnpaired }: Props) {
     setBusy(true);
     setError(null);
     try {
-      setStatus(await fetchDeviceStatus(pairing));
+      const [nextStatus, nextPlaces] = await Promise.all([
+        fetchDeviceStatus(pairing),
+        fetchPlaces(pairing),
+      ]);
+      setStatus(nextStatus);
+      setPlaces(nextPlaces);
     } catch (e) {
       if (e instanceof ApiError && e.isUnpaired) {
         await onUnpaired("This phone was unpaired from your account. Pair it again to continue.");
@@ -61,7 +83,12 @@ export function StatusScreen({ pairing, onUnpaired }: Props) {
   const muted = { color: theme.muted };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={false} onRefresh={refresh} colors={[theme.accent]} />
+      }
+    >
       <Text style={[styles.title, { color: theme.text }]}>Namu</Text>
 
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -75,8 +102,30 @@ export function StatusScreen({ pairing, onUnpaired }: Props) {
         </Text>
       </View>
 
+      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text testID="places-heading" style={[styles.heading, { color: theme.text }]}>
+          Places{places ? ` (${places.length})` : ""}
+        </Text>
+        {places === null ? (
+          <Text style={[styles.detail, muted]}>…</Text>
+        ) : places.length === 0 ? (
+          <Text testID="no-places" style={[styles.detail, muted]}>
+            No places yet. Add them on the web, under Time, then Places.
+          </Text>
+        ) : (
+          places.map((place) => (
+            <View key={place.id} testID={`place-${place.id}`} style={styles.place}>
+              <Text style={[styles.placeName, { color: theme.text }]}>{place.name}</Text>
+              <Text style={[styles.detail, muted]}>
+                {place.category} · {place.radiusM} m
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+
       <Text style={[styles.body, muted]}>
-        Location tracking is not built yet. This screen only confirms the pairing works.
+        Location tracking is not built yet. These are the places it will watch.
       </Text>
 
       {error ? (
@@ -106,16 +155,18 @@ export function StatusScreen({ pairing, onUnpaired }: Props) {
       >
         <Text style={[styles.buttonText, { color: theme.danger }]}>Unpair this phone</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, paddingTop: 64, gap: 12 },
+  container: { flexGrow: 1, padding: 24, paddingTop: 64, gap: 12 },
   title: { fontSize: 26, fontWeight: "600" },
   card: { borderWidth: 1, borderRadius: 12, padding: 16, gap: 4 },
   heading: { fontSize: 18, fontWeight: "600", marginBottom: 4 },
   detail: { fontSize: 14 },
+  place: { paddingVertical: 4 },
+  placeName: { fontSize: 15, fontWeight: "500" },
   body: { fontSize: 15, lineHeight: 21 },
   button: { borderRadius: 8, paddingVertical: 14, alignItems: "center" },
   outline: { borderWidth: 1 },

@@ -225,10 +225,11 @@ def _category_merge(namespace, source_id):
 def list_category_usage():
     """
     List every time category with the caller's entry count and the number of
-    entries other users have in it, so the UI can show what a delete affects.
+    entries other users have in it, plus the caller's places that log stays in
+    it, so the UI can show what a delete affects.
 
     Returns:
-        200: {"categories": [{"id", "name", "mine", "others"}]}
+        200: {"categories": [{"id", "name", "mine", "others", "places"}]}
         404: User not found
         500: Server error
     """

@@ -1,0 +1,21 @@
+# Places created on the web show on the status screen, paused ones left out:
+# those are the ones phase 4 will register geofences for.
+appId: dev.mpreto.namu.lan
+---
+- runScript:
+    file: create_place.js
+- launchApp:
+    clearState: true
+- runFlow:
+    file: _fill_pairing_form.yaml
+    env:
+      PASSWORD: ${NAMU_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: "places-heading"
+      text: "Places (1)"
+    timeout: 15000
+- assertVisible: "Office"
+- assertVisible: "${output.category} · 200 m"
+- assertNotVisible: "Holiday home"
+- takeScreenshot: 06_places_listed

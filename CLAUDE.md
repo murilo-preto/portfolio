@@ -36,8 +36,8 @@ One command covers all three standalone tiers and the full-stack one:
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Namu Android app's
 typecheck and Jest suite (`mobile-test`, equally standalone), then the Python
-suite — unit, integration, e2e — against the full stack. Expect **758 Python
-tests, 67 frontend tests and 39 mobile tests, with no skips**; anything
+suite — unit, integration, e2e — against the full stack. Expect **816 Python
+tests, 73 frontend tests and 43 mobile tests, with no skips**; anything
 skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -196,7 +196,7 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 
 ### Key files
 - `flask-server/app.py` — application core (~300 lines): Flask instance, config, JWT manager and loaders, limiter, connection pool, boot-time migrations, blueprint registration
-- `flask-server/routes/` — one blueprint per domain (`auth`, `categories`, `devices`, `entries`, `finance`, `health`, `pomodoro`, `settings`, `todo`). These reach shared state via `import app` and call `app.get_cursor()` — resolved at call time, which is what keeps `patch("app.get_cursor")` working in the 42 tests that use it. Do not change these to `from app import get_cursor`: the patches would silently stop applying and several tests would pass against the real database
+- `flask-server/routes/` — one blueprint per domain (`auth`, `categories`, `devices`, `entries`, `finance`, `health`, `places`, `pomodoro`, `settings`, `todo`). These reach shared state via `import app` and call `app.get_cursor()` — resolved at call time, which is what keeps `patch("app.get_cursor")` working in the 42 tests that use it. Do not change these to `from app import get_cursor`: the patches would silently stop applying and several tests would pass against the real database
 - `flask-server/rate_limit.py` — rate-limit keying and the failed-login throttle
 - `flask-server/device_tokens.py` — device token generation, hashing and header parsing; no DB, so `rate_limit.py` can key on it
 - `flask-server/users.py` — `resolve_user_id(cursor, username)`. The JWT carries
@@ -269,9 +269,17 @@ pair screen and a status screen, built into a sideloadable APK in Docker (see
 **Android app**). It is tested in three tiers: Jest in `run_tests.sh`, the APK
 build, and five Maestro flows on an emulator against the real stack (wrong
 password, pair, pairing survives a restart, unpair, revoked from the web). It
-has not yet been installed on a real phone. Nothing else in this section exists
-as code yet. Update it as phases land, and don't let it claim more than the
-code does.
+has not yet been installed on a real phone.
+
+Phase 3 (places) is done: `routes/places.py` (`/places` CRUD under the JWT, and
+`/devices/me/places` for the phone), proxied at `/api/places`,
+`/api/places/[id]` and `/api/devices/me/places`. The web page is
+`/namu/user/places`, in the Time menu. The app's status screen lists the
+enabled places, read-only, and a sixth Maestro flow covers it.
+`category_admin` counts places as usage and moves them on reassign and merge.
+Nothing tracks location yet: geofencing, events and stays are phase 4. Nothing
+else in this section exists as code yet. Update it as phases land, and don't
+let it claim more than the code does.
 
 ### Decisions
 - **Event source: a companion Android app.** It's Expo (React Native +
@@ -315,6 +323,19 @@ code does.
   `time_entries` row with no confirmation step. A stay closed by the server's
   cap rather than a real "leave" is still written, and is marked in the entry's
   `note` so it stands out for correction
+- **Places are created on the web, without a map.** Coordinates are typed in,
+  or filled by a "Use my current location" button (the browser's geolocation,
+  read once). There's no map because tile requests would tell a third-party
+  tile server roughly where each place is. An OpenStreetMap link checks the spot
+- **The phone reads places, never writes them.** `GET /devices/me/places`
+  returns the enabled ones only, which are what it will geofence
+- **Places count as category usage,** like entries. A category a place uses
+  can't be deleted without `reassign_to`, and merge and reassign move places
+  with the entries
+- **Deleting a place deletes its history** (the schema's cascade). Pausing it
+  (`enabled = false`) is the way to stop watching it and keep the history
+- **At most 100 places per user,** Android's per-app geofence limit. The cap
+  is on all places, not just enabled ones
 
 ### Constraints the current code imposes
 - **A browser cannot geofence in the background.** A Next.js page only sees
@@ -341,11 +362,10 @@ code does.
   baseline
 
 ### Notes for later phases
-- **Phase 3 must teach `category_admin` about places.** `places.category_id`
-  is `ON DELETE RESTRICT`, but `delete` and `merge` only count and move
-  entries. Until they also count and move places, deleting a category a place
-  uses fails with errno 1451 and returns a 500.
-  `test_a_category_used_by_a_place_cannot_be_deleted` pins the constraint
+- **Deleting or pausing a place doesn't close its open stay yet.** Deleting
+  cascades the stay away unlogged, and pausing leaves it open. Neither matters
+  until phase 4 creates stays, and phase 4 should decide whether either one
+  writes the time entry first
 - **No RESTRICT on the users cascade path.** Every FK from the Panopto tables
   cascades or sets NULL, except `places.category_id`, and `category` is off
   that path. A new table must keep it that way, or accounts become undeletable

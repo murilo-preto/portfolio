@@ -20,6 +20,16 @@ export type DeviceStatus = {
   lastSeenAt: string | null;
 };
 
+/** A place the phone should watch. Only enabled places are sent. */
+export type WatchedPlace = {
+  id: number;
+  name: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  radiusM: number;
+};
+
 /** A failed call. `status` is 0 when the server could not be reached at all. */
 export class ApiError extends Error {
   constructor(
@@ -113,6 +123,25 @@ export async function fetchDeviceStatus(
     createdAt: typeof body.created_at === "string" ? body.created_at : null,
     lastSeenAt: typeof body.last_seen_at === "string" ? body.last_seen_at : null,
   };
+}
+
+export async function fetchPlaces(
+  pairing: Pairing,
+  fetchImpl: Fetch = fetch,
+): Promise<WatchedPlace[]> {
+  const body = await call(fetchImpl, `${pairing.server}/api/devices/me/places`, {
+    method: "GET",
+    headers: deviceHeaders(pairing.token),
+  });
+  const places = Array.isArray(body.places) ? (body.places as Record<string, unknown>[]) : [];
+  return places.map((place) => ({
+    id: Number(place.id),
+    name: String(place.name),
+    category: String(place.category),
+    latitude: Number(place.latitude),
+    longitude: Number(place.longitude),
+    radiusM: Number(place.radius_m),
+  }));
 }
 
 export async function unpairDevice(pairing: Pairing, fetchImpl: Fetch = fetch): Promise<void> {

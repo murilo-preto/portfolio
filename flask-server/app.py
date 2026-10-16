@@ -253,6 +253,7 @@ from routes.devices import devices_bp  # noqa: E402
 from routes.entries import entries_bp  # noqa: E402
 from routes.finance import finance_bp  # noqa: E402
 from routes.health import health_bp  # noqa: E402
+from routes.places import places_bp  # noqa: E402
 from routes.pomodoro import pomodoro_bp  # noqa: E402
 from routes.settings import settings_bp  # noqa: E402
 from routes.todo import todo_bp  # noqa: E402
@@ -264,6 +265,7 @@ for blueprint in (
     entries_bp,
     finance_bp,
     health_bp,
+    places_bp,
     pomodoro_bp,
     settings_bp,
     todo_bp,
