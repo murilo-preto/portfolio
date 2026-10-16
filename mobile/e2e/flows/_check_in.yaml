@@ -1,0 +1,19 @@
+# Shared by 07_geofence_stay's waits: give Play services a few seconds with
+# the new position, then check in, which sends any queued events and reloads
+# the current stay. The button is disabled while a check-in is running, and
+# Maestro taps a disabled button without complaint, so wait for it first.
+appId: dev.mpreto.namu.lan
+---
+# Maestro has no plain sleep: waiting for text that never appears, optionally,
+# is the usual stand-in.
+- extendedWaitUntil:
+    visible: "__pause__"
+    timeout: 3000
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "refresh-button"
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: "refresh-button"

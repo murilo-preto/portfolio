@@ -38,7 +38,7 @@ Next.js API routes act as thin proxies: they attach credentials, handle cookie-b
 
 ## API Endpoints
 
-All 60 routes Flask serves. Four are unauthenticated — `/health`, `/register`,
+All 62 routes Flask serves. Four are unauthenticated — `/health`, `/register`,
 `/login` and `/devices/pair`. The Namu app's `/devices/me*` routes take a device
 token instead, and the rest need a JWT, which the Next.js proxy attaches from
 the httpOnly cookie.
@@ -86,6 +86,17 @@ its entries (see `category_admin.py`).
 | PATCH  | `/places/<id>`        | JWT    | Change any of its fields                             |
 | DELETE | `/places/<id>`        | JWT    | Delete it, with its recorded events and any open stay |
 | GET    | `/devices/me/places`  | Device | The enabled places, i.e. the ones the phone watches  |
+
+### Presence (Namu Android app)
+
+The phone reports raw geofence crossings; Flask turns them into stays and, when
+a stay ends, into an ordinary time entry in the place's category. The rules
+(re-entry window, minimum stay, 16 h cap) are in `flask-server/presence.py`.
+
+| Method | Route                 | Auth   | Description                                          |
+| ------ | --------------------- | ------ | ---------------------------------------------------- |
+| POST   | `/devices/me/events`  | Device | Up to 100 enter/exit events; answers each as accepted, duplicate or rejected, plus the current stay and enabled places |
+| GET    | `/devices/me/stay`    | Device | The stay in progress, if any                         |
 
 ### Account
 
@@ -262,8 +273,8 @@ setup required:
 
 It runs the Next.js route tests first (Vitest; `fetch` is mocked, so it needs
 neither MySQL nor Flask), then the Android app's Jest suite, then the Python
-tiers against the full stack. Expect **816 Python tests, 73 frontend tests and
-43 mobile tests, no skips**.
+tiers against the full stack. Expect **916 Python tests, 75 frontend tests and
+86 mobile tests, no skips**.
 
 Browser-driven Playwright specs are separate — they need a browser download and
 a running stack:

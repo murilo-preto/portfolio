@@ -12,6 +12,11 @@ services:
       # Pairing and checking a pairing repeatedly in a few minutes must not be
       # what fails a run. Limiting has its own coverage in test_rate_limit.py.
       RATELIMIT_ENABLED: "false"
+      # Minutes in production. Short here so 07_geofence_stay can watch a stay
+      # open, depart, outlast the re-entry window and land as a time entry
+      # within one run. A stay of a few seconds must still be logged.
+      PRESENCE_REENTRY_SECONDS: "20"
+      PRESENCE_MIN_STAY_SECONDS: "0"
 
   nextjs:
     ports: !reset []

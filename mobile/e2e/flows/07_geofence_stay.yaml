@@ -1,0 +1,73 @@
+# The whole loop: the phone is moved into Office's geofence and out again, the
+# app reports both transitions from its background task, and the server turns
+# the stay into a time entry once the re-entry window has passed (20 s in the
+# e2e stack, see docker-compose.e2e.yml).
+#
+# Geofence transitions come from Google Play services, which reacts to the
+# emulator's mocked position on its own schedule, so each wait re-sends the
+# position and checks in again rather than expecting an instant callback.
+appId: dev.mpreto.namu.lan
+---
+- runScript:
+    file: create_place.js
+# Start well outside Office (about 5 km away), so the first transition is a
+# real arrival.
+- setLocation:
+    latitude: -23.600000
+    longitude: -46.700000
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- runFlow:
+    file: _fill_pairing_form.yaml
+    env:
+      PASSWORD: ${NAMU_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: "tracking-button"
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: "tracking-button"
+- extendedWaitUntil:
+    visible:
+      id: "tracking-state"
+      text: "Tracking is on"
+    timeout: 15000
+
+# Arrive.
+- repeat:
+    while:
+      notVisible:
+        id: "stay-text"
+        text: "At Office since .*"
+    times: 100
+    commands:
+      - setLocation:
+          latitude: -23.561414
+          longitude: -46.655881
+      - runFlow:
+          file: _check_in.yaml
+- assertVisible:
+    id: "stay-text"
+    text: "At Office since .*"
+- takeScreenshot: 07_arrived
+
+# Leave.
+- repeat:
+    while:
+      notVisible:
+        id: "stay-text"
+        text: "Not at any of your places"
+    times: 100
+    commands:
+      - setLocation:
+          latitude: -23.600000
+          longitude: -46.700000
+      - runFlow:
+          file: _check_in.yaml
+- takeScreenshot: 07_left
+
+- runScript:
+    file: check_stay_logged.js

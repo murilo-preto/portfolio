@@ -36,8 +36,8 @@ One command covers all three standalone tiers and the full-stack one:
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Namu Android app's
 typecheck and Jest suite (`mobile-test`, equally standalone), then the Python
-suite — unit, integration, e2e — against the full stack. Expect **816 Python
-tests, 73 frontend tests and 43 mobile tests, with no skips**; anything
+suite — unit, integration, e2e — against the full stack. Expect **916 Python
+tests, 75 frontend tests and 86 mobile tests, with no skips**; anything
 skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -92,6 +92,23 @@ dev stack. Screenshots, Maestro's per-flow logs and logcat land in
   `enabled: true` before tapping
 - **Maestro's `http.post` refuses an empty body.** A script calling a bodiless
   POST route must send `{}`
+- **Geofencing needs "Google Location Accuracy" on,** and the emulator image
+  ships with it off. While it is off, Play services' geofencer stays in
+  `DisabledState` and refuses every geofence the app adds. Nothing fires,
+  and nothing reports an error. To check, look at `GeofencerStateMachine` in
+  `adb shell dumpsys activity service
+  com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService`.
+  It's a Play services screen, not a system setting, so `run-flows.sh` taps
+  the switch from a UI dump. It checks the switch itself and then the fused
+  provider: `dumpsys location`'s "enabled=true" can belong to the GPS
+  provider instead
+- **Tear down `namu-e2e` after any manual run.** `run.sh` reuses a running
+  emulator container, and that container's mount of `mobile/e2e/output/`
+  points at the directory `run.sh` has just deleted. Maestro then fails with
+  "Could not determine current working directory"
+- **adb sometimes drops the emulator** ("device offline") as a flow clears
+  and relaunches the app. `run-flows.sh` retries a flow once for that error
+  only
 
 ### Health verification
 ```bash
@@ -196,8 +213,9 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 
 ### Key files
 - `flask-server/app.py` — application core (~300 lines): Flask instance, config, JWT manager and loaders, limiter, connection pool, boot-time migrations, blueprint registration
-- `flask-server/routes/` — one blueprint per domain (`auth`, `categories`, `devices`, `entries`, `finance`, `health`, `places`, `pomodoro`, `settings`, `todo`). These reach shared state via `import app` and call `app.get_cursor()` — resolved at call time, which is what keeps `patch("app.get_cursor")` working in the 42 tests that use it. Do not change these to `from app import get_cursor`: the patches would silently stop applying and several tests would pass against the real database
+- `flask-server/routes/` — one blueprint per domain (`auth`, `categories`, `devices`, `entries`, `finance`, `health`, `places`, `pomodoro`, `presence`, `settings`, `todo`). These reach shared state via `import app` and call `app.get_cursor()` — resolved at call time, which is what keeps `patch("app.get_cursor")` working in the 42 tests that use it. Do not change these to `from app import get_cursor`: the patches would silently stop applying and several tests would pass against the real database
 - `flask-server/rate_limit.py` — rate-limit keying and the failed-login throttle
+- `flask-server/presence.py` — the Panopto state machine: geofence events to stays to time entries, plus the 5-minute settling sweep. Takes a cursor and an injectable `now`, and never imports `app`
 - `flask-server/device_tokens.py` — device token generation, hashing and header parsing; no DB, so `rate_limit.py` can key on it
 - `flask-server/users.py` — `resolve_user_id(cursor, username)`. The JWT carries
   a username, not an id, so anything touching a user-scoped table needs this
@@ -277,7 +295,24 @@ Phase 3 (places) is done: `routes/places.py` (`/places` CRUD under the JWT, and
 `/namu/user/places`, in the Time menu. The app's status screen lists the
 enabled places, read-only, and a sixth Maestro flow covers it.
 `category_admin` counts places as usage and moves them on reassign and merge.
-Nothing tracks location yet: geofencing, events and stays are phase 4. Nothing
+
+Phase 4 (tracking) is done:
+- **The app** geofences the enabled places through expo-location and
+  expo-task-manager (`mobile/src/geofencing.ts`). Each crossing is queued in
+  AsyncStorage (`src/queue.ts`) and sent by `src/sync.ts`. The status screen
+  has a Tracking card with start/stop, the current stay and the queue length.
+  Tracking needs "Allow all the time" location
+- **Flask** takes them at `POST /devices/me/events` (`routes/presence.py`).
+  `presence.py` turns events into stays and finished stays into time entries,
+  and a 5-minute background sweep settles stays that time alone has decided.
+  Migration 012 adds `presence_sessions.ended_at`, a departure waiting out the
+  re-entry window. Next.js proxies `/api/devices/me/events` and
+  `/api/devices/me/stay`
+- **Tests:** a seventh Maestro flow, `07_geofence_stay`, moves the emulator
+  into Office and out again, then checks that the time entry was written. All
+  seven flows pass in the full suite
+
+There is still no web page for devices or the current stay (phase 5). Nothing
 else in this section exists as code yet. Update it as phases land, and don't
 let it claim more than the code does.
 
@@ -336,6 +371,27 @@ let it claim more than the code does.
   (`enabled = false`) is the way to stop watching it and keep the history
 - **At most 100 places per user,** Android's per-app geofence limit. The cap
   is on all places, not just enabled ones
+- **Stay rules** (`presence.py`; each overridable by env for tests):
+  - **Re-entry window, 10 min** (`PRESENCE_REENTRY_SECONDS`): leaving and
+    coming back within it counts as one stay. That absorbs jitter at the
+    geofence's edge
+  - **Minimum stay, 5 min** (`PRESENCE_MIN_STAY_SECONDS`): a shorter stay,
+    such as passing through, logs nothing
+  - **Cap, 16 h** (`PRESENCE_MAX_STAY_SECONDS`): a stay with no exit is closed
+    at 16 h. The cap applies however the stay ends
+- **Entry notes:** a stay's entry is noted "Namu: <place>". A capped one adds
+  "(closed automatically, no departure after 16 h)"
+- **Pausing a place ends its stay and logs it.** Deleting a place discards its
+  stay unlogged. An enter for a paused place is recorded but opens nothing
+- **A late enter is ignored if an earlier request already reported leaving
+  that place after it.** Otherwise a straggler from the queue would open a
+  stay that never sees its exit and runs to the 16 h cap
+- **The phone stamps an event when its background task runs,** not at the
+  exact crossing. Android can run the task a little late
+- **Geofences have no foreground service, and survive reboots.** Geofencing
+  goes through Play services' geofence alerts, so it doesn't need one. The
+  app holds `RECEIVE_BOOT_COMPLETED`, so expo-task-manager re-registers its
+  geofences after a reboot
 
 ### Constraints the current code imposes
 - **A browser cannot geofence in the background.** A Next.js page only sees
@@ -362,10 +418,10 @@ let it claim more than the code does.
   baseline
 
 ### Notes for later phases
-- **Deleting or pausing a place doesn't close its open stay yet.** Deleting
-  cascades the stay away unlogged, and pausing leaves it open. Neither matters
-  until phase 4 creates stays, and phase 4 should decide whether either one
-  writes the time entry first
+- **Phase 5's web page can read the stay below the phone's routes.**
+  `presence.load_stay` and `presence.stay_json` take a cursor. Call
+  `presence.settle` first, so the page never shows a stay that time has
+  already ended
 - **No RESTRICT on the users cascade path.** Every FK from the Panopto tables
   cascades or sets NULL, except `places.category_id`, and `category` is off
   that path. A new table must keep it that way, or accounts become undeletable

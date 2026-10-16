@@ -32,6 +32,7 @@ from mysql.connector.pooling import MySQLConnectionPool
 from categories import normalize_category_name
 import finance_due
 from migrations import run_migrations
+import presence
 from rate_limit import limiter_key
 
 # Configure logging
@@ -255,6 +256,7 @@ from routes.finance import finance_bp  # noqa: E402
 from routes.health import health_bp  # noqa: E402
 from routes.places import places_bp  # noqa: E402
 from routes.pomodoro import pomodoro_bp  # noqa: E402
+from routes.presence import presence_bp  # noqa: E402
 from routes.settings import settings_bp  # noqa: E402
 from routes.todo import todo_bp  # noqa: E402
 
@@ -267,6 +269,7 @@ for blueprint in (
     health_bp,
     places_bp,
     pomodoro_bp,
+    presence_bp,
     settings_bp,
     todo_bp,
 ):
@@ -289,6 +292,11 @@ normalize_existing_finance_categories()
 # Daily sweep completing finance entries whose planned date has passed. Every
 # worker schedules it; a MySQL advisory lock means only one ever runs it.
 finance_due.start(lambda: get_pool().get_connection())
+
+# Every five minutes, close stays whose departure has outlived the re-entry
+# window or that have run past the cap, so a stay becomes a time entry even if
+# the phone never calls again. Same one-worker-per-tick advisory lock.
+presence.start(lambda: get_pool().get_connection())
 
 
 if __name__ == "__main__":

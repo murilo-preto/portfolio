@@ -37,6 +37,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: isLan ? "dev.mpreto.namu.lan" : "dev.mpreto.namu",
     versionCode,
+    // Android forgets every geofence on reboot. expo-task-manager's receiver
+    // already listens for BOOT_COMPLETED and re-registers them, but only
+    // receives it with this permission; without it, tracking would stay dead
+    // until the app was next opened.
+    permissions: ["android.permission.RECEIVE_BOOT_COMPLETED"],
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/android-icon-foreground.png",
@@ -47,6 +52,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-secure-store",
+    [
+      // Geofences fire while the app is closed only with background location
+      // ("Allow all the time"), which this adds as ACCESS_BACKGROUND_LOCATION.
+      // Geofencing needs no foreground service, unlike continuous location
+      // updates, so its permissions and persistent notification are left out.
+      // The permission texts are iOS strings; Android words its own dialogs.
+      "expo-location",
+      {
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: false,
+        locationAlwaysAndWhenInUsePermission:
+          "Namu uses your location to notice when you arrive at or leave your places.",
+        locationWhenInUsePermission:
+          "Namu uses your location to notice when you arrive at or leave your places.",
+      },
+    ],
     [
       "expo-build-properties",
       { android: { usesCleartextTraffic: isLan } },

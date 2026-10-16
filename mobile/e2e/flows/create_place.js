@@ -1,5 +1,6 @@
-// Plays the web app's part in 06_places_listed: logs in as the test user and
-// creates one enabled place and one paused one, in their first time category.
+// Plays the web app's part in 06_places_listed and 07_geofence_stay: logs in
+// as the test user and makes sure they have one enabled place (Office) and one
+// paused one, in their first time category.
 //
 // Like revoke_all_devices.js it calls Flask directly on the backend network
 // (NAMU_FLASK), which spares it the cookie dance the web proxies expect.
@@ -33,6 +34,11 @@ function place(name, radius, enabled) {
   };
 }
 
-call("POST", "/places", token, place("Office", 200, true));
-call("POST", "/places", token, place("Holiday home", 150, false));
+// Idempotent, since 07_geofence_stay reuses Office: flows share one account
+// and run in order, but each must also work when run on its own.
+const existing = call("GET", "/places", token).places.map(function (p) { return p.name; });
+if (existing.indexOf("Office") < 0) call("POST", "/places", token, place("Office", 200, true));
+if (existing.indexOf("Holiday home") < 0) {
+  call("POST", "/places", token, place("Holiday home", 150, false));
+}
 output.category = category.name;

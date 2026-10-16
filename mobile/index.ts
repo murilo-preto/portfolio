@@ -1,3 +1,8 @@
+// Defines the geofencing task. It must come before anything else: when Android
+// wakes a closed app for a geofence crossing, a task not yet defined by the
+// time the bundle has loaded is dropped. See src/geofencing.ts.
+import './src/geofencing';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

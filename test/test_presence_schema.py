@@ -1,5 +1,5 @@
 """
-Schema tests for the Panopto tables (migrations 008-011)
+Schema tests for the Panopto tables (migrations 008-012)
 ========================================================
 
 These exercise the schema of `places`, `devices`, `presence_events` and
@@ -139,7 +139,8 @@ class TestShape:
                     "last_seen_at", "revoked_at"},
         "presence_events": {"id", "user_id", "place_id", "device_id",
                             "client_event_id", "kind", "occurred_at", "received_at"},
-        "presence_sessions": {"id", "user_id", "place_id", "device_id", "started_at"},
+        "presence_sessions": {"id", "user_id", "place_id", "device_id", "started_at",
+                              "ended_at"},
     }
 
     @pytest.mark.parametrize("table", sorted(EXPECTED_COLUMNS))
@@ -162,6 +163,7 @@ class TestShape:
             "009_create_devices.sql",
             "010_create_presence_events.sql",
             "011_create_presence_sessions.sql",
+            "012_add_presence_session_ended_at.sql",
         } <= versions
 
 

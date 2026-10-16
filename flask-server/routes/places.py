@@ -24,6 +24,7 @@ from category_admin import coerce_id
 from rate_limit import address_key
 from routes.devices import DEVICE_ADDRESS_LIMIT, device_required
 from users import resolve_user_id
+import presence
 
 import app
 
@@ -160,6 +161,25 @@ def _load(cursor, place_id, user_id):
     return cursor.fetchone()
 
 
+def enabled_places(cursor, user_id):
+    """The user's enabled places, by name: what their phone should watch.
+
+    Shared with routes/presence.py, which returns the same list after every
+    batch of events so the phone's geofences follow edits made on the web.
+    """
+    cursor.execute(
+        f"""
+        SELECT {_PLACE_COLUMNS}
+        FROM places p
+        JOIN category c ON c.id = p.category_id
+        WHERE p.user_id = %s AND p.enabled
+        ORDER BY p.name
+        """,
+        (user_id,),
+    )
+    return [_place_json(row) for row in cursor.fetchall()]
+
+
 def _name_taken_error(name):
     return jsonify({"error": f'You already have a place named "{name}"'}), 409
 
@@ -285,6 +305,9 @@ def update_place(place_id):
     Expected JSON: any of name, category_id, latitude, longitude, radius_m,
     enabled, with the rules of POST /places.
 
+    Pausing a place (enabled true to false) finalizes a stay in progress there,
+    writing its time entry, in the same transaction.
+
     Returns:
         200: Updated, with the place
         400: Validation error, or nothing to update
@@ -301,7 +324,8 @@ def update_place(place_id):
             user_id = resolve_user_id(cursor, get_jwt_identity())
             if user_id is None:
                 return jsonify({"error": "User not found"}), 404
-            if not _load(cursor, place_id, user_id):
+            before = _load(cursor, place_id, user_id)
+            if not before:
                 return jsonify({"error": "Place not found"}), 404
             if "category_id" in fields and not _owns_category(
                 cursor, fields["category_id"], user_id
@@ -318,6 +342,10 @@ def update_place(place_id):
                 f"UPDATE places SET {assignments} WHERE id = %s AND user_id = %s",
                 (*fields.values(), place_id, user_id),
             )
+            if before["enabled"] and fields.get("enabled") is False:
+                # Pausing a place ends a stay there now, with its entry. The
+                # phone stops watching it, so no exit would ever arrive.
+                presence.close_stay_at_place(cursor, user_id, place_id)
             place = _load(cursor, place_id, user_id)
     except mysql.connector.IntegrityError as e:
         if e.errno == ER_DUP_ENTRY:
@@ -378,19 +406,9 @@ def list_device_places():
     """
     try:
         with app.get_cursor() as cursor:
-            cursor.execute(
-                f"""
-                SELECT {_PLACE_COLUMNS}
-                FROM places p
-                JOIN category c ON c.id = p.category_id
-                WHERE p.user_id = %s AND p.enabled
-                ORDER BY p.name
-                """,
-                (g.device["user_id"],),
-            )
-            rows = cursor.fetchall()
+            places = enabled_places(cursor, g.device["user_id"])
     except Error as e:
         logger.error(f"Database error: {e}")
         return jsonify({"error": "Could not load places"}), 500
 
-    return jsonify({"places": [_place_json(row) for row in rows]}), 200
+    return jsonify({"places": places}), 200

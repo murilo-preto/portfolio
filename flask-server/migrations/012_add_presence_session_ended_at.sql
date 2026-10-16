@@ -1,0 +1,11 @@
+-- When the stay's departure was seen. NULL while the person is still there.
+--
+-- A geofence boundary jitters: standing near its edge, a phone can report
+-- "exit" and then "enter" again a minute later. So an exit does not close the
+-- stay at once. It records ended_at and the stay waits out the re-entry window
+-- ("pending"). An enter at the same place inside the window clears ended_at and
+-- the stay carries on as if nothing happened; otherwise presence.py closes it
+-- at ended_at and writes the time entry. See presence.py for the full rules.
+--
+-- UNIQUE (user_id) still holds: a pending stay is the user's one stay row.
+ALTER TABLE presence_sessions ADD COLUMN ended_at DATETIME NULL AFTER started_at;

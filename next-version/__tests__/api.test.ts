@@ -643,6 +643,44 @@ describe("device proxies (Namu Android app)", () => {
     expect(init.method).toBe("GET");
     expect(headers.Authorization).toBe("Device namu_dev_abc");
   });
+
+  it("forwards a batch of geofence events as received", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { results: [], stay: null, places: [] }) as unknown as Response,
+    );
+    // Malformed on purpose: checking events is Flask's job, not the proxy's.
+    const payload = { events: [{ client_event_id: "x", place_id: 7, kind: "arrive" }] };
+
+    const { POST } = await import("@/app/api/devices/me/events/route");
+    await POST(new Request("http://next/api/devices/me/events", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: { Authorization: "Device namu_dev_abc" },
+    }));
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices/me/events`);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual(payload);
+    expect(headers.Authorization).toBe("Device namu_dev_abc");
+    expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("forwards the stay check with the device token", async () => {
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { stay: null }) as unknown as Response,
+    );
+
+    const { GET } = await import("@/app/api/devices/me/stay/route");
+    await GET(new Request("http://next/api/devices/me/stay", {
+      headers: { Authorization: "Device namu_dev_abc" },
+    }));
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices/me/stay`);
+    expect(init.method).toBe("GET");
+    expect(headers.Authorization).toBe("Device namu_dev_abc");
+  });
 });
 
 describe("place proxies", () => {

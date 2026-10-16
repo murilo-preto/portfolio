@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import type { Pairing } from "./src/api";
+import { stopTracking } from "./src/geofencing";
+import { clear as clearQueue } from "./src/queue";
 import { PairScreen } from "./src/screens/PairScreen";
 import { StatusScreen } from "./src/screens/StatusScreen";
 import { clearPairing, loadPairing, savePairing } from "./src/storage";
@@ -30,7 +32,12 @@ export default function App() {
     setState({ kind: "paired", pairing });
   }, []);
 
+  // Both ways a pairing ends, unpaired here or revoked from the web, come
+  // through here. Events still queued belong to the old pairing and could
+  // never be sent, and geofences left running would keep waking the phone.
   const handleUnpaired = useCallback(async (notice: string | null) => {
+    await stopTracking().catch(() => undefined);
+    await clearQueue();
     await clearPairing();
     setState({ kind: "unpaired", notice });
   }, []);
