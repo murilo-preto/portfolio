@@ -6,7 +6,8 @@ The Namu app reports geofence "enter" and "exit" events; the server turns them
 into one stay per person and each finished stay into a time entry. These cover
 the endpoint's validation and duplicate handling, every branch of the state
 machine in presence.py, settling by time alone (re-entry window, minimum stay,
-the 16 h cap), pausing and deleting a place mid-stay, and per-user isolation.
+the 16 h cap), pausing and deleting a place mid-stay, the web app's routes
+(reading the stay, ending it early, recent events), and per-user isolation.
 
 The endpoint settles with the real clock, so events here are placed relative to
 now. Settling at an arbitrary moment is tested by calling presence.settle
@@ -870,6 +871,212 @@ class TestPlaceChanges:
         assert alice.entries() == [
             _entry(alice, t0, t0 + HOUR, note="Namu: HQ", category=alice.categories[1])
         ]
+
+
+# ─── The web app's routes ─────────────────────────────────────────────────────
+
+
+WEB_ROUTES = [
+    ("get", "/presence/stay"),
+    ("post", "/presence/stay/end"),
+    ("get", "/presence/events"),
+]
+
+
+class TestWebAuth:
+    @pytest.mark.parametrize("method,path", WEB_ROUTES)
+    def test_a_web_login_is_needed(self, client, alice, method, path):
+        assert getattr(client, method)(path).status_code == 401
+        # A device token is not a way in to the web routes.
+        assert getattr(client, method)(path, headers=alice.device).status_code == 401
+
+
+class TestWebStay:
+    def test_no_stay(self, client, alice):
+        response = client.get("/presence/stay", headers=alice.web)
+        assert response.status_code == 200
+        assert response.get_json() == {"stay": None}
+
+    def test_the_stay_matches_the_phones_view(self, client, alice):
+        t0 = _now() - HOUR
+        departed = _now() - MIN
+        alice.send(ev(alice.office, "enter", t0), ev(alice.office, "exit", departed))
+
+        web = client.get("/presence/stay", headers=alice.web).get_json()
+
+        assert web == client.get("/devices/me/stay", headers=alice.device).get_json()
+        assert web["stay"]["departed_at"] == _iso(departed)
+
+    def test_reading_the_stay_settles_it(self, client, alice):
+        t0 = _now() - 3 * HOUR
+        alice.open_stay(alice.office, t0, t0 + HOUR)
+
+        assert client.get("/presence/stay", headers=alice.web).get_json() == {"stay": None}
+        assert alice.entries() == [_entry(alice, t0, t0 + HOUR)]
+
+    def test_the_stay_returned_is_the_callers(self, client, alice, bob):
+        bob.send(ev(bob.office, "enter", _now() - HOUR))
+        assert client.get("/presence/stay", headers=alice.web).get_json() == {"stay": None}
+
+
+class TestWebEndStay:
+    def test_an_open_stay_ends_now(self, client, alice):
+        t0 = _now() - HOUR
+        alice.send(ev(alice.office, "enter", t0))
+
+        before = _now()
+        response = client.post("/presence/stay/end", headers=alice.web)
+        after = _now()
+
+        assert response.status_code == 200
+        assert response.get_json()["message"] == "Stay ended"
+        assert alice.stay() is None
+        [entry] = alice.entries()
+        assert entry["start_time"] == t0
+        assert before <= entry["end_time"] <= after
+        assert entry["note"] == "Namu: Office"
+        with get_cursor() as cursor:
+            cursor.execute("SELECT id FROM time_entries WHERE user_id = %s", (alice.id,))
+            assert response.get_json()["entry_id"] == cursor.fetchone()["id"]
+
+    def test_a_departed_stay_ends_at_its_departure(self, client, alice):
+        t0 = _now() - HOUR
+        departed = _now() - MIN
+        alice.send(ev(alice.office, "enter", t0), ev(alice.office, "exit", departed))
+
+        assert client.post("/presence/stay/end", headers=alice.web).status_code == 200
+
+        assert alice.entries() == [_entry(alice, t0, departed)]
+
+    def test_a_short_stay_is_discarded(self, client, alice):
+        alice.send(ev(alice.office, "enter", _now() - MIN))
+
+        response = client.post("/presence/stay/end", headers=alice.web)
+
+        assert response.status_code == 200
+        assert response.get_json() == {"message": "Stay too short to log", "entry_id": None}
+        assert alice.stay() is None
+        assert alice.entries() == []
+
+    def test_a_stay_past_the_cap_is_capped(self, client, alice):
+        t0 = _now() - CAP - HOUR
+        alice.open_stay(alice.office, t0)
+
+        client.post("/presence/stay/end", headers=alice.web)
+
+        assert alice.entries() == [_entry(alice, t0, t0 + CAP, note=CAPPED_NOTE)]
+
+    def test_no_stay_is_not_found(self, client, alice):
+        response = client.post("/presence/stay/end", headers=alice.web)
+        assert response.status_code == 404
+        assert response.get_json() == {"error": "No stay in progress"}
+
+    def test_ending_twice_logs_once(self, client, alice):
+        alice.send(ev(alice.office, "enter", _now() - HOUR))
+
+        assert client.post("/presence/stay/end", headers=alice.web).status_code == 200
+        assert client.post("/presence/stay/end", headers=alice.web).status_code == 404
+        assert len(alice.entries()) == 1
+
+    def test_the_phones_later_exit_changes_nothing(self, client, alice):
+        alice.send(ev(alice.office, "enter", _now() - HOUR))
+        client.post("/presence/stay/end", headers=alice.web)
+        [entry] = alice.entries()
+
+        results = alice.send(ev(alice.office, "exit", _now()))["results"]
+
+        assert results[0]["status"] == "accepted"
+        assert alice.stay() is None
+        assert alice.entries() == [entry]
+
+    def test_another_users_stay_is_left_alone(self, client, alice, bob):
+        t0 = _now() - HOUR
+        bob.send(ev(bob.office, "enter", t0))
+
+        assert client.post("/presence/stay/end", headers=alice.web).status_code == 404
+
+        assert bob.stay()["started_at"] == t0
+        assert bob.entries() == []
+
+
+class TestWebEvents:
+    def test_no_events(self, client, alice):
+        response = client.get("/presence/events", headers=alice.web)
+        assert response.status_code == 200
+        assert response.get_json() == {"events": []}
+
+    def test_events_are_listed_newest_first(self, client, alice):
+        t0 = _now() - HOUR
+        alice.send(ev(alice.office, "exit", t0 + MIN), ev(alice.office, "enter", t0))
+
+        events = client.get("/presence/events", headers=alice.web).get_json()["events"]
+
+        assert [(e["kind"], e["occurred_at"]) for e in events] == [
+            ("exit", _iso(t0 + MIN)),
+            ("enter", _iso(t0)),
+        ]
+        assert set(events[0]) == {
+            "id", "kind", "place_id", "place_name", "device_id", "device_name",
+            "occurred_at", "received_at",
+        }
+        assert events[0]["place_id"] == alice.office
+        assert events[0]["place_name"] == "Office"
+        assert events[0]["device_id"] == alice.device_id
+        assert events[0]["device_name"] == "Pixel"
+        assert events[0]["received_at"].endswith("+00:00")
+
+    def test_rejected_and_duplicate_events_are_not_listed(self, client, alice):
+        event = ev(alice.office, "enter", _now())
+        alice.send(event, event, ev(10**9, "enter", _now()))
+
+        events = client.get("/presence/events", headers=alice.web).get_json()["events"]
+
+        assert len(events) == 1
+
+    def test_the_limit_defaults_to_twenty(self, client, alice):
+        t0 = _now() - HOUR
+        alice.send(*[ev(alice.office, "enter", t0 + i * MIN) for i in range(25)])
+
+        events = client.get("/presence/events", headers=alice.web).get_json()["events"]
+
+        assert len(events) == 20
+        assert events[0]["occurred_at"] == _iso(t0 + 24 * MIN)
+
+    def test_a_limit_can_be_asked_for(self, client, alice):
+        t0 = _now() - HOUR
+        alice.send(*[ev(alice.office, "enter", t0 + i * MIN) for i in range(5)])
+
+        response = client.get("/presence/events?limit=3", headers=alice.web)
+
+        assert len(response.get_json()["events"]) == 3
+
+    @pytest.mark.parametrize("limit", ["0", "101", "-1", "abc", "1.5", ""])
+    def test_a_bad_limit_is_refused(self, client, alice, limit):
+        response = client.get(f"/presence/events?limit={limit}", headers=alice.web)
+        assert response.status_code == 400
+        assert response.get_json() == {"error": "limit must be a whole number from 1 to 100"}
+
+    def test_a_revoked_phones_events_keep_its_name(self, client, alice):
+        alice.send(ev(alice.office, "enter", _now()))
+        client.post("/devices/me/revoke", headers=alice.device)
+
+        [event] = client.get("/presence/events", headers=alice.web).get_json()["events"]
+
+        assert event["device_name"] == "Pixel"
+
+    def test_events_outlive_their_phones_row(self, client, alice):
+        alice.send(ev(alice.office, "enter", _now()))
+        with get_cursor() as cursor:
+            cursor.execute("DELETE FROM devices WHERE id = %s", (alice.device_id,))
+
+        [event] = client.get("/presence/events", headers=alice.web).get_json()["events"]
+
+        assert event["device_id"] is None
+        assert event["device_name"] is None
+
+    def test_only_the_callers_events_are_listed(self, client, alice, bob):
+        bob.send(ev(bob.office, "enter", _now()))
+        assert client.get("/presence/events", headers=alice.web).get_json() == {"events": []}
 
 
 # ─── Isolation ────────────────────────────────────────────────────────────────

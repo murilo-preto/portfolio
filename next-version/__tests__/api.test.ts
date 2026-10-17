@@ -770,3 +770,101 @@ describe("place proxies", () => {
     expect(await response.json()).toEqual({ error: "Place not found" });
   });
 });
+
+describe("web device and presence proxies", () => {
+  function forwarded() {
+    const [url, init] = vi.mocked(global.fetch).mock.calls[0];
+    return { url, init: init as RequestInit, headers: init?.headers as Record<string, string> };
+  }
+
+  it("refuses without a cookie, and never reaches Flask", async () => {
+    const { GET } = await import("@/app/api/devices/route");
+    const response = await GET();
+
+    expect(response.status).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards the device listing with the bearer token", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { devices: [] }) as unknown as Response,
+    );
+
+    const { GET } = await import("@/app/api/devices/route");
+    await GET();
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices`);
+    expect(init.method).toBe("GET");
+    expect(headers.Authorization).toBe("Bearer stored-token");
+  });
+
+  it("forwards a revoke to the device's id and relays Flask's 404", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(404, { error: "Device not found" }) as unknown as Response,
+    );
+
+    const { POST } = await import("@/app/api/devices/[id]/revoke/route");
+    const response = await POST(
+      new Request("http://next/api/devices/7/revoke", { method: "POST" }),
+      { params: Promise.resolve({ id: "7" }) },
+    );
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/devices/7/revoke`);
+    expect(init.method).toBe("POST");
+    expect(headers.Authorization).toBe("Bearer stored-token");
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Device not found" });
+  });
+
+  it("forwards the stay read with the bearer token", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { stay: null }) as unknown as Response,
+    );
+
+    const { GET } = await import("@/app/api/presence/stay/route");
+    const response = await GET();
+
+    const { url, init, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/presence/stay`);
+    expect(init.method).toBe("GET");
+    expect(headers.Authorization).toBe("Bearer stored-token");
+    expect(await response.json()).toEqual({ stay: null });
+  });
+
+  it("forwards ending the stay and relays Flask's 404", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(404, { error: "No stay in progress" }) as unknown as Response,
+    );
+
+    const { POST } = await import("@/app/api/presence/stay/end/route");
+    const response = await POST(
+      new Request("http://next/api/presence/stay/end", { method: "POST" }),
+    );
+
+    const { url, init } = forwarded();
+    expect(url).toBe(`${FLASK}/presence/stay/end`);
+    expect(init.method).toBe("POST");
+    expect(response.status).toBe(404);
+  });
+
+  it("passes the events query string on unchanged", async () => {
+    cookieJar.set("access_token", "stored-token");
+    vi.mocked(global.fetch).mockResolvedValue(
+      flaskJson(200, { events: [] }) as unknown as Response,
+    );
+
+    // Out of range on purpose: refusing it is Flask's job, not the proxy's.
+    const { GET } = await import("@/app/api/presence/events/route");
+    await GET(new Request("http://next/api/presence/events?limit=500"));
+
+    const { url, headers } = forwarded();
+    expect(url).toBe(`${FLASK}/presence/events?limit=500`);
+    expect(headers.Authorization).toBe("Bearer stored-token");
+  });
+});

@@ -42,6 +42,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { label: "Manage Entries", href: "/namu/user/manage" },
       { label: "Import CSV", href: "/namu/user/csv" },
       { label: "Places", href: "/namu/user/places" },
+      { label: "Namu app", href: "/namu/user/devices" },
     ],
   },
   {

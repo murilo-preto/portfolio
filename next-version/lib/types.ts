@@ -45,6 +45,41 @@ export interface Place {
   enabled: boolean;
 }
 
+/** A phone paired with the account. Times are ISO 8601 UTC. */
+export interface Device {
+  id: number;
+  name: string;
+  created_at: string;
+  /** When the phone last called in; null if it never has since pairing. */
+  last_seen_at: string | null;
+  /** Revoked tokens stay listed, and are never reinstated. */
+  revoked_at: string | null;
+}
+
+/** The stay in progress, from `/api/presence/stay`. */
+export interface Stay {
+  place_id: number;
+  place_name: string;
+  started_at: string;
+  /** Set while a departure waits out the re-entry window. */
+  departed_at: string | null;
+}
+
+/** One arrival or departure a phone reported. */
+export interface PresenceEvent {
+  id: number;
+  kind: "enter" | "exit";
+  place_id: number;
+  place_name: string;
+  /** Null once the phone's row is gone. */
+  device_id: number | null;
+  device_name: string | null;
+  /** When it happened, by the phone's clock. */
+  occurred_at: string;
+  /** When the server heard of it; later than occurred_at if it was queued. */
+  received_at: string;
+}
+
 export interface FinanceCategory {
   id: number;
   name: string;

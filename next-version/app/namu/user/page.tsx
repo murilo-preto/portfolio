@@ -7,6 +7,7 @@ import { SummaryCard } from "@/components/finance/SummaryCard";
 import { PriorityBadge } from "@/components/todo/PriorityBadge";
 import { StatusBadge } from "@/components/todo/StatusBadge";
 import { PrefetchLink } from "@/components/PrefetchLink";
+import { StayBanner } from "@/components/presence/StayBanner";
 import { formatDuration } from "@/components/entries/utils";
 import { formatDateTime, isOverdue } from "@/components/todo/utils";
 import { normalizeCategoryName } from "@/lib/categoryName";
@@ -20,6 +21,7 @@ import type {
 import type {
   PomodoroSessionsResponse,
   PomodoroStats,
+  Stay,
   TodoApiResponse,
   TodoItem,
 } from "@/lib/types";
@@ -243,6 +245,7 @@ export default function Dashboard() {
   const sessions = useResource<PomodoroSessionsResponse>(
     "/api/pomodoro/sessions",
   );
+  const stay = useResource<{ stay: Stay | null }>("/api/presence/stay");
 
   // ── Today's time ──
   const time = useMemo(() => {
@@ -391,6 +394,22 @@ export default function Dashboard() {
         </h1>
         <p className="text-sm text-muted mt-1">{todayLabel}</p>
       </div>
+
+      {/* The Namu app's stay, only while there is one. A failed read hides it
+          rather than adding an error card for something incidental here. */}
+      {stay.data?.stay && (
+        <StayBanner
+          stay={stay.data.stay}
+          action={
+            <PrefetchLink
+              href="/namu/user/devices"
+              className="text-xs px-2.5 py-1.5 rounded-lg border border-default bg-surface-raised hover:bg-surface-hover transition-colors"
+            >
+              Details
+            </PrefetchLink>
+          }
+        />
+      )}
 
       {/* Quick actions — the four things a day usually starts with */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

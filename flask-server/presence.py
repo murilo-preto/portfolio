@@ -357,19 +357,27 @@ def settle(cursor, user_id, now=None):
     return False
 
 
-def close_stay_at_place(cursor, user_id, place_id, now=None):
-    """Finalize the user's stay if it is at this place, as when it is paused.
+def end_stay(cursor, user_id, place_id=None, now=None):
+    """Finalize the user's stay on request, rather than by an event or by time.
 
     An open stay ends now; a pending one at the departure already seen. Either
-    way MIN_STAY and MAX_STAY apply as usual. Locks the user itself.
+    way MIN_STAY and MAX_STAY apply as usual. With `place_id`, only a stay at
+    that place is ended. Locks the user itself.
+
+    Returns None if there was no stay to end, otherwise {"place_name",
+    "entry_id"}, where entry_id is None for a stay too short to log.
     """
     lock_user(cursor, user_id)
     stay = load_stay(cursor, user_id)
-    if stay is None or stay["place_id"] != place_id:
-        return False
+    if stay is None or (place_id is not None and stay["place_id"] != place_id):
+        return None
     end = stay["ended_at"] or now or now_utc()
-    finalize(cursor, stay, end)
-    return True
+    return {"place_name": stay["place_name"], "entry_id": finalize(cursor, stay, end)}
+
+
+def close_stay_at_place(cursor, user_id, place_id, now=None):
+    """Finalize the user's stay if it is at this place, as when it is paused."""
+    return end_stay(cursor, user_id, place_id, now) is not None
 
 
 # ─── The background sweep ─────────────────────────────────────────────────────

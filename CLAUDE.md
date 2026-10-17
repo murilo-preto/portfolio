@@ -36,8 +36,8 @@ One command covers all three standalone tiers and the full-stack one:
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Namu Android app's
 typecheck and Jest suite (`mobile-test`, equally standalone), then the Python
-suite — unit, integration, e2e — against the full stack. Expect **916 Python
-tests, 75 frontend tests and 86 mobile tests, with no skips**; anything
+suite — unit, integration, e2e — against the full stack. Expect **945 Python
+tests, 94 frontend tests and 86 mobile tests, with no skips**; anything
 skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -312,9 +312,22 @@ Phase 4 (tracking) is done:
   into Office and out again, then checks that the time entry was written. All
   seven flows pass in the full suite
 
-There is still no web page for devices or the current stay (phase 5). Nothing
-else in this section exists as code yet. Update it as phases land, and don't
-let it claim more than the code does.
+Phase 5 (the web side) is done:
+- **Flask** serves the stay to the browser too, under the JWT
+  (`routes/presence.py`): `GET /presence/stay` settles and then reads it, the
+  same way the phone's route does. `POST /presence/stay/end` ends it early
+  through `presence.end_stay`, which pausing a place also uses.
+  `GET /presence/events?limit=` lists the recent events, 20 by default and
+  100 at most. The phone list and revoke were already there from phase 2a
+- **Next.js** proxies them at `/api/presence/stay`, `/api/presence/stay/end`
+  and `/api/presence/events`, plus `/api/devices` and
+  `/api/devices/[id]/revoke`. The page is `/namu/user/devices` ("Namu app" in
+  the Time menu), with the current stay, the phones and the recent events. The
+  Dashboard shows the same `StayBanner` (`components/presence/`) while a stay
+  is open
+
+Nothing else in this section exists as code yet. Update it as phases land, and
+don't let it claim more than the code does.
 
 ### Decisions
 - **Event source: a companion Android app.** It's Expo (React Native +
@@ -392,6 +405,19 @@ let it claim more than the code does.
   goes through Play services' geofence alerts, so it doesn't need one. The
   app holds `RECEIVE_BOOT_COMPLETED`, so expo-task-manager re-registers its
   geofences after a reboot
+- **A stay can be ended from the web,** for a phone that will never report
+  leaving. An open stay ends now, and one that has already departed ends at
+  the departure. The minimum stay and the cap still apply. The phone isn't
+  told, so its later exit finds no stay and changes nothing
+- **The stay is shown on the devices page and, while one is open, on the
+  Dashboard.** If loading it fails, the Dashboard hides the banner rather than
+  showing an error card
+- **The web lists recent events read-only.** It shows the place, the phone,
+  when the event happened, and how late it arrived when the phone queued it.
+  There's no way to delete history from the web yet
+- **Revoked phones stay listed, greyed out.** They can't be deleted or
+  reinstated. Re-pairing creates a new row. Phones can't be renamed from the
+  web
 
 ### Constraints the current code imposes
 - **A browser cannot geofence in the background.** A Next.js page only sees
@@ -418,10 +444,9 @@ let it claim more than the code does.
   baseline
 
 ### Notes for later phases
-- **Phase 5's web page can read the stay below the phone's routes.**
-  `presence.load_stay` and `presence.stay_json` take a cursor. Call
-  `presence.settle` first, so the page never shows a stay that time has
-  already ended
+- **Anything that reads the stay must call `presence.settle` first,** as
+  both stay routes do. Otherwise it can show a stay that time has already
+  ended
 - **No RESTRICT on the users cascade path.** Every FK from the Panopto tables
   cascades or sets NULL, except `places.category_id`, and `category` is off
   that path. A new table must keep it that way, or accounts become undeletable
