@@ -42,6 +42,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // receives it with this permission; without it, tracking would stay dead
     // until the app was next opened.
     permissions: ["android.permission.RECEIVE_BOOT_COMPLETED"],
+    // Requested by Expo's manifest template and by libraries, never used by
+    // Namu: storage, drawing over other apps and vibration come from the
+    // template; biometrics from expo-secure-store, for keys locked behind a
+    // fingerprint, which the device token is not. Each one requested is one
+    // more thing a sideloaded app could be granted, so they are removed at
+    // manifest merge. What remains is location, internet and boot.
+    blockedPermissions: [
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.VIBRATE",
+      "android.permission.USE_BIOMETRIC",
+      "android.permission.USE_FINGERPRINT",
+    ],
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/android-icon-foreground.png",

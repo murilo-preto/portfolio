@@ -15,10 +15,18 @@
 # The APK lands in mobile/dist/. The release key is read from NAMU_KEYSTORE_DIR
 # (default ~/.namu-keys), which scripts/create_keystore.sh creates once. It is
 # passed to the build as BuildKit secrets, so it never enters an image layer.
+#
+# Everything the build prints is also written to mobile/dist/build.log, one
+# line per step, so a build started elsewhere can be followed with
+#   tail -f mobile/dist/build.log
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
+
+mkdir -p dist
+exec > >(tee dist/build.log) 2>&1
+export BUILDKIT_PROGRESS=plain
 
 VARIANT=release
 ABIS=arm64-v8a

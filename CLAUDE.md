@@ -80,6 +80,9 @@ Each APK carries one ABI: arm64-v8a for a phone, or x86_64 with `--emulator`
 (named `-x86_64.apk`). React Native's native code is about 15 MB per ABI, so
 one APK with both was 42 MB against about 27 MB.
 
+A build also writes its output to `mobile/dist/build.log`, so you can follow
+it with `tail -f mobile/dist/build.log`.
+
 Every build runs the mobile tests first. The first build takes several minutes
 (SDK, NDK and a native compile); Gradle's cache is a BuildKit cache mount, so
 later ones are quicker. `e2e/run.sh` is outside `run_tests.sh` for the same
@@ -378,6 +381,11 @@ don't let it claim more than the code does.
   cannot log in again on its own, and keeping the password on the phone would
   be worse
 - **App display name: "Namu".**
+- **The APK requests only location, internet and boot.** Expo's template and
+  some libraries add storage, overlay, vibration and biometric permissions
+  that Namu never uses. `android.blockedPermissions` in `app.config.ts`
+  removes them. A new dependency can bring new ones, so check the merged
+  manifest after adding one
 - **A second, LAN-only test APK.** `build_apk.sh --lan` builds
   `dev.mpreto.namu.lan`, which installs alongside the real app and allows plain
   HTTP to private network addresses only, for pairing with `docker compose up`
