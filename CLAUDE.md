@@ -36,8 +36,8 @@ One command covers all three standalone tiers and the full-stack one:
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Namu Android app's
 typecheck and Jest suite (`mobile-test`, equally standalone), then the Python
-suite — unit, integration, e2e — against the full stack. Expect **945 Python
-tests, 105 frontend tests and 86 mobile tests, with no skips**; anything
+suite — unit, integration, e2e — against the full stack. Expect **974 Python
+tests, 105 frontend tests and 94 mobile tests, with no skips**; anything
 skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -235,6 +235,7 @@ Keyed per caller, not per connection — see `flask-server/rate_limit.py` for wh
 - `flask-server/rate_limit.py` — rate-limit keying and the failed-login throttle
 - `flask-server/presence.py` — the Panopto state machine: geofence events to stays to time entries, plus the 5-minute settling sweep. Takes a cursor and an injectable `now`, and never imports `app`
 - `flask-server/device_tokens.py` — device token generation, hashing and header parsing; no DB, so `rate_limit.py` can key on it
+- `flask-server/location_crypto.py` — encrypts and decrypts place coordinates (AES-256-GCM, `LOCATION_KEY`), plus the boot check that encrypts legacy rows
 - `flask-server/users.py` — `resolve_user_id(cursor, username)`. The JWT carries
   a username, not an id, so anything touching a user-scoped table needs this
   first. Takes a cursor so the lookup shares the caller's transaction
@@ -344,8 +345,21 @@ Phase 5 (the web side) is done:
   Dashboard shows the same `StayBanner` (`components/presence/`) while a stay
   is open
 
-Nothing else in this section exists as code yet. Update it as phases land, and
-don't let it claim more than the code does.
+Phase 6 (going live) is in progress. Code done so far:
+- **Location Accuracy warning.** The status screen checks the network location
+  provider, which "Google Location Accuracy" controls
+  (`geofencing.locationAccuracyOn`). When it's off, the screen warns that
+  tracking can't work and offers Android's own "Turn on" dialog. Emulator flow
+  `00_location_accuracy` runs before `run-flows.sh` turns the setting on, so it
+  tests the real "off" state
+- **Place coordinates encrypted at rest** (`flask-server/location_crypto.py`,
+  migration 013): see **Privacy** below
+- **Encrypted database backups** (`deploy/backup-db.sh`), and the phone stores
+  only a hash of its geofence signature
+
+Not done yet: the deploy to murilopreto.com.br, and the release build and
+signing key. Nothing else in this section exists as code yet. Update it as
+phases land, and don't let it claim more than the code does.
 
 ### Decisions
 - **Event source: a companion Android app.** It's Expo (React Native +
@@ -484,6 +498,27 @@ Location history is sensitive. Store as little as the feature needs (e.g. "user
 entered place X at time T", not raw coordinate trails). Scope every row to its
 owner, and make sure deleting a place or an account deletes what was recorded
 for it.
+
+- **Place coordinates are encrypted at rest.** `places.location_enc` holds an
+  AES-256-GCM blob of "lat,lon", with the owner's user id bound as associated
+  data, so a blob copied to another user's row won't decrypt. Only
+  `routes/places.py` encrypts or decrypts. The plain `latitude`/`longitude`
+  columns remain for legacy rows; `location_crypto.prepare` encrypts and
+  clears those at boot. **Never write coordinates to the plain columns again**
+- **`LOCATION_KEY` (in `.env`) is required.** Flask refuses to boot without
+  it, or when it doesn't decrypt the stored places. Losing it loses every
+  place's coordinates, so back it up with the APK signing key. It protects
+  copies of the data (dumps, volumes, SQL injection), not a fully compromised
+  server, which can read the key
+- **Backups are encrypted to a key the server doesn't have.**
+  `deploy/backup-db.sh` streams `mysqldump` into `age`, encrypted to
+  `BACKUP_AGE_RECIPIENT`. The private key stays on the laptop
+- **Not encrypted, deliberately:** place names, event times and the time
+  entries stays create. Encrypting those would reach into the whole app.
+  guaratuba's disk isn't encrypted either (no LUKS)
+- **On the phone,** the pairing token is in SecureStore (Android Keystore). The
+  queue holds no coordinates, and the geofence signature is a SHA-256 hash. The
+  active geofences themselves live in Play services
 
 ### Test counts
 New tests change the expected totals in **Testing** above and in the

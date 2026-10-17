@@ -13,6 +13,9 @@ services:
       # Required here, not optional: behind nginx every anonymous caller would
       # otherwise share one rate-limit bucket. See flask-server/rate_limit.py.
       INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:?set INTERNAL_PROXY_SECRET in .env}
+      # Encrypts place coordinates at rest (flask-server/location_crypto.py).
+      # Flask refuses to boot without it anyway; this says so before building.
+      LOCATION_KEY: ${LOCATION_KEY:?set LOCATION_KEY in .env}
 
   nextjs:
     # Loopback only. Published on every interface, a caller who could reach the

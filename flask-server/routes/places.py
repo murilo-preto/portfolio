@@ -9,6 +9,10 @@ Every value checked here is also checked by a constraint in migration 008. They
 are checked first so bad input gets a 400 that says what is wrong rather than a
 500 from the database.
 
+Coordinates are stored encrypted, in `location_enc` (location_crypto.py, and
+migration 013). They are encrypted on the way in and decrypted on the way out
+here, and nowhere else, so neither the web app nor the phone sees the change.
+
 Route modules reach shared state through `import app`; see routes/auth.py.
 """
 
@@ -24,6 +28,7 @@ from category_admin import coerce_id
 from rate_limit import address_key
 from routes.devices import DEVICE_ADDRESS_LIMIT, device_required
 from users import resolve_user_id
+import location_crypto
 import presence
 
 import app
@@ -45,22 +50,42 @@ MAX_PLACES_PER_USER = 100
 ER_DUP_ENTRY = 1062
 
 _PLACE_COLUMNS = """
-    p.id, p.name, p.category_id, c.name AS category, p.latitude, p.longitude,
+    p.id, p.user_id, p.name, p.category_id, c.name AS category, p.location_enc,
     p.radius_m, p.enabled
 """
 
 
 def _place_json(row):
+    latitude, longitude = location_crypto.decrypt(row["user_id"], row["location_enc"])
     return {
         "id": row["id"],
         "name": row["name"],
         "category_id": row["category_id"],
         "category": row["category"],
-        "latitude": float(row["latitude"]),
-        "longitude": float(row["longitude"]),
+        "latitude": latitude,
+        "longitude": longitude,
         "radius_m": row["radius_m"],
         "enabled": bool(row["enabled"]),
     }
+
+
+def _encrypt_location(fields, user_id, before=None):
+    """Swap latitude/longitude in `fields` for the encrypted column.
+
+    An update may change only one of them; the other is taken from `before`,
+    the place as stored, since both are sealed in one blob.
+    """
+    if "latitude" not in fields and "longitude" not in fields:
+        return fields
+    old_latitude = old_longitude = None
+    if before is not None:
+        old_latitude, old_longitude = location_crypto.decrypt(
+            user_id, before["location_enc"]
+        )
+    latitude = fields.pop("latitude", old_latitude)
+    longitude = fields.pop("longitude", old_longitude)
+    fields["location_enc"] = location_crypto.encrypt(user_id, latitude, longitude)
+    return fields
 
 
 def _number(value):
@@ -269,15 +294,16 @@ def create_place():
             cursor.execute(
                 """
                 INSERT INTO places
-                  (user_id, category_id, name, latitude, longitude, radius_m, enabled)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                  (user_id, category_id, name, location_enc, radius_m, enabled)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     user_id,
                     fields["category_id"],
                     fields["name"],
-                    fields["latitude"],
-                    fields["longitude"],
+                    location_crypto.encrypt(
+                        user_id, fields["latitude"], fields["longitude"]
+                    ),
                     fields["radius_m"],
                     fields["enabled"],
                 ),
@@ -337,10 +363,11 @@ def update_place(place_id):
                 return _name_taken_error(fields["name"])
 
             # Column names come from _parse's fixed keys, never from the body.
-            assignments = ", ".join(f"{column} = %s" for column in fields)
+            columns = _encrypt_location(dict(fields), user_id, before)
+            assignments = ", ".join(f"{column} = %s" for column in columns)
             cursor.execute(
                 f"UPDATE places SET {assignments} WHERE id = %s AND user_id = %s",
-                (*fields.values(), place_id, user_id),
+                (*columns.values(), place_id, user_id),
             )
             if before["enabled"] and fields.get("enabled") is False:
                 # Pausing a place ends a stay there now, with its entry. The

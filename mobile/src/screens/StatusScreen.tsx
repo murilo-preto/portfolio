@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -22,9 +23,11 @@ import {
 } from "../api";
 import {
   isTracking,
+  locationAccuracyOn,
   startTracking,
   stopTracking,
   syncGeofences,
+  turnOnLocationAccuracy,
   type PermissionOutcome,
 } from "../geofencing";
 import { count as queuedCount } from "../queue";
@@ -39,6 +42,9 @@ type Props = {
 
 const REVOKED =
   "This phone was unpaired from your account. Pair it again to continue.";
+
+const ACCURACY_OFF =
+  "Location Accuracy is off, so Android won't notice when you arrive at or leave your places. Tracking can't work until it's on.";
 
 const PERMISSION_HELP: Record<Exclude<PermissionOutcome, "granted">, string> = {
   "foreground-denied":
@@ -67,6 +73,8 @@ export function StatusScreen({ pairing, onUnpaired }: Props) {
   const [tracking, setTracking] = useState(false);
   const [queued, setQueued] = useState(0);
   const [trackingHelp, setTrackingHelp] = useState<string | null>(null);
+  // null until read, and when it cannot be: no warning is shown then.
+  const [accuracyOn, setAccuracyOn] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -117,6 +125,30 @@ export function StatusScreen({ pairing, onUnpaired }: Props) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Location Accuracy is read on opening, and again whenever the app comes
+  // back to the front: the usual way to fix it is a trip to Android's
+  // settings, and the warning should be gone on return.
+  const checkAccuracy = useCallback(async () => {
+    setAccuracyOn(await locationAccuracyOn());
+  }, []);
+
+  useEffect(() => {
+    void checkAccuracy();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void checkAccuracy();
+    });
+    return () => subscription.remove();
+  }, [checkAccuracy]);
+
+  async function turnOnAccuracy() {
+    setBusy(true);
+    try {
+      setAccuracyOn(await turnOnLocationAccuracy());
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function toggleTracking() {
     setBusy(true);
@@ -197,6 +229,22 @@ export function StatusScreen({ pairing, onUnpaired }: Props) {
           <Text testID="tracking-help" style={[styles.detail, { color: theme.danger }]}>
             {trackingHelp}
           </Text>
+        ) : null}
+        {accuracyOn === false ? (
+          <View testID="accuracy-warning" style={styles.warning}>
+            <Text style={[styles.detail, { color: theme.danger }]}>{ACCURACY_OFF}</Text>
+            <Pressable
+              testID="accuracy-button"
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={turnOnAccuracy}
+              style={[styles.button, styles.cardButton, styles.outline, { borderColor: theme.danger }]}
+            >
+              <Text style={[styles.buttonText, { color: theme.danger }]}>
+                Turn on Location Accuracy
+              </Text>
+            </Pressable>
+          </View>
         ) : null}
         <Pressable
           testID="tracking-button"
@@ -279,6 +327,7 @@ const styles = StyleSheet.create({
   heading: { fontSize: 18, fontWeight: "600", marginBottom: 4 },
   detail: { fontSize: 14 },
   place: { paddingVertical: 4 },
+  warning: { marginTop: 8 },
   placeName: { fontSize: 15, fontWeight: "500" },
   body: { fontSize: 15, lineHeight: 21 },
   button: { borderRadius: 8, paddingVertical: 14, alignItems: "center" },

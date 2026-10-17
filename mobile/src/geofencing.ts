@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { randomUUID } from "expo-crypto";
+import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from "expo-crypto";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
@@ -90,6 +90,37 @@ export async function requestPermissions(): Promise<PermissionOutcome> {
   return background.granted ? "granted" : "background-denied";
 }
 
+/**
+ * Whether Android can geofence at all: location on, with "Google Location
+ * Accuracy" too. Geofencing runs in Play services, which turns every geofence
+ * down while Location Accuracy is off, and nothing reports an error: the app
+ * would say tracking is on and never see a crossing. Location Accuracy is what
+ * enables the network location provider, so that is what is checked. null when
+ * the status cannot be read.
+ */
+export async function locationAccuracyOn(): Promise<boolean | null> {
+  try {
+    const status = await Location.getProviderStatusAsync();
+    return status.locationServicesEnabled && status.networkAvailable === true;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Shows Android's own "Turn on Location Accuracy" dialog (it does nothing if it
+ * is on already). Resolves to whether it is on afterwards; declining the
+ * dialog rejects inside expo-location, which is false here.
+ */
+export async function turnOnLocationAccuracy(): Promise<boolean> {
+  try {
+    await Location.enableNetworkProviderAsync();
+  } catch {
+    return false;
+  }
+  return (await locationAccuracyOn()) === true;
+}
+
 export async function isTracking(): Promise<boolean> {
   return (await AsyncStorage.getItem(TRACKING_KEY)) === "1";
 }
@@ -119,12 +150,17 @@ async function stopGeofences(): Promise<void> {
   if (started) await Location.stopGeofencingAsync(GEOFENCE_TASK);
 }
 
-function signatureOf(places: WatchedPlace[]): string {
-  return JSON.stringify(
+/**
+ * A fingerprint of what the geofences watch. Only ever compared, so it is
+ * stored as a SHA-256 hash: the app's own storage then holds no coordinates.
+ */
+export async function signatureOf(places: WatchedPlace[]): Promise<string> {
+  const plain = JSON.stringify(
     [...places]
       .sort((a, b) => a.id - b.id)
       .map((place) => [place.id, place.latitude, place.longitude, place.radiusM]),
   );
+  return digestStringAsync(CryptoDigestAlgorithm.SHA256, plain);
 }
 
 /**
@@ -144,7 +180,7 @@ export async function syncGeofences(places: WatchedPlace[]): Promise<void> {
     await stopGeofences();
     return;
   }
-  const signature = signatureOf(places);
+  const signature = await signatureOf(places);
   if ((await AsyncStorage.getItem(SIGNATURE_KEY)) === signature) {
     let started = false;
     try {

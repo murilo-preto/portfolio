@@ -22,11 +22,46 @@ for setting in window_animation_scale transition_animation_scale animator_durati
     adb shell settings put global "$setting" 0
 done
 
+APK=$(ls -t /apk/namu-lan-*-x86_64.apk | head -1)
+echo "Installing $(basename "$APK")..."
+adb install -r "$APK" > /dev/null
+
+API="http://${NEXTJS_HOST}:5000/api"
+NAMU_USER="e2e_$(date +%s)"
+NAMU_PASSWORD="E2e-$(head -c 12 /dev/urandom | base64 | tr -d '/+=')"
+curl -fsS -o /dev/null -H 'Content-Type: application/json' \
+    -d "{\"username\":\"$NAMU_USER\",\"password\":\"$NAMU_PASSWORD\"}" "$API/register"
+
+cd "$OUT"
+status=0
+run_flow() {
+    maestro test \
+        --env NAMU_USER="$NAMU_USER" \
+        --env NAMU_PASSWORD="$NAMU_PASSWORD" \
+        --env NAMU_API="$API" \
+        --env NAMU_FLASK="http://flask:3000" \
+        --test-output-dir "$OUT/$1" \
+        "$2"
+}
+
+fail_flow() {
+    adb exec-out screencap -p > "$OUT/failed-$1.png" || true
+    adb logcat -d > "$OUT/logcat.txt" || true
+    exit 1
+}
+
+# The emulator still has Location Accuracy off here, which is what the app's
+# warning and its "Turn on" button are tested against.
+echo "--- 00_location_accuracy.yaml"
+run_flow 00_location_accuracy /e2e/flows/00_location_accuracy.yaml \
+    || fail_flow 00_location_accuracy
+
 # Geofencing runs in Play services, which refuses it while "Google Location
 # Accuracy" is off. The emulator image ships with it off: Play services'
 # geofencer then stays in DisabledState and turns down every geofence the app
 # adds, however the position is mocked. It is a Play services screen, not a
-# system setting, so the switch is found in a UI dump and tapped.
+# system setting, so the switch is found in a UI dump and tapped. Flow 00 has
+# normally turned it on through the app already, so this mostly confirms it.
 #
 # Decided by the switch's own state, then confirmed by the fused provider.
 # An earlier version read only `dumpsys location`, matched the GPS provider's
@@ -76,30 +111,9 @@ if [ -z "$accuracy_on" ] || [ "$(fused_enabled)" -eq 0 ]; then
 fi
 rm -f "$OUT/location-accuracy-ui.xml"
 
-APK=$(ls -t /apk/namu-lan-*-x86_64.apk | head -1)
-echo "Installing $(basename "$APK")..."
-adb install -r "$APK" > /dev/null
-
-API="http://${NEXTJS_HOST}:5000/api"
-NAMU_USER="e2e_$(date +%s)"
-NAMU_PASSWORD="E2e-$(head -c 12 /dev/urandom | base64 | tr -d '/+=')"
-curl -fsS -o /dev/null -H 'Content-Type: application/json' \
-    -d "{\"username\":\"$NAMU_USER\",\"password\":\"$NAMU_PASSWORD\"}" "$API/register"
-
-cd "$OUT"
-status=0
-run_flow() {
-    maestro test \
-        --env NAMU_USER="$NAMU_USER" \
-        --env NAMU_PASSWORD="$NAMU_PASSWORD" \
-        --env NAMU_API="$API" \
-        --env NAMU_FLASK="http://flask:3000" \
-        --test-output-dir "$OUT/$1" \
-        "$2"
-}
-
 for flow in /e2e/flows/[0-9]*.yaml; do
     name=$(basename "$flow" .yaml)
+    [ "$name" = "00_location_accuracy" ] && continue
     echo "--- $name.yaml"
     if run_flow "$name" "$flow"; then continue; fi
 

@@ -31,6 +31,7 @@ from mysql.connector.pooling import MySQLConnectionPool
 
 from categories import normalize_category_name
 import finance_due
+import location_crypto
 from migrations import run_migrations
 import presence
 from rate_limit import limiter_key
@@ -288,6 +289,11 @@ from routes.entries import retrieve_entry_from_username  # noqa: E402,F401
 # here stops the worker booting.
 run_migrations(lambda: get_pool().get_connection())
 normalize_existing_finance_categories()
+
+# Place coordinates are stored encrypted. This stops the worker booting when
+# LOCATION_KEY is missing or is not the key the stored places use, and encrypts
+# any row migration 013 left in plain columns. See location_crypto.py.
+location_crypto.prepare(lambda: get_pool().get_connection())
 
 # Daily sweep completing finance entries whose planned date has passed. Every
 # worker schedules it; a MySQL advisory lock means only one ever runs it.

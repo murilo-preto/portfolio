@@ -51,6 +51,10 @@ services:
       - DB_USER=${MYSQL_USER}
       - DB_PASSWORD=${MYSQL_PASSWORD}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      # Same key as the flask service (which reads .env): pytest writes places
+      # in-process and the e2e tier reads them back through Flask, and both
+      # must open the same blobs.
+      - LOCATION_KEY=${LOCATION_KEY}
       - TOKEN_DURATION_HOURS=48
       - FLASK_URL=http://flask:3000
       - NEXTJS_URL=http://nextjs:5000

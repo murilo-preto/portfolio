@@ -35,6 +35,9 @@ appId: dev.mpreto.namu.lan
       id: "tracking-state"
       text: "Tracking is on"
     timeout: 15000
+# Location Accuracy is on by now (flow 00 and run-flows.sh), so no false alarm.
+- assertNotVisible:
+    id: "accuracy-warning"
 
 # Arrive.
 - repeat:

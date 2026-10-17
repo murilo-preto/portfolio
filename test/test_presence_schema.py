@@ -133,8 +133,10 @@ def _count(cursor, table, column, value):
 
 class TestShape:
     EXPECTED_COLUMNS = {
-        "places": {"id", "user_id", "category_id", "name", "latitude", "longitude",
-                   "radius_m", "enabled", "created_at", "updated_at"},
+        # latitude/longitude stay only for legacy rows; see migration 013.
+        "places": {"id", "user_id", "category_id", "name", "location_enc",
+                   "latitude", "longitude", "radius_m", "enabled", "created_at",
+                   "updated_at"},
         "devices": {"id", "user_id", "name", "token_hash", "created_at",
                     "last_seen_at", "revoked_at"},
         "presence_events": {"id", "user_id", "place_id", "device_id",
@@ -154,6 +156,23 @@ class TestShape:
             columns = {row["c"] for row in cursor.fetchall()}
         assert columns == self.EXPECTED_COLUMNS[table]
 
+    def test_place_coordinates_are_encrypted_not_plain(self):
+        """New places fill only location_enc, so the plain columns must accept
+        NULL; they stay for legacy rows the boot step encrypts."""
+        with get_cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name AS c, is_nullable AS n, data_type AS t "
+                "FROM information_schema.columns WHERE table_schema = DATABASE() "
+                "AND table_name = 'places' "
+                "AND column_name IN ('latitude', 'longitude', 'location_enc')"
+            )
+            columns = {row["c"]: (row["n"], row["t"]) for row in cursor.fetchall()}
+        assert columns == {
+            "latitude": ("YES", "decimal"),
+            "longitude": ("YES", "decimal"),
+            "location_enc": ("YES", "varbinary"),
+        }
+
     def test_migrations_are_recorded(self):
         with get_cursor() as cursor:
             cursor.execute("SELECT version FROM schema_migrations")
@@ -164,6 +183,7 @@ class TestShape:
             "010_create_presence_events.sql",
             "011_create_presence_sessions.sql",
             "012_add_presence_session_ended_at.sql",
+            "013_encrypt_place_locations.sql",
         } <= versions
 
 

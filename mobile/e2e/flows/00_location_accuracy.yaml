@@ -1,0 +1,43 @@
+# Location Accuracy off, as the emulator image ships: the status screen warns
+# that tracking cannot work, and its button turns the setting on through
+# Android's own dialog, after which the warning goes away.
+#
+# run-flows.sh runs this one first, before its own step that turns Location
+# Accuracy on, because the other flows need it on. That step then only
+# confirms it.
+appId: dev.mpreto.namu.lan
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- runFlow:
+    file: _fill_pairing_form.yaml
+    env:
+      PASSWORD: ${NAMU_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: "accuracy-warning"
+    timeout: 15000
+- takeScreenshot: 00_accuracy_off
+- extendedWaitUntil:
+    visible:
+      id: "accuracy-button"
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: "accuracy-button"
+# Play services' "Turn on Location Accuracy" dialog. Its wording varies with
+# the Play services version, hence either label.
+- extendedWaitUntil:
+    visible:
+      text: "(OK|Turn on|TURN ON)"
+    timeout: 15000
+- takeScreenshot: 00_accuracy_dialog
+- tapOn:
+    text: "(OK|Turn on|TURN ON)"
+- extendedWaitUntil:
+    notVisible:
+      id: "accuracy-warning"
+    timeout: 20000
+- takeScreenshot: 00_accuracy_on

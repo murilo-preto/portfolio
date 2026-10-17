@@ -8,10 +8,12 @@ import {
   eventsFromTask,
   handleGeofenceTask,
   isTracking,
+  locationAccuracyOn,
   requestPermissions,
   startTracking,
   stopTracking,
   syncGeofences,
+  turnOnLocationAccuracy,
 } from "../geofencing";
 import { take } from "../queue";
 import { loadPairing } from "../storage";
@@ -28,13 +30,22 @@ jest.mock("expo-location", () => ({
   startGeofencingAsync: jest.fn(async () => undefined),
   stopGeofencingAsync: jest.fn(async () => undefined),
   hasStartedGeofencingAsync: jest.fn(async () => false),
+  getProviderStatusAsync: jest.fn(),
+  enableNetworkProviderAsync: jest.fn(async () => undefined),
 }));
 
 jest.mock("expo-task-manager", () => ({ defineTask: jest.fn() }));
 
 jest.mock("expo-crypto", () => {
   let n = 0;
-  return { randomUUID: jest.fn(() => `uuid-${++n}`) };
+  const { createHash } = jest.requireActual("crypto");
+  return {
+    randomUUID: jest.fn(() => `uuid-${++n}`),
+    CryptoDigestAlgorithm: { SHA256: "SHA-256" },
+    digestStringAsync: jest.fn(async (_algorithm: string, data: string) =>
+      createHash("sha256").update(data).digest("hex"),
+    ),
+  };
 });
 
 jest.mock("../storage", () => ({ loadPairing: jest.fn() }));
@@ -150,6 +161,16 @@ describe("syncGeofences", () => {
     ]);
   });
 
+  it("keeps no coordinates in the app's own storage", async () => {
+    await syncGeofences([OFFICE, HOME]);
+
+    const stored = await AsyncStorage.multiGet(await AsyncStorage.getAllKeys());
+    const everything = JSON.stringify(stored);
+    expect(everything).not.toContain("23.5");
+    expect(everything).not.toContain("46.6");
+    expect(await AsyncStorage.getItem("namu.geofenceSignature")).toMatch(/^[0-9a-f]{64}$/);
+  });
+
   it("does not restart for the same places", async () => {
     await syncGeofences([OFFICE, HOME]);
     location.hasStartedGeofencingAsync.mockResolvedValue(true);
@@ -234,5 +255,54 @@ describe("permissions and tracking", () => {
 
     expect(await isTracking()).toBe(true);
     expect(location.startGeofencingAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe("Location Accuracy", () => {
+  const status = (locationServicesEnabled: boolean, networkAvailable?: boolean) => ({
+    locationServicesEnabled,
+    networkAvailable,
+    gpsAvailable: true,
+    passiveAvailable: true,
+    backgroundModeEnabled: true,
+  });
+
+  it("is on when location and the network provider both are", async () => {
+    location.getProviderStatusAsync.mockResolvedValue(status(true, true));
+    expect(await locationAccuracyOn()).toBe(true);
+  });
+
+  it("is off when the network provider is, which is what the setting controls", async () => {
+    location.getProviderStatusAsync.mockResolvedValue(status(true, false));
+    expect(await locationAccuracyOn()).toBe(false);
+  });
+
+  it("is off when location itself is", async () => {
+    location.getProviderStatusAsync.mockResolvedValue(status(false, true));
+    expect(await locationAccuracyOn()).toBe(false);
+  });
+
+  it("is off when the network provider is not reported at all", async () => {
+    location.getProviderStatusAsync.mockResolvedValue(status(true));
+    expect(await locationAccuracyOn()).toBe(false);
+  });
+
+  it("is unknown when the status cannot be read", async () => {
+    location.getProviderStatusAsync.mockRejectedValue(new Error("no"));
+    expect(await locationAccuracyOn()).toBeNull();
+  });
+
+  it("asks Android to turn it on, and reports the result", async () => {
+    location.getProviderStatusAsync.mockResolvedValue(status(true, true));
+
+    expect(await turnOnLocationAccuracy()).toBe(true);
+    expect(location.enableNetworkProviderAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("is false when the dialog is declined", async () => {
+    location.enableNetworkProviderAsync.mockRejectedValueOnce(new Error("declined"));
+
+    expect(await turnOnLocationAccuracy()).toBe(false);
+    expect(location.getProviderStatusAsync).not.toHaveBeenCalled();
   });
 });
