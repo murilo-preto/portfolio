@@ -22,7 +22,7 @@ const variant = process.env.APP_VARIANT === "lan" ? "lan" : "release";
 const isLan = variant === "lan";
 
 // Android only installs an update over the existing app when this is higher.
-// build_apk.sh passes the git commit count.
+// build_apk.sh passes HEAD's commit time, in seconds since 2020.
 const versionCode = Number(process.env.VERSION_CODE ?? "1");
 
 export default ({ config }: ConfigContext): ExpoConfig => ({

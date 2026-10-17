@@ -109,7 +109,7 @@ def _parse_bound(raw: str, name: str, *, inclusive_end: bool) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _parse_int(raw: str, name: str, *, minimum: int, maximum: int | None) -> int:
+def parse_int(raw: str, name: str, *, minimum: int, maximum: int | None) -> int:
     try:
         value = int(raw)
     except (TypeError, ValueError):
@@ -168,11 +168,11 @@ def parse_list_query(args, sortable) -> ListQuery:
 
     limit = None
     if "limit" in args:
-        limit = _parse_int(args["limit"], "limit", minimum=1, maximum=MAX_LIMIT)
+        limit = parse_int(args["limit"], "limit", minimum=1, maximum=MAX_LIMIT)
 
     offset = 0
     if "offset" in args:
-        offset = _parse_int(args["offset"], "offset", minimum=0, maximum=None)
+        offset = parse_int(args["offset"], "offset", minimum=0, maximum=None)
         if limit is None:
             raise QueryParamError("offset requires limit")
 

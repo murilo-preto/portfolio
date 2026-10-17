@@ -137,7 +137,14 @@ def lock_user(cursor, user_id):
 
 
 def load_stay(cursor, user_id):
-    """The user's stay row with its place's name and category, or None."""
+    """The user's stay row with its place's name and category, or None.
+
+    A locking read, so it sees the latest committed row. A plain one reads the
+    transaction's snapshot, which a web route takes with its first read
+    (resolve_user_id), before lock_user. A stay a phone batch closed while the
+    route waited for the lock would then still be there, and settle would log
+    it a second time. Only the stay row is locked (OF s), not the place.
+    """
     cursor.execute(
         """
         SELECT s.id, s.user_id, s.place_id, s.device_id, s.started_at, s.ended_at,
@@ -145,6 +152,7 @@ def load_stay(cursor, user_id):
         FROM presence_sessions s
         JOIN places p ON p.id = s.place_id
         WHERE s.user_id = %s
+        FOR UPDATE OF s
         """,
         (user_id,),
     )
@@ -222,27 +230,46 @@ def finalize(cursor, stay, end, capped=False):
 # ─── Applying events ──────────────────────────────────────────────────────────
 
 
-def _left_already(cursor, user_id, place_id, at, before_id):
-    """Whether an earlier request already reported leaving this place after `at`.
+def _reported_after(cursor, user_id, place_id, kind, at, before_id):
+    """Whether an earlier request already reported a `kind` event at this place
+    after `at`.
 
-    Then this enter is a straggler from the phone's queue: the stay it began is
-    over, and opening one now would never see its exit again, so it would run
-    to the cap and log 16 hours that never happened. Only earlier requests
-    count (ids below `before_id`, the user being locked): within one batch, an
-    enter followed by its exit is the normal case.
+    Only earlier requests count (ids below `before_id`, the user being locked):
+    within one batch, an enter followed by its exit is the normal case.
     """
     if before_id is None:
         return False
     cursor.execute(
         """
         SELECT 1 FROM presence_events
-        WHERE user_id = %s AND place_id = %s AND kind = 'exit'
+        WHERE user_id = %s AND place_id = %s AND kind = %s
           AND occurred_at > %s AND id < %s
         LIMIT 1
         """,
-        (user_id, place_id, at, before_id),
+        (user_id, place_id, kind, at, before_id),
     )
     return cursor.fetchone() is not None
+
+
+def _left_already(cursor, user_id, place_id, at, before_id):
+    """Whether an earlier request already reported leaving this place after `at`.
+
+    Then this enter is a straggler from the phone's queue: the stay it began is
+    over, and opening one now would never see its exit again, so it would run
+    to the cap and log 16 hours that never happened.
+    """
+    return _reported_after(cursor, user_id, place_id, "exit", at, before_id)
+
+
+def _came_back_already(cursor, user_id, place_id, at, before_id):
+    """Whether an earlier request already reported arriving at this place after
+    `at`.
+
+    Then this exit is a straggler, typically from a second phone that was
+    offline: the re-entry already reported means the user came back, and
+    ending the stay at this exit would drop the time since.
+    """
+    return _reported_after(cursor, user_id, place_id, "enter", at, before_id)
 
 
 def _enter(cursor, user_id, device_id, place, at, before_id=None):
@@ -290,7 +317,9 @@ def _enter(cursor, user_id, device_id, place, at, before_id=None):
     _open(cursor, user_id, place["id"], device_id, at)
 
 
-def _exit(cursor, user_id, place, at):
+def _exit(cursor, user_id, place, at, before_id=None):
+    if _came_back_already(cursor, user_id, place["id"], at, before_id):
+        return
     stay = load_stay(cursor, user_id)
     if (
         stay is not None
@@ -323,7 +352,9 @@ def apply_events(cursor, user_id, device_id, events):
                 before_id,
             )
         else:
-            _exit(cursor, user_id, event["place"], event["occurred_at"])
+            _exit(
+                cursor, user_id, event["place"], event["occurred_at"], before_id
+            )
 
 
 # ─── Settling ─────────────────────────────────────────────────────────────────

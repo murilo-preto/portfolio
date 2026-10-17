@@ -10,7 +10,6 @@ Route modules reach shared state through `import app`; see routes/auth.py.
 """
 
 import logging
-from datetime import datetime, timezone
 from functools import wraps
 
 from flask import Blueprint, g, jsonify, request
@@ -21,6 +20,7 @@ from device_tokens import generate_token, hash_token, token_from_header
 from rate_limit import address_key
 from routes.auth import authenticate
 from users import resolve_user_id
+import presence
 
 import app
 
@@ -37,24 +37,13 @@ MAX_DEVICE_NAME_LENGTH = 100
 DEVICE_ADDRESS_LIMIT = "120 per minute"
 
 
-def _now_utc():
-    """Naive UTC to the second, which is how every DATETIME column here is
-    stored. Truncated so a value echoed back matches what a later read returns."""
-    return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
-
-
-def _iso(value):
-    """A stored UTC DATETIME as ISO 8601, or None."""
-    return value.replace(tzinfo=timezone.utc).isoformat() if value else None
-
-
 def _device_json(row):
     return {
         "id": row["id"],
         "name": row["name"],
-        "created_at": _iso(row["created_at"]),
-        "last_seen_at": _iso(row["last_seen_at"]),
-        "revoked_at": _iso(row["revoked_at"]),
+        "created_at": presence.iso(row["created_at"]),
+        "last_seen_at": presence.iso(row["last_seen_at"]),
+        "revoked_at": presence.iso(row["revoked_at"]),
     }
 
 
@@ -184,7 +173,7 @@ def current_device():
         401: Missing, invalid or revoked token
     """
     device = g.device
-    seen_at = _now_utc()
+    seen_at = presence.now_utc()
     try:
         with app.get_cursor() as cursor:
             cursor.execute(
@@ -218,7 +207,7 @@ def revoke_current_device():
         with app.get_cursor() as cursor:
             cursor.execute(
                 "UPDATE devices SET revoked_at = %s WHERE id = %s AND revoked_at IS NULL",
-                (_now_utc(), g.device["id"]),
+                (presence.now_utc(), g.device["id"]),
             )
     except Error as e:
         logger.error(f"Database error: {e}")
@@ -288,7 +277,7 @@ def revoke_device(device_id):
                 UPDATE devices SET revoked_at = %s
                 WHERE id = %s AND user_id = %s AND revoked_at IS NULL
                 """,
-                (_now_utc(), device_id, user_id),
+                (presence.now_utc(), device_id, user_id),
             )
     except Error as e:
         logger.error(f"Database error: {e}")

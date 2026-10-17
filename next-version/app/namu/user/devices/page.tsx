@@ -148,7 +148,7 @@ function StaySection({
           <p className="basis-full text-xs text-muted">
             {stay.departed_at
               ? "Logs it now, ending when you left, without waiting for the re-entry window."
-              : "Logs it as ending now. Use this when the phone will not report leaving, for example because it is off. Arriving again starts a new stay only after the phone reports leaving."}
+              : "Logs it as ending now. Use this when the phone will not report leaving, for example because it is off. If the phone is still there, it can report arriving again, for example after a restart or a change to your places, and that starts a new stay."}
           </p>
         </div>
       )}

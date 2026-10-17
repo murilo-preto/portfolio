@@ -22,7 +22,7 @@ import math
 import mysql.connector
 from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from mysql.connector import Error
+from mysql.connector import Error, errorcode
 
 from category_admin import coerce_id
 from rate_limit import address_key
@@ -46,8 +46,6 @@ DEFAULT_RADIUS_M = 150
 # never be watched, so it is refused when created rather than silently ignored
 # on the phone.
 MAX_PLACES_PER_USER = 100
-
-ER_DUP_ENTRY = 1062
 
 _PLACE_COLUMNS = """
     p.id, p.user_id, p.name, p.category_id, c.name AS category, p.location_enc,
@@ -311,7 +309,7 @@ def create_place():
             place = _load(cursor, cursor.lastrowid, user_id)
     except mysql.connector.IntegrityError as e:
         # A concurrent create claimed the name between the check and the insert.
-        if e.errno == ER_DUP_ENTRY:
+        if e.errno == errorcode.ER_DUP_ENTRY:
             return _name_taken_error(fields["name"])
         logger.error(f"Place constraint violation: {e}")
         return jsonify({"error": "Could not create place"}), 500
@@ -350,6 +348,10 @@ def update_place(place_id):
             user_id = resolve_user_id(cursor, get_jwt_identity())
             if user_id is None:
                 return jsonify({"error": "User not found"}), 404
+            # The user before the place, the order POST /devices/me/events
+            # takes them in (its event rows lock the place for their foreign
+            # key). The other order deadlocks a pause against a batch.
+            presence.lock_user(cursor, user_id)
             before = _load(cursor, place_id, user_id)
             if not before:
                 return jsonify({"error": "Place not found"}), 404
@@ -375,7 +377,7 @@ def update_place(place_id):
                 presence.close_stay_at_place(cursor, user_id, place_id)
             place = _load(cursor, place_id, user_id)
     except mysql.connector.IntegrityError as e:
-        if e.errno == ER_DUP_ENTRY:
+        if e.errno == errorcode.ER_DUP_ENTRY:
             return _name_taken_error(fields["name"])
         logger.error(f"Place constraint violation: {e}")
         return jsonify({"error": "Could not update place"}), 500
@@ -403,6 +405,9 @@ def delete_place(place_id):
             user_id = resolve_user_id(cursor, get_jwt_identity())
             if user_id is None:
                 return jsonify({"error": "User not found"}), 404
+            # The cascade reaches the stay and the events, so lock the user
+            # first, as update_place does and for the same reason.
+            presence.lock_user(cursor, user_id)
             cursor.execute(
                 "DELETE FROM places WHERE id = %s AND user_id = %s",
                 (place_id, user_id),

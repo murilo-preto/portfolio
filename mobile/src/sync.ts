@@ -17,6 +17,7 @@ export type FlushOutcome =
 type Fetch = typeof fetch;
 
 let inFlight: Promise<FlushOutcome> | null = null;
+let followUp: Promise<FlushOutcome> | null = null;
 
 /**
  * Sends the oldest queued events, up to one batch.
@@ -27,16 +28,31 @@ let inFlight: Promise<FlushOutcome> | null = null;
  * flush; the server's client_event_id check makes a resend after a lost reply
  * harmless.
  *
- * A flush already running is joined rather than doubled, so the task and the
- * screen firing together send each event once.
+ * A flush already running is not doubled, so the task and the screen firing
+ * together send each event once. But it read the queue before this caller's
+ * events were in it, so once it ends, one more flush sends whatever is still
+ * queued. Every caller arriving meanwhile shares that one.
  */
 export function flush(pairing: Pairing, fetchImpl: Fetch = fetch): Promise<FlushOutcome> {
   if (!inFlight) {
     inFlight = flushOnce(pairing, fetchImpl).finally(() => {
       inFlight = null;
     });
+    return inFlight;
   }
-  return inFlight;
+  if (!followUp) {
+    followUp = inFlight
+      .catch((): FlushOutcome | null => null)
+      .then(async (outcome) => {
+        // Cleared before flushing again, so a caller arriving during that
+        // flush waits for it rather than joining it.
+        followUp = null;
+        if (outcome && (outcome.kind === "failed" || outcome.kind === "unpaired")) return outcome;
+        if (outcome && (await queue.count()) === 0) return outcome;
+        return flush(pairing, fetchImpl);
+      });
+  }
+  return followUp;
 }
 
 async function flushOnce(pairing: Pairing, fetchImpl: Fetch): Promise<FlushOutcome> {

@@ -168,3 +168,36 @@ it("joins a flush already running instead of sending twice", async () => {
   expect(fetchImpl).toHaveBeenCalledTimes(1);
   expect(a).toBe(b);
 });
+
+it("sends an event queued while a flush was already running", async () => {
+  await enqueue([event(1)]);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const answer = answering("accepted");
+  const fetchImpl = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    await gate;
+    return answer(input, init);
+  });
+
+  const first = flush(PAIRING, fetchImpl);
+  // The first flush has read the queue and is waiting on the server.
+  await new Promise<void>((resolve) => setImmediate(() => resolve()));
+  await enqueue([event(2)]);
+  const second = flush(PAIRING, fetchImpl);
+  release();
+
+  expect(await first).toMatchObject({ kind: "sent", sent: 1 });
+  expect(await second).toMatchObject({ kind: "sent", sent: 1, remaining: 0 });
+  expect(fetchImpl).toHaveBeenCalledTimes(2);
+  expect(await count()).toBe(0);
+});
+
+it("does not retry at once after a failed flush it joined", async () => {
+  await enqueue([event(1)]);
+  const fetchImpl = jest.fn().mockRejectedValue(new TypeError("Network request failed"));
+
+  const [a, b] = await Promise.all([flush(PAIRING, fetchImpl), flush(PAIRING, fetchImpl)]);
+
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(a).toBe(b);
+});

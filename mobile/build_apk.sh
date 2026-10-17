@@ -39,9 +39,12 @@ for arg in "$@"; do
     esac
 done
 
-# Android installs an update only over a lower versionCode. The commit count
-# only ever grows on one branch's history.
-VERSION_CODE=$(git rev-list --count HEAD)
+# Android installs an update only over a lower versionCode, and the Namu app
+# page offers the highest one in dist/. So it comes from HEAD's commit time, in
+# seconds since 2020: that grows across branches and merges too, where a commit
+# count does not (a squash-merged branch leaves main with fewer commits than the
+# branch had). It fits versionCode's 2,100,000,000 limit until 2086.
+VERSION_CODE=$(( $(git log -1 --format=%ct HEAD) - 1577836800 ))
 
 SECRETS=()
 if [ "$VARIANT" = "release" ]; then

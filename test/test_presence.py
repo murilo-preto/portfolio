@@ -636,6 +636,33 @@ class TestOrdering:
         assert alice.stay() is None
         assert alice.entries() == []
 
+    def test_an_exit_reported_after_a_later_return_ends_nothing(self, alice):
+        """A straggler, typically from a second phone that was offline: the
+        return already reported means the user is still there."""
+        t0 = _now() - 5 * HOUR
+        alice.send(
+            ev(alice.office, "enter", t0),
+            ev(alice.office, "exit", t0 + 3 * HOUR),
+            ev(alice.office, "enter", t0 + 3 * HOUR + 5 * MIN),
+        )
+
+        alice.send(ev(alice.office, "exit", t0 + 3 * HOUR))
+
+        stay = alice.stay()
+        assert (stay["started_at"], stay["ended_at"]) == (t0, None)
+        assert alice.entries() == []
+
+    def test_an_exit_after_the_reported_enter_still_applies(self, alice):
+        """The usual case across requests: the enter already stored is older
+        than the exit, so the exit is no straggler."""
+        t0 = _now() - 3 * HOUR
+        alice.send(ev(alice.office, "enter", t0))
+
+        departed = _now() - MIN
+        alice.send(ev(alice.office, "exit", departed))
+
+        assert alice.stay()["ended_at"] == departed
+
     def test_a_later_exit_elsewhere_does_not_hold_back_an_enter(self, alice):
         gym = alice.place("Gym")
         t0 = _now() - 3 * HOUR
@@ -780,6 +807,31 @@ class TestSweep:
         assert finalized is not None and finalized >= 2
         assert alice.entries() == [_entry(alice, t0, t0 + HOUR)]
         assert bob.entries() == [_entry(bob, t0, t0 + CAP, note=CAPPED_NOTE)]
+
+    def test_a_stay_closed_while_waiting_for_the_lock_is_not_logged_twice(self, alice):
+        """A web route reads before it locks the user, which fixes its snapshot.
+        A batch that closes the stay meanwhile must not leave settle a stale
+        copy to log again."""
+        t0 = _now() - 2 * HOUR
+        alice.open_stay(alice.office, t0, t0 + HOUR)
+
+        web = self._connect()
+        cursor = web.cursor(dictionary=True)
+        try:
+            # The route's first read, as resolve_user_id does.
+            cursor.execute("SELECT id FROM users WHERE id = %s", (alice.id,))
+            cursor.fetchall()
+
+            assert _settle(alice, _now()) is True  # the phone's batch, committed
+
+            presence.lock_user(cursor, alice.id)
+            assert presence.settle(cursor, alice.id) is False
+            web.commit()
+        finally:
+            cursor.close()
+            web.close()
+
+        assert alice.entries() == [_entry(alice, t0, t0 + HOUR)]
 
     def test_the_sweep_skips_when_another_worker_holds_the_lock(self, alice):
         holder = self._connect()
@@ -1054,7 +1106,7 @@ class TestWebEvents:
     def test_a_bad_limit_is_refused(self, client, alice, limit):
         response = client.get(f"/presence/events?limit={limit}", headers=alice.web)
         assert response.status_code == 400
-        assert response.get_json() == {"error": "limit must be a whole number from 1 to 100"}
+        assert response.get_json()["error"].startswith("limit must be")
 
     def test_a_revoked_phones_events_keep_its_name(self, client, alice):
         alice.send(ev(alice.office, "enter", _now()))

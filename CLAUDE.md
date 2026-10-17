@@ -36,8 +36,8 @@ One command covers all three standalone tiers and the full-stack one:
 It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Namu Android app's
 typecheck and Jest suite (`mobile-test`, equally standalone), then the Python
-suite — unit, integration, e2e — against the full stack. Expect **974 Python
-tests, 105 frontend tests and 94 mobile tests, with no skips**; anything
+suite — unit, integration, e2e — against the full stack. Expect **977 Python
+tests, 105 frontend tests and 96 mobile tests, with no skips**; anything
 skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -436,6 +436,9 @@ phases land, and don't let it claim more than the code does.
 - **A late enter is ignored if an earlier request already reported leaving
   that place after it.** Otherwise a straggler from the queue would open a
   stay that never sees its exit and runs to the 16 h cap
+- **A late exit is ignored if an earlier request already reported arriving
+  at that place after it.** That's a second phone that was offline. Otherwise
+  its exit would end a stay the user came back to
 - **The phone stamps an event when its background task runs,** not at the
   exact crossing. Android can run the task a little late
 - **Geofences have no foreground service, and survive reboots.** Geofencing
@@ -484,6 +487,12 @@ phases land, and don't let it claim more than the code does.
 - **Anything that reads the stay must call `presence.settle` first,** as
   both stay routes do. Otherwise it can show a stay that time has already
   ended
+- **Lock the user before anything that changes the stay or a place,**
+  with `presence.lock_user`, and before the place row. The events route
+  takes the user first and the place second (the events' foreign key), so the
+  other order deadlocks. `load_stay` is a locking read for the same reason a
+  web route needs it: the route's first plain read fixes its snapshot before
+  the lock, and a stale copy of a stay would be logged twice
 - **No RESTRICT on the users cascade path.** Every FK from the Panopto tables
   cascades or sets NULL, except `places.category_id`, and `category` is off
   that path. A new table must keep it that way, or accounts become undeletable

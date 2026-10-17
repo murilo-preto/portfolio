@@ -24,8 +24,9 @@ import logging
 import mysql.connector
 from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from mysql.connector import Error
+from mysql.connector import Error, errorcode
 
+from query_params import QueryParamError, parse_int
 from rate_limit import address_key
 from routes.devices import DEVICE_ADDRESS_LIMIT, device_required
 from routes.places import enabled_places
@@ -37,8 +38,6 @@ import app
 logger = logging.getLogger(__name__)
 
 presence_bp = Blueprint("presence", __name__)
-
-ER_DUP_ENTRY = 1062
 
 KINDS = ("enter", "exit")
 
@@ -166,7 +165,7 @@ def report_events():
                 except mysql.connector.IntegrityError as e:
                     # Inserting and catching, rather than checking first, is
                     # what makes a concurrent resend safe too.
-                    if e.errno != ER_DUP_ENTRY:
+                    if e.errno != errorcode.ER_DUP_ENTRY:
                         raise
                     results.append({**result, "status": "duplicate"})
                     continue
@@ -240,6 +239,14 @@ def web_stay():
             user_id = resolve_user_id(cursor, get_jwt_identity())
             if user_id is None:
                 return jsonify({"error": "User not found"}), 404
+            # Most loads find no stay. Checking without a lock first keeps the
+            # Dashboard, and its hover prefetch, from queueing behind the
+            # phone's batches for nothing.
+            cursor.execute(
+                "SELECT 1 FROM presence_sessions WHERE user_id = %s", (user_id,)
+            )
+            if cursor.fetchone() is None:
+                return jsonify({"stay": None}), 200
             presence.lock_user(cursor, user_id)
             presence.settle(cursor, user_id)
             stay = presence.stay_json(presence.load_stay(cursor, user_id))
@@ -297,15 +304,15 @@ def web_events():
         400: Bad limit
         404: The token's user no longer exists
     """
-    raw = request.args.get("limit", str(EVENTS_DEFAULT_LIMIT))
     try:
-        limit = int(raw)
-    except ValueError:
-        limit = 0
-    if not 1 <= limit <= EVENTS_MAX_LIMIT:
-        return jsonify(
-            {"error": f"limit must be a whole number from 1 to {EVENTS_MAX_LIMIT}"}
-        ), 400
+        limit = parse_int(
+            request.args.get("limit", str(EVENTS_DEFAULT_LIMIT)),
+            "limit",
+            minimum=1,
+            maximum=EVENTS_MAX_LIMIT,
+        )
+    except QueryParamError as e:
+        return jsonify({"error": str(e)}), 400
 
     try:
         with app.get_cursor() as cursor:
