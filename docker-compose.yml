@@ -64,6 +64,19 @@ services:
       # Read at request time by the API route proxies, which relay the caller's
       # address to Flask under this secret. See lib/proxy-headers.ts.
       INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:-}
+      # The Namu app's APK, offered on the Namu app page as a QR code and served
+      # at /api/mobile/apk (see lib/apk.ts). Locally that is the LAN build; the
+      # prod overlay switches to the release one.
+      NAMU_APK_DIR: /mobile/dist
+      NAMU_APK_VARIANT: ${NAMU_APK_VARIANT:-lan}
+      # The address a phone on the same network reaches this computer at, e.g.
+      # http://192.168.1.20:5000. Empty: the QR code uses the page's own address.
+      NAMU_DOWNLOAD_BASE_URL: ${NAMU_DOWNLOAD_BASE_URL:-}
+    volumes:
+      # The whole of mobile/, not mobile/dist: mounting a directory that does not
+      # exist yet makes Docker create it as root, and build_apk.sh could then
+      # not write there.
+      - ./mobile:/mobile:ro
     depends_on:
       - flask
     healthcheck:

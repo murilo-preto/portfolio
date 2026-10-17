@@ -23,3 +23,6 @@ services:
       INTERNAL_PROXY_SECRET: ${INTERNAL_PROXY_SECRET:?set INTERNAL_PROXY_SECRET in .env}
       # The session cookie is only ever sent back over HTTPS. See lib/auth-cookie.ts.
       COOKIE_SECURE: "true"
+      # Never the LAN build here: it allows plain HTTP to private addresses.
+      NAMU_APK_VARIANT: release
+      NAMU_DOWNLOAD_BASE_URL: ""

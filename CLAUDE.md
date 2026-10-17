@@ -37,7 +37,7 @@ It runs the Next.js route tests first (Vitest; mocks `fetch`, so it needs
 neither MySQL nor Flask and reports in seconds), then the Namu Android app's
 typecheck and Jest suite (`mobile-test`, equally standalone), then the Python
 suite — unit, integration, e2e — against the full stack. Expect **945 Python
-tests, 94 frontend tests and 86 mobile tests, with no skips**; anything
+tests, 105 frontend tests and 86 mobile tests, with no skips**; anything
 skipping is a real problem.
 
 To run one tier on its own while iterating:
@@ -72,16 +72,31 @@ cd next-version && npx playwright test
 ```bash
 ./mobile/build_apk.sh --lan    # LAN test APK, debug key, into mobile/dist/
 ./mobile/build_apk.sh          # release APK; needs the key from scripts/create_keystore.sh
+./mobile/build_apk.sh --lan --emulator  # x86_64 only, for e2e/run.sh
 ./mobile/e2e/run.sh            # LAN APK on a headless emulator, against a fresh stack
 ```
 
-Both builds run the mobile tests first. The first build takes several minutes
+Each APK carries one ABI: arm64-v8a for a phone, or x86_64 with `--emulator`
+(named `-x86_64.apk`). React Native's native code is about 15 MB per ABI, so
+one APK with both was 42 MB against about 27 MB.
+
+Every build runs the mobile tests first. The first build takes several minutes
 (SDK, NDK and a native compile); Gradle's cache is a BuildKit cache mount, so
 later ones are quicker. `e2e/run.sh` is outside `run_tests.sh` for the same
 reason Playwright is: it needs `/dev/kvm` and takes minutes. It runs its own
 compose project (`namu-e2e`) with no published ports, so it can run beside a
 dev stack. Screenshots, Maestro's per-flow logs and logcat land in
 `mobile/e2e/output/` (ignored by git).
+
+**Installing on a real phone.** The Namu app page (`/namu/user/devices`) shows
+a QR code for `/api/mobile/apk`, a public route that serves the newest
+`namu-<variant>-<code>.apk` in `mobile/dist/` (`lib/apk.ts`). Compose mounts
+`mobile/` read-only into the Next.js container for this. Locally the variant
+is `lan`; the prod overlay pins it to `release`, so the public site never
+hands out the HTTP-capable build. A phone can't reach `localhost`, so set
+`NAMU_DOWNLOAD_BASE_URL` in `.env` to the laptop's Wi-Fi address (e.g.
+`http://192.168.7.16:5000`) and the code carries that. In the app's pair
+screen, use the same address as the server URL.
 
 - **`sdkmanager` is pinned to cmdline-tools 22.0** (`mobile/Dockerfile`). 23.0
   replaces it with a shim that downloads an unpinned "Android CLI" during the

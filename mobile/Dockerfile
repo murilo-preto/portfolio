@@ -66,6 +66,8 @@ WORKDIR /app
 # "release" or "lan"; see app.config.ts.
 ARG APP_VARIANT=release
 ARG VERSION_CODE=1
+ARG ABIS=arm64-v8a
+ARG APK_SUFFIX=""
 ENV APP_VARIANT=$APP_VARIANT \
     EXPO_PUBLIC_APP_VARIANT=$APP_VARIANT \
     VERSION_CODE=$VERSION_CODE \
@@ -77,8 +79,9 @@ COPY . .
 # android/ is generated here on every build and never committed.
 RUN npx expo prebuild --platform android --clean --no-install
 
-# Only the phone's ABI and the emulator's are built, which roughly halves the
-# native compile. The signing secrets are optional mounts: the LAN build signs
+# One ABI per APK: arm64-v8a for a phone, x86_64 for the test emulator (see
+# build_apk.sh). Each carries about 15 MB of React Native native code, so one
+# APK holding both was nearly twice what a phone needs. The signing secrets are optional mounts: the LAN build signs
 # with the debug key and needs none, and the release build fails in Gradle
 # without them (plugins/withReleaseSigning.js) rather than falling back.
 RUN --mount=type=cache,target=/root/.gradle \
@@ -91,10 +94,11 @@ RUN --mount=type=cache,target=/root/.gradle \
                -PNAMU_RELEASE_STORE_PASSWORD=$(cat /run/secrets/namu_keystore_password)"; \
     fi \
  && ./gradlew assembleRelease --no-daemon --console=plain \
-      -PreactNativeArchitectures=arm64-v8a,x86_64 \
+      -PreactNativeArchitectures=${ABIS} \
       $SIGNING \
  && mkdir -p /out \
- && cp app/build/outputs/apk/release/app-release.apk "/out/namu-${APP_VARIANT}-${VERSION_CODE}.apk"
+ && cp app/build/outputs/apk/release/app-release.apk \
+      "/out/namu-${APP_VARIANT}-${VERSION_CODE}${APK_SUFFIX}.apk"
 
 # ---------- Emulator + Maestro (e2e/run.sh) ----------
 # A headless API 36 emulator with Google Play services, which geofencing needs,

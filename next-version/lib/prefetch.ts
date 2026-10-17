@@ -25,7 +25,12 @@ const ROUTE_DATA: Record<string, readonly string[]> = {
   "/namu/user/timer": ["/api/entry", "/api/categories"],
   "/namu/user/manage": ["/api/entry", "/api/categories"],
   "/namu/user/places": ["/api/places", "/api/categories"],
-  "/namu/user/devices": ["/api/presence/stay", "/api/devices", "/api/presence/events"],
+  "/namu/user/devices": [
+    "/api/presence/stay",
+    "/api/devices",
+    "/api/presence/events",
+    "/api/mobile/apk/info",
+  ],
   "/namu/user/todo": ["/api/todo", "/api/todo/categories", "/api/todo/tags"],
   "/namu/user/pomodoro": ["/api/todo", "/api/pomodoro/stats"],
   "/namu/user/finance": ["/api/finance", "/api/finance/categories"],

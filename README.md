@@ -288,7 +288,7 @@ The Android app's emulator tests are separate too — they need `/dev/kvm`, and
 bring up their own copy of the stack:
 
 ```bash
-./mobile/build_apk.sh --lan    # optional: run.sh builds the LAN APK if missing
+./mobile/build_apk.sh --lan --emulator  # optional: run.sh builds the x86_64 LAN APK if missing
 ./mobile/e2e/run.sh
 ```
 

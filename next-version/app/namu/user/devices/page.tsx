@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Device, PresenceEvent, Stay } from "@/lib/types";
 import { warmFetch } from "@/lib/prefetch";
 import { PrefetchLink } from "@/components/PrefetchLink";
+import { InstallQr } from "@/components/presence/InstallQr";
 import { StayBanner } from "@/components/presence/StayBanner";
 import { agoLabel, lateLabel } from "@/components/presence/presenceText";
 
@@ -384,6 +385,11 @@ export default function NamuAppPage() {
             />
           ))}
         </ul>
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle>Install on a phone</SectionTitle>
+        <InstallQr />
       </section>
 
       <section className="space-y-3">

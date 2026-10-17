@@ -76,7 +76,7 @@ if [ -z "$accuracy_on" ] || [ "$(fused_enabled)" -eq 0 ]; then
 fi
 rm -f "$OUT/location-accuracy-ui.xml"
 
-APK=$(ls -t /apk/namu-lan-*.apk | head -1)
+APK=$(ls -t /apk/namu-lan-*-x86_64.apk | head -1)
 echo "Installing $(basename "$APK")..."
 adb install -r "$APK" > /dev/null
 

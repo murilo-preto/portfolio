@@ -3,8 +3,11 @@
 # of the whole stack. Like Playwright, deliberately outside run_tests.sh: it
 # needs /dev/kvm and takes minutes.
 #
-#   ./mobile/e2e/run.sh            build the LAN APK if there is none, then test
-#   ./mobile/e2e/run.sh --rebuild  rebuild the LAN APK first
+#   ./mobile/e2e/run.sh            build the x86_64 LAN APK if there is none, then test
+#   ./mobile/e2e/run.sh --rebuild  rebuild the x86_64 LAN APK first
+#
+# The emulator is x86_64, so it gets its own APK (build_apk.sh --emulator), not
+# the arm64-only one a phone downloads.
 #
 # Screenshots, the Maestro reports, logcat and the emulator log land in
 # mobile/e2e/output/.
@@ -18,8 +21,8 @@ if [ ! -r /dev/kvm ]; then
     exit 1
 fi
 
-if [ "${1:-}" = "--rebuild" ] || ! ls mobile/dist/namu-lan-*.apk > /dev/null 2>&1; then
-    ./mobile/build_apk.sh --lan
+if [ "${1:-}" = "--rebuild" ] || ! ls mobile/dist/namu-lan-*-x86_64.apk > /dev/null 2>&1; then
+    ./mobile/build_apk.sh --lan --emulator
 fi
 
 rm -rf mobile/e2e/output
